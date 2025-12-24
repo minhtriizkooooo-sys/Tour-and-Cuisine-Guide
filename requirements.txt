@@ -1,0 +1,10 @@
+flask==3.0.3
+gunicorn==21.2.0
+requests==2.31.0
+openai==0.28.1
+reportlab
+fpdf2
+flask-cors
+requests
+fpdf
+openai
