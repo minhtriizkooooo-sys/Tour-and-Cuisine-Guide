@@ -1,3 +1,10 @@
+let CURRENT_PLACE = null;
+
+function setCurrentPlace(place) {
+  CURRENT_PLACE = place;
+}
+
+
 // ================= CHAT UI LOGIC =================
 document.addEventListener("DOMContentLoaded", () => {
 
