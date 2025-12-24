@@ -227,7 +227,7 @@ def search_youtube(query):
 def index():
     sid = ensure_session()
     resp = make_response(render_template(
-        "ui.html",
+        "index.html",
         HOTLINE=HOTLINE,
         BUILDER=BUILDER_NAME
     ))
@@ -391,4 +391,5 @@ def search_location():
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
+
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
