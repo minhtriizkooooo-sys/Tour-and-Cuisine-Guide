@@ -3,28 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tour & Cuisine Guide</title>
+<title>Vietnam Travel AI – Tour & Cuisine Guide</title>
 
 <link rel="stylesheet" href="/static/css/style.css">
 
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
-/>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-
-
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 </head>
 
 <body>
+
+<!-- ===== HEADER ===== -->
 <header class="header">
-  <img src="/static/images/Logo_Marie_Curie.png" class="header-logo">
-  <div class="logo">Vietnam Travel AI - Tour & Cuisine Guide</div>
+  <img src="/static/images/Logo_Marie_Curie.png" alt="Logo">
+  <div class="logo">Vietnam Travel AI – Tour & Cuisine Guide</div>
 </header>
 
+<!-- ===== MAIN ===== -->
 <div class="main-layout">
 
   <!-- MAP -->
@@ -34,33 +32,17 @@
       <button onclick="searchMap()">Tìm</button>
     </div>
     <div id="map"></div>
-
-    <div class="app">
-        <div id="map"></div>
-  
-          <div id="chatPanel">
-            <div class="chat-header">AI Guide</div>
-            <div id="chatMessages"></div>
-  
-          <div class="chat-input">
-            <input id="msg" placeholder="Hỏi về địa điểm..." />
-            <button id="send">➤</button>
-          </div>
-        </div>
-    </div>
-
-
-  
-    
   </section>
 
   <!-- CHAT -->
   <section class="chat-area">
     <div class="chat-box">
       <div id="messages" class="messages"></div>
+
       <div id="suggestions" class="suggestions"></div>
+
       <div class="input-row">
-        <input id="msg" placeholder="Hỏi lịch trình, văn hóa, ẩm thực…" />
+        <input id="msg" placeholder="Hỏi về lịch trình, văn hóa, ẩm thực…" />
         <button id="send">Gửi</button>
       </div>
     </div>
@@ -68,9 +50,9 @@
 
 </div>
 
+<!-- ===== FOOTER ===== -->
 <footer class="footer">
-  © 2026 Tour & Cuisine Guide<br>
-  Designed by {{ BUILDER }} – 📞 {{ HOTLINE }}
+  © 2026 Tour & Cuisine Guide • Designed by {{ BUILDER }} • 📞 {{ HOTLINE }}
 </footer>
 
 <script src="/static/js/map.js"></script>
