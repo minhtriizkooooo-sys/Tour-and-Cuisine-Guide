@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tour & Cuisine Guide</title>
+
+<link rel="stylesheet" href="/static/css/style.css">
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+<header class="header">
+  <img src="/static/images/Logo_Marie_Curie.png">
+  <div class="logo">🌏 Tour & Cuisine Guide</div>
+</header>
+
+<div class="main-layout">
+
+  <!-- MAP -->
+  <section class="map-area">
+    <div class="search-box">
+      <input id="mapSearch" placeholder="Tìm địa điểm du lịch tại Việt Nam…">
+      <button onclick="searchMap()">Tìm</button>
+    </div>
+    <div id="map"></div>
+  </section>
+
+  <!-- CHAT -->
+  <section class="chat-area">
+    <div class="chat-box">
+      <div id="messages" class="messages"></div>
+      <div id="suggestions" class="suggestions"></div>
+      <div class="input-row">
+        <input id="msg" placeholder="Hỏi lịch trình, văn hóa, ẩm thực…" />
+        <button id="send">Gửi</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer class="footer">
+  © 2026 Tour & Cuisine Guide<br>
+  Designed by Lại Nguyễn Minh Trí – 📞 {{ HOTLINE }}
+</footer>
+
+<script src="/static/js/map.js"></script>
+<script src="/static/js/chat.js"></script>
+</body>
+</html>
