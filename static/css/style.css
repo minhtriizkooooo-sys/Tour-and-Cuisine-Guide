@@ -267,3 +267,35 @@ body {
     height: calc(55vh - 38px);
   }
 }
+
+
+.main-layout {
+  display: flex;
+  height: calc(100vh - 90px);
+}
+
+/* Desktop */
+.map-area {
+  flex: 2;
+}
+.chat-area {
+  flex: 1;
+  border-left: 1px solid #ddd;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .map-area {
+    height: 55vh;
+  }
+
+  .chat-area {
+    height: 45vh;
+    border-left: none;
+    border-top: 1px solid #ddd;
+  }
+}
