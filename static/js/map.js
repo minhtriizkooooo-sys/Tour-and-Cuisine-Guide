@@ -1,23 +1,44 @@
-const map = L.map('map').setView([16.047079, 108.20623], 6);
+// ================= MAP INIT =================
+const map = L.map("map").setView([16.0471, 108.2068], 6);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution:'© OpenStreetMap'
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap"
 }).addTo(map);
 
-let marker;
+let clickMarker = null;
 
-async function searchMap(){
-  const q = document.getElementById("mapSearch").value.trim();
-  if(!q) return;
+// ================= CLICK MAP → CHATBOT =================
+map.on("click", async function (e) {
+  const lat = e.latlng.lat;
+  const lng = e.latlng.lng;
 
-  const r = await fetch(`/search-location?q=${encodeURIComponent(q)}`);
-  const j = await r.json();
+  if (clickMarker) map.removeLayer(clickMarker);
+  clickMarker = L.marker([lat, lng]).addTo(map);
 
-  if(marker) map.removeLayer(marker);
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+    );
+    const data = await res.json();
 
-  marker = L.marker([j.lat, j.lng]).addTo(map)
-    .bindPopup(`<b>${j.title}</b><br>${j.address}`)
-    .openPopup();
+    const place =
+      data.address.city ||
+      data.address.town ||
+      data.address.village ||
+      data.address.county ||
+      data.display_name;
 
-  map.setView([j.lat, j.lng], 13);
-}
+    const question =
+      `Giới thiệu văn hóa, lịch sử địa phương, con người, du lịch, ẩm thực và lịch trình tại ${place}`;
+
+    // Gửi sang chatbot như người dùng gõ
+    const input = document.getElementById("msg");
+    const sendBtn = document.getElementById("send");
+
+    input.value = question;
+    sendBtn.click();
+
+  } catch (err) {
+    console.error("Reverse geocode error:", err);
+  }
+});
