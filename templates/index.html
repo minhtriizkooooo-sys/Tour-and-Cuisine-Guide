@@ -3,51 +3,68 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Vietnam Travel AI</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Vietnam Travel AI – Tours, Cuisine & Culture Guide</title>
+
+    <link rel="stylesheet" href="/static/css/style.css">
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
 </head>
+
 <body>
 
 <header class="header">
-    <img src="/static/Logo_Marie_Curie.png" alt="Logo" class="main-logo">
-    <div class="logo-text">Vietnam Travel AI</div>
+    <img src="/static/images/Logo_Marie_Curie.png" alt="Logo Marie Curie" class="main-logo">
+    <div class="logo">Vietnam Travel AI – Tour & Cuisine Guide</div>
 </header>
 
 <div class="main-layout">
+
     <section class="map-area">
         <div class="search-box">
-            <input id="mapSearch" placeholder="Nhập địa danh (Vd: Đà Lạt)...">
-            <button onclick="searchLocation()">Tìm</button>
-            <button onclick="toggleRouting()" id="btn-route">Chỉ đường</button>
-            <button onclick="clearMarkers()" style="background:#dc3545">Xóa Marker</button>
+            <input id="mapSearch" placeholder="Tìm địa danh, khách sạn, ẩm thực…">
+            <button onclick="searchMap()">Tìm</button>
+            <button onclick="enableRouteMode()" id="btn-route">Chỉ đường</button>
+            <button onclick="clearMarkers()" class="btn-danger">Xóa Marker</button>
         </div>
         <div id="map"></div>
     </section>
 
     <section class="chat-area">
-        <div class="chat-header">
-            <button onclick="clearChat()">🗑 Xóa lịch sử</button>
-            <button onclick="exportPDF()">📄 Xuất PDF</button>
+        <div class="chat-tabs">
+            <button id="btn-export">📄 Xuất PDF</button>
+            <button id="btn-clear">🗑 Xóa lịch sử</button>
         </div>
-        <div id="chat-messages" class="messages"></div>
-        <div id="chat-suggestions" class="suggestions"></div>
-        <div class="input-group">
-            <input id="chat-input" placeholder="Hỏi về bất cứ đâu...">
-            <button onclick="sendChat()">Gửi</button>
+
+        <div class="chat-box">
+            <div id="messages" class="messages"></div>
+            
+            <div id="suggestions" class="suggestions"></div>
+
+            <div class="input-row">
+                <input id="msg" placeholder="Hỏi về lịch sử, văn hóa, món ăn tại đây…" />
+                <button id="send">➤</button>
+            </div>
         </div>
     </section>
+
 </div>
 
-<div id="imgModal" class="modal" onclick="this.style.display='none'">
-    <span class="close">&times;</span>
-    <img class="modal-content" id="imgFull">
-    <div id="caption"></div>
+<div id="img-modal" class="modal">
+    <span id="img-close" class="modal-close">&times;</span>
+    <img class="modal-content" id="img-modal-src">
+    <div id="img-modal-caption"></div>
 </div>
+
+<footer class="footer">
+    © 2025 Tour & Cuisine Guide • Designed by {{ BUILDER }} • Hotline: {{ HOTLINE }}
+</footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-<script src="/static/script.js"></script>
+
+<script src="/static/js/chat.js"></script>
+<script src="/static/js/map.js"></script>
+
 </body>
 </html>
