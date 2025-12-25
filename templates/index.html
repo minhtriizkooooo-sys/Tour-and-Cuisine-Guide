@@ -11,6 +11,43 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+<!-- ====== IMAGE MODAL STYLE (ADD) ====== -->
+<style>
+/* Logo to hơn nhưng không phá layout */
+.header img {
+  height: 72px;
+  margin-right: 14px;
+}
+
+/* Image modal */
+.img-modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+}
+.img-modal img {
+  display: block;
+  max-width: 90%;
+  max-height: 80%;
+  margin: 40px auto 10px;
+}
+.img-modal .caption {
+  color: #ddd;
+  text-align: center;
+  font-size: 14px;
+}
+.img-modal .close {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  font-size: 34px;
+  color: #fff;
+  cursor: pointer;
+}
+</style>
 </head>
 
 <body>
@@ -27,6 +64,7 @@
     <div class="search-box">
       <input id="mapSearch" placeholder="Tìm địa điểm du lịch tại Việt Nam…">
       <button onclick="searchMap()">Tìm</button>
+      <!-- giữ nguyên nút, không alert -->
       <button onclick="enableRouteMode()">Chỉ đường</button>
     </div>
     <div id="map"></div>
@@ -44,6 +82,8 @@
 
     <div class="chat-box">
       <div id="messages" class="messages"></div>
+
+      <!-- suggestion đã có sẵn – GIỮ -->
       <div id="suggestions" class="suggestions"></div>
 
       <div class="input-row">
@@ -58,6 +98,25 @@
 <footer class="footer">
   © 2026 Tour & Cuisine Guide • Designed by {{ BUILDER }} • {{ HOTLINE }}
 </footer>
+
+<!-- ===== IMAGE MODAL (ADD – KHÔNG ĐỤNG CHAT LOGIC) ===== -->
+<div id="imageModal" class="img-modal">
+  <span class="close" onclick="closeImageModal()">×</span>
+  <img id="modalImage">
+  <div id="modalCaption" class="caption"></div>
+</div>
+
+<script>
+/* chỉ thêm helper – chat.js sẽ gọi */
+function openImageModal(src, caption) {
+  document.getElementById("modalImage").src = src;
+  document.getElementById("modalCaption").innerText = caption || "";
+  document.getElementById("imageModal").style.display = "block";
+}
+function closeImageModal() {
+  document.getElementById("imageModal").style.display = "none";
+}
+</script>
 
 <script src="/static/js/map.js"></script>
 <script src="/static/js/chat.js"></script>
