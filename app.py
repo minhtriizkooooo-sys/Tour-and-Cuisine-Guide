@@ -3,6 +3,7 @@ import io
 import uuid
 import sqlite3
 import requests
+import wikipedia
 from datetime import datetime
 from flask import (
     Flask, request, jsonify, render_template,
@@ -12,8 +13,7 @@ from flask_cors import CORS
 
 # PDF (Unicode)
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer,
-    Table, TableStyle, Image
+    SimpleDocTemplate, Paragraph, Spacer
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
@@ -31,7 +31,9 @@ SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
 DB_PATH = os.getenv("SQLITE_PATH", "chat_history.db")
 
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
-BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI – Lại Nguyễn Minh Trí")
+BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI – Tours and Cuisine Guide - Lại Nguyễn Minh Trí")
+
+DEFAULT_CITY = "Thành phố Hồ Chí Minh"
 
 # ---------------- DB ----------------
 def get_db():
@@ -131,14 +133,14 @@ SYSTEM_PROMPT = """
 Bạn là chuyên gia du lịch Việt Nam.
 
 QUY TẮC:
-- Nếu người dùng KHÔNG nêu địa điểm → mặc định tư vấn TP. Hồ Chí Minh
+- Nếu người dùng KHÔNG nêu địa điểm → mặc định TP. Hồ Chí Minh
 - Nếu KHÔNG liên quan du lịch → xin lỗi lịch sự
 
 FORMAT:
-1) Thời gian lý tưởng
-2) Lịch trình
-3) Chi phí
-4) Gợi ý hình ảnh & video
+📍 Giới thiệu
+🗓 Lịch trình
+🍜 Ẩm thực
+💰 Chi phí
 
 Trả lời bằng tiếng Việt.
 """
@@ -154,7 +156,7 @@ def call_openai(user_msg):
                 {"role": "user", "content": user_msg}
             ],
             "temperature": 0.6,
-            "max_tokens": 700
+            "max_tokens": 800
         },
         timeout=60
     )
@@ -227,6 +229,18 @@ def search_youtube(query):
         if "youtube" in v.get("link", "")
     ]
 
+# ---------------- WIKIPEDIA ----------------
+def wiki_summary(place):
+    try:
+        wikipedia.set_lang("vi")
+        return wikipedia.summary(place, sentences=5)
+    except:
+        try:
+            wikipedia.set_lang("en")
+            return wikipedia.summary(place, sentences=4)
+        except:
+            return "Chưa có dữ liệu lịch sử chi tiết từ Wikipedia."
+
 # ---------------- ROUTES ----------------
 @app.route("/")
 def index():
@@ -268,7 +282,7 @@ def history():
     sid = request.cookies.get("session_id")
     return jsonify({"history": fetch_history(sid)})
 
-# ---------------- MAP SEARCH (SERPAPI GOOGLE MAPS) ----------------
+# ---------------- MAP SEARCH ----------------
 @app.route("/map-search")
 def map_search():
     q = request.args.get("q", "").strip()
@@ -287,20 +301,71 @@ def map_search():
         timeout=15
     )
 
-    data = r.json()
     results = []
-
-    for p in data.get("local_results", []):
+    for p in r.json().get("local_results", []):
         gps = p.get("gps_coordinates")
         if gps:
             results.append({
                 "name": p.get("title"),
+                "place_id": p.get("place_id"),
                 "lat": gps["latitude"],
                 "lng": gps["longitude"],
-                "address": p.get("address")
+                "address": p.get("address"),
+                "rating": p.get("rating"),
+                "hours": p.get("hours")
             })
-
     return jsonify(results)
+
+# ---------------- PLACE DETAIL ----------------
+@app.route("/api/place_detail")
+def place_detail():
+    place_id = request.args.get("place_id")
+    name_param = request.args.get("name", "").strip()
+
+    if place_id:
+        r = requests.get(
+            "https://serpapi.com/search.json",
+            params={
+                "engine": "google_maps",
+                "place_id": place_id,
+                "hl": "vi",
+                "gl": "vn",
+                "api_key": SERPAPI_KEY
+            },
+            timeout=15
+        )
+        data = r.json()
+    else:
+        query = name_param or DEFAULT_CITY
+        r = requests.get(
+            "https://serpapi.com/search.json",
+            params={
+                "engine": "google_maps",
+                "q": query,
+                "hl": "vi",
+                "gl": "vn",
+                "api_key": SERPAPI_KEY
+            },
+            timeout=15
+        )
+        data = r.json()
+
+    place = data.get("place_results", {})
+
+    name = place.get("title", name_param or DEFAULT_CITY)
+    history = wiki_summary(name)
+
+    return jsonify({
+        "name": name,
+        "address": place.get("address", ""),
+        "rating": place.get("rating", "N/A"),
+        "reviews": place.get("reviews", "N/A"),
+        "hours": place.get("hours", "Không rõ"),
+        "image": place.get("photos", [{}])[0].get("image", ""),
+        "history": history,
+        "culture": f"Văn hóa và con người tại {name} mang đậm bản sắc địa phương.",
+        "food": f"Ẩm thực {name} nổi bật với nhiều món ăn đặc trưng vùng miền."
+    })
 
 # ---------------- PDF ----------------
 def pdf_footer(canvas, doc):
@@ -321,12 +386,7 @@ def export_pdf():
     pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        "VN",
-        fontName="DejaVu",
-        fontSize=11,
-        leading=14
-    ))
+    styles.add(ParagraphStyle("VN", fontName="DejaVu", fontSize=11, leading=14))
 
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
@@ -334,9 +394,7 @@ def export_pdf():
         topMargin=2*cm, bottomMargin=2.5*cm
     )
 
-    story = []
-    story.append(Paragraph("<b>LỊCH SỬ CHAT</b>", styles["VN"]))
-    story.append(Spacer(1, 12))
+    story = [Paragraph("<b>LỊCH SỬ CHAT</b>", styles["VN"]), Spacer(1, 12)]
 
     for h in history:
         label = "NGƯỜI DÙNG" if h["role"] == "user" else "TRỢ LÝ"
