@@ -4,8 +4,6 @@ function setCurrentPlace(place) {
   CURRENT_PLACE = place;
 }
 
-
-// ================= CHAT UI LOGIC =================
 document.addEventListener("DOMContentLoaded", () => {
 
   const messagesEl = document.getElementById("messages");
@@ -20,30 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!messagesEl || !msgInput || !sendBtn) {
     console.error("❌ Thiếu element UI (messages / msg / send)");
     return;
-  }
-
-  /* ---------------- IMAGE MODAL ---------------- */
-  function openImageModal(src, caption) {
-    let modal = document.getElementById("img-modal");
-    if (!modal) {
-      modal = document.createElement("div");
-      modal.id = "img-modal";
-      modal.style.cssText = `
-        position:fixed; inset:0; background:rgba(0,0,0,.85);
-        display:flex; align-items:center; justify-content:center;
-        flex-direction:column; z-index:9999;
-      `;
-      modal.innerHTML = `
-        <span id="img-close" style="color:white;font-size:22px;cursor:pointer">✕</span>
-        <img id="img-modal-src" style="max-width:90%;max-height:80%;border-radius:8px">
-        <div id="img-modal-caption" style="color:white;margin-top:8px;font-size:14px"></div>
-      `;
-      document.body.appendChild(modal);
-      modal.querySelector("#img-close").onclick = () => modal.style.display = "none";
-    }
-    document.getElementById("img-modal-src").src = src;
-    document.getElementById("img-modal-caption").innerText = caption || "";
-    modal.style.display = "flex";
   }
 
   /* ---------------- HISTORY ---------------- */
@@ -74,8 +48,8 @@ document.addEventListener("DOMContentLoaded", () => {
     row.className = "img-row";
 
     images.slice(0, 6).forEach(imgObj => {
-      const src = typeof imgObj === "string" ? imgObj : imgObj.url;
-      const caption = typeof imgObj === "string" ? "" : imgObj.caption;
+      const src = imgObj.url;
+      const caption = imgObj.caption || "";
 
       const wrap = document.createElement("div");
       wrap.style.maxWidth = "140px";
@@ -84,10 +58,10 @@ document.addEventListener("DOMContentLoaded", () => {
       img.src = src;
       img.style.cssText =
         "width:140px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer";
-      img.onclick = () => openImageModal(src, caption);
+      img.onclick = () => openImageModal(src, caption); // dùng modal có sẵn
 
       const note = document.createElement("div");
-      note.innerText = caption || "";
+      note.innerText = caption;
       note.style.cssText = "font-size:12px;color:#555;margin-top:4px";
 
       wrap.appendChild(img);
@@ -99,18 +73,23 @@ document.addEventListener("DOMContentLoaded", () => {
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  /* ---------------- VIDEOS ---------------- */
-  function renderVideos(videos) {
-    if (!videos || !videos.length) return;
-    videos.slice(0, 4).forEach(link => {
-      const a = document.createElement("a");
-      a.href = link;
-      a.target = "_blank";
-      a.innerText = "▶ Xem video YouTube";
-      a.style.display = "block";
-      a.style.marginTop = "6px";
-      messagesEl.appendChild(a);
+  /* ---------------- YOUTUBE ---------------- */
+  function renderYoutube(list) {
+    if (!list || !list.length) return;
+
+    list.slice(0, 2).forEach(v => {
+      const box = document.createElement("div");
+      box.style.margin = "8px 0";
+
+      box.innerHTML = `
+        <iframe width="100%" height="220"
+          src="https://www.youtube.com/embed/${v.video_id}"
+          frameborder="0" allowfullscreen></iframe>
+        <div style="font-size:13px;color:#444">${v.title}</div>
+      `;
+      messagesEl.appendChild(box);
     });
+
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
@@ -131,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  /* ---------------- SEND MESSAGE ---------------- */
+  /* ---------------- SEND ---------------- */
   async function sendMsg() {
     const text = msgInput.value.trim();
     if (!text) return;
@@ -154,17 +133,16 @@ document.addEventListener("DOMContentLoaded", () => {
       appendBubble("bot", j.reply || "Không có phản hồi.");
 
       if (j.images)      renderImages(j.images);
-      if (j.videos)      renderVideos(j.videos);
+      if (j.youtube)     renderYoutube(j.youtube);
       if (j.suggestions) renderSuggestions(j.suggestions);
 
     } catch (e) {
       loading.remove();
-      appendBubble("bot", "❌ Lỗi hệ thống. Vui lòng thử lại.");
+      appendBubble("bot", "❌ Lỗi hệ thống.");
       console.error(e);
     }
   }
 
-  /* ---------------- EVENTS ---------------- */
   sendBtn.addEventListener("click", sendMsg);
 
   msgInput.addEventListener("keydown", e => {
@@ -184,23 +162,19 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ---------------- EXPORT PDF ---------------- */
   if (btnExport) {
     btnExport.onclick = async () => {
-      try {
-        const resp = await fetch("/export-pdf", { method: "POST" });
-        if (!resp.ok) return alert("Không thể xuất PDF");
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "chat_history.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        console.error(e);
-      }
+      const resp = await fetch("/export-pdf", { method: "POST" });
+      if (!resp.ok) return alert("Không thể xuất PDF");
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "chat_history.pdf";
+      a.click();
+      URL.revokeObjectURL(url);
     };
   }
 
-  /* ---------------- CLEAR (UI ONLY) ---------------- */
+  /* ---------------- CLEAR UI ---------------- */
   if (btnClear) {
     btnClear.onclick = () => {
       if (!confirm("Xóa toàn bộ lịch sử hiển thị?")) return;
