@@ -1,151 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<title>Travel Assistant</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vietnam Travel AI – Tour & Cuisine Guide</title>
 
-<!-- Google Maps (ONE ENGINE ONLY) -->
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAP_API_KEY&libraries=places"></script>
+<link rel="stylesheet" href="/static/css/style.css">
 
-<style>
-body {
-    margin: 0;
-    font-family: Arial, Helvetica, sans-serif;
-    background: #f4f6f8;
-}
-
-/* ===== HEADER ===== */
-header {
-    height: 56px;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    background: #ffffff;
-    border-bottom: 1px solid #ddd;
-}
-header img {
-    height: 34px;
-    margin-right: 10px;
-}
-header h1 {
-    font-size: 18px;
-    margin: 0;
-}
-
-/* ===== FOOTER ===== */
-footer {
-    height: 40px;
-    background: #ffffff;
-    border-top: 1px solid #ddd;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    color: #666;
-}
-
-/* ===== MAIN ===== */
-#container {
-    display: flex;
-    height: calc(100vh - 96px);
-}
-
-/* ===== MAP ===== */
-#map-section {
-    flex: 2;
-    position: relative;
-}
-#map {
-    width: 100%;
-    height: 100%;
-}
-
-#map-search {
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 360px;
-    z-index: 5;
-}
-#map-search input {
-    width: 100%;
-    padding: 10px;
-    font-size: 14px;
-}
-
-/* ===== CHAT ===== */
-#chat {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #ffffff;
-    border-left: 1px solid #ddd;
-}
-#chat-box {
-    flex: 1;
-    padding: 12px;
-    overflow-y: auto;
-    font-size: 14px;
-}
-.user {
-    text-align: right;
-    margin-bottom: 10px;
-}
-.bot {
-    background: #f1f3f5;
-    padding: 10px;
-    border-radius: 6px;
-    margin-bottom: 12px;
-}
-#chat-form {
-    display: flex;
-    border-top: 1px solid #ddd;
-}
-#chat-form input {
-    flex: 1;
-    padding: 10px;
-    border: none;
-}
-#chat-form button {
-    padding: 0 16px;
-    background: #007bff;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-</style>
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 </head>
 
 <body>
 
-<header>
-    <img src="/static/images/Logo_Marie_Curie.png">
-    <h1>Vietnam Travel AI – Tour & Cuisine Guide</h1>
+<!-- ===== HEADER ===== -->
+<header class="header">
+  <img src="/static/images/Logo_Marie_Curie.png" alt="Logo">
+  <div class="logo">Vietnam Travel AI – Tour & Cuisine Guide</div>
 </header>
 
-<div id="container">
-    <div id="map-section">
-        <div id="map-search">
-            <input id="place-input" placeholder="Tìm địa điểm (VD: Chợ Bến Thành)">
-        </div>
-        <div id="map"></div>
-    </div>
+<!-- ===== MAIN ===== -->
+<div class="main-layout">
 
-    <div id="chat">
-        <div id="chat-box"></div>
-        <form id="chat-form">
-            <input id="chat-input" placeholder="Hỏi chatbot du lịch">
-            <button>Gửi</button>
-        </form>
+  <!-- MAP -->
+  <section class="map-area">
+    <div class="search-box">
+      <input id="mapSearch" placeholder="Tìm địa điểm du lịch tại Việt Nam…">
+      <button onclick="searchMap()">Tìm</button>
     </div>
+    <div id="map"></div>
+  </section>
+
+  <!-- CHAT -->
+  <section class="chat-area">
+    <div class="chat-box">
+      <div id="messages" class="messages"></div>
+
+      <div id="suggestions" class="suggestions"></div>
+
+      <div class="input-row">
+        <input id="msg" placeholder="Hỏi về lịch trình, văn hóa, ẩm thực…" />
+        <button id="send">Gửi</button>
+      </div>
+    </div>
+  </section>
+
 </div>
 
-<footer>
-    Hotline: <strong>{{ HOTLINE }}</strong> — © 2025 {{ BUILDER }}
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  © 2026 Tour & Cuisine Guide • Designed by {{ BUILDER }} • 📞 {{ HOTLINE }}
 </footer>
 
-<script src="/static/app.js"></script>
+<script src="/static/js/map.js"></script>
+<script src="/static/js/chat.js"></script>
 </body>
 </html>
