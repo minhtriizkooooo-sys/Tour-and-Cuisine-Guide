@@ -1,20 +1,18 @@
+# ==============================
+# app.py – CLEAN FINAL VERSION (FIXED)
+# ==============================
+
 import os
 import io
 import uuid
 import sqlite3
 import requests
 from datetime import datetime
-from flask import (
-    Flask, request, jsonify, render_template,
-    make_response, send_file
-)
+from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
 
-# PDF (Unicode)
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer,
-    Table, TableStyle, Image
-)
+# PDF
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
@@ -22,7 +20,7 @@ from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# ---------------- CONFIG ----------------
+# ================= CONFIG =================
 app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
 
@@ -30,366 +28,209 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
 DB_PATH = os.getenv("SQLITE_PATH", "chat_history.db")
 
-HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
-BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI – Lại Nguyễn Minh Trí")
+HOTLINE = "+84-908-08-3566"
+BUILDER_NAME = "Vietnam Travel AI – Tours, Cuisine & Culture Guide - Lại Nguyễn Minh Trí"
+DEFAULT_CITY = "Thành phố Hồ Chí Minh"
 
-# ---------------- DB ----------------
-def get_db():
+# ================= DATABASE =================
+def db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            id TEXT PRIMARY KEY,
-            created_at TEXT
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            role TEXT,
-            content TEXT,
-            created_at TEXT
-        )
-    """)
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS suggestions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            question TEXT,
-            created_at TEXT
-        )
-    """)
-    db.commit()
-    db.close()
+    c = db()
+    cur = c.cursor()
+    cur.execute("""CREATE TABLE IF NOT EXISTS sessions(
+        id TEXT PRIMARY KEY,
+        created_at TEXT
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS messages(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT,
+        role TEXT,
+        content TEXT,
+        created_at TEXT
+    )""")
+    c.commit()
+    c.close()
 
 init_db()
 
-# ---------------- SESSION ----------------
-def ensure_session():
-    sid = request.cookies.get("session_id")
+# ================= SESSION =================
+def get_session():
+    sid = request.cookies.get("sid")
     if not sid:
         sid = str(uuid.uuid4())
-        db = get_db()
-        db.execute(
-            "INSERT OR IGNORE INTO sessions VALUES (?,?)",
+        c = db()
+        c.execute(
+            "INSERT INTO sessions VALUES (?,?)",
             (sid, datetime.utcnow().isoformat())
         )
-        db.commit()
-        db.close()
+        c.commit()
+        c.close()
     return sid
 
-def save_message(sid, role, content):
-    db = get_db()
-    db.execute(
-        "INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+def save_msg(sid, role, content):
+    c = db()
+    c.execute(
+        "INSERT INTO messages(session_id, role, content, created_at) VALUES (?,?,?,?)",
         (sid, role, content, datetime.utcnow().isoformat())
     )
-    db.commit()
-    db.close()
+    c.commit()
+    c.close()
 
-def fetch_history(sid):
-    db = get_db()
-    rows = db.execute(
-        "SELECT role, content, created_at FROM messages WHERE session_id=? ORDER BY id",
+def history(sid):
+    c = db()
+    rows = c.execute(
+        "SELECT role, content FROM messages WHERE session_id=? ORDER BY id",
         (sid,)
     ).fetchall()
-    db.close()
-    return [dict(r) for r in rows]
+    c.close()
+    return [{"role": r["role"], "content": r["content"]} for r in rows]
 
-def save_suggestions(sid, questions):
-    db = get_db()
-    for q in questions:
-        db.execute(
-            "INSERT INTO suggestions (session_id, question, created_at) VALUES (?,?,?)",
-            (sid, q, datetime.utcnow().isoformat())
-        )
-    db.commit()
-    db.close()
+def clear_history(sid):
+    c = db()
+    c.execute("DELETE FROM messages WHERE session_id=?", (sid,))
+    c.commit()
+    c.close()
 
-def fetch_suggestions(sid):
-    db = get_db()
-    rows = db.execute(
-        "SELECT question FROM suggestions WHERE session_id=?",
-        (sid,)
-    ).fetchall()
-    db.close()
-    return [r["question"] for r in rows]
+# ================= OPENAI =================
+SYSTEM_PROMPT = f"""
+Bạn là chuyên gia du lịch và văn hóa Việt Nam.
 
-# ---------------- OPENAI ----------------
-SYSTEM_PROMPT = """
-Bạn là chuyên gia du lịch Việt Nam.
+NGUYÊN TẮC BẮT BUỘC:
+- Nếu người dùng KHÔNG nói rõ địa điểm → mặc định {DEFAULT_CITY}
+- Nếu người dùng CÓ nêu địa điểm → BẮT BUỘC trả lời đúng địa điểm đó
+- TUYỆT ĐỐI KHÔNG từ chối trả lời địa điểm cụ thể
+- Không trả lời chung chung
+- Không xin lỗi vô lý
 
-QUY TẮC:
-- Nếu người dùng KHÔNG nêu địa điểm → mặc định tư vấn TP. Hồ Chí Minh, Việt Nam
-- Nếu câu hỏi KHÔNG liên quan du lịch → trả lời xin lỗi lịch sự
+CHỦ ĐỀ:
+- Du lịch
+- Văn hóa
+- Lịch sử
+- Con người địa phương
+- Ẩm thực
+- Gợi ý tham quan
 
 FORMAT:
-1) Thời gian lý tưởng
-2) Lịch trình
-3) Chi phí
-4) Gợi ý hình ảnh & video (mô tả)
-
-Trả lời bằng tiếng Việt, không HTML.
+📍 Giới thiệu
+🏛 Lịch sử – Văn hóa
+👥 Con người
+🍜 Ẩm thực
+🗺 Gợi ý tham quan
 """
 
-def call_openai(user_msg):
+def ask_gpt(messages):
     r = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
         json={
             "model": "gpt-4o-mini",
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_msg}
-            ],
-            "temperature": 0.6,
-            "max_tokens": 700
+            "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + messages,
+            "temperature": 0.4,
+            "max_tokens": 900
         },
         timeout=60
     )
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
 
-# ---------------- SUGGESTIONS ----------------
-def generate_suggestions(question, answer):
-    prompt = f"""
-Dựa trên câu hỏi và câu trả lời sau, hãy gợi ý 3 câu hỏi tiếp theo.
-Chỉ liệt kê danh sách.
-
-Câu hỏi: {question}
-Trả lời: {answer}
-"""
-    r = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-        json={
-            "model": "gpt-4o-mini",
-            "messages": [
-                {"role": "system", "content": "Bạn là trợ lý gợi ý câu hỏi."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.5,
-            "max_tokens": 200
-        },
-        timeout=60
-    )
-    r.raise_for_status()
-    text = r.json()["choices"][0]["message"]["content"]
-    return [x.strip("- ").strip() for x in text.splitlines() if x.strip()]
-
-# ---------------- SERPAPI ----------------
-def search_images(query):
-    if not SERPAPI_KEY:
-        return []
-    r = requests.get(
-        "https://serpapi.com/search.json",
-        params={
-            "q": query,
-            "tbm": "isch",
-            "num": 4,
-            "api_key": SERPAPI_KEY
-        },
-        timeout=10
-    )
-    return [
-        {"url": i.get("original"), "caption": i.get("title")}
-        for i in r.json().get("images_results", [])
-    ]
-
-def search_youtube(query):
-    if not SERPAPI_KEY:
-        return []
-    r = requests.get(
-        "https://serpapi.com/search.json",
-        params={
-            "q": query,
-            "tbm": "vid",
-            "num": 3,
-            "api_key": SERPAPI_KEY
-        },
-        timeout=10
-    )
-    return [
-        v.get("link")
-        for v in r.json().get("video_results", [])
-        if "youtube" in v.get("link", "")
-    ]
-
-# ---------------- ROUTES ----------------
-@app.route("/")
-def index():
-    sid = ensure_session()
-    resp = make_response(render_template(
-        "index.html",
-        HOTLINE=HOTLINE,
-        BUILDER=BUILDER_NAME
-    ))
-    resp.set_cookie("session_id", sid, httponly=True, samesite="Lax")
-    return resp
-
+# ================= CHAT =================
 @app.route("/chat", methods=["POST"])
 def chat():
-    sid = ensure_session()
-    msg = (request.json or {}).get("msg", "").strip()
+    sid = get_session()
+    msg = request.json.get("msg", "").strip()
     if not msg:
         return jsonify({"error": "empty"}), 400
 
-    save_message(sid, "user", msg)
-    reply = call_openai(msg)
-    save_message(sid, "bot", reply)
+    save_msg(sid, "user", msg)
+    reply = ask_gpt(history(sid))
+    save_msg(sid, "assistant", reply)
 
-    # context sát hơn (2–3 dòng đầu)
-    reply_lines = [
-        l.strip("0123456789). -")
-        for l in reply.splitlines()
-        if l.strip()
-    ][:3]
-
-    context_query = f"{msg}. {' '.join(reply_lines)}"
-
-    suggestions = generate_suggestions(msg, reply)
-    save_suggestions(sid, suggestions)
-
-    images = search_images(context_query)
-    videos = search_youtube(context_query)
-
-    # fallback không phải du lịch → thêm video
-    if "Xin lỗi, nhưng tôi chỉ có thể tư vấn về du lịch tại Việt Nam" in reply:
-        if not videos:
-            videos = search_youtube("Du lịch TP. Hồ Chí Minh")
-
-    return jsonify({
-        "reply": reply,
-        "images": images,
-        "videos": videos,
-        "suggestions": suggestions
-    })
+    return jsonify({"reply": reply})
 
 @app.route("/history")
-def history():
-    sid = request.cookies.get("session_id")
-    return jsonify({"history": fetch_history(sid) if sid else []})
+def api_history():
+    sid = get_session()
+    return jsonify({"history": history(sid)})
 
-# ---------------- PDF FOOTER ----------------
-def pdf_footer(canvas, doc):
+@app.route("/clear-history", methods=["POST"])
+def api_clear():
+    sid = get_session()
+    clear_history(sid)
+    return jsonify({"ok": True})
+
+# ================= PDF =================
+def footer(canvas, doc):
     canvas.saveState()
     canvas.setFont("DejaVu", 9)
     canvas.setFillColor(colors.grey)
-    canvas.drawString(2*cm, 1.2*cm, f"{BUILDER_NAME} | Hotline: {HOTLINE}")
-    canvas.drawRightString(A4[0]-2*cm, 1.2*cm, f"Trang {doc.page}")
+    canvas.drawString(2 * cm, 1.2 * cm, f"{BUILDER_NAME} | {HOTLINE}")
     canvas.restoreState()
 
-# ---------------- EXPORT PDF ----------------
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
-    sid = request.cookies.get("session_id")
-    history = fetch_history(sid)
-    suggestions = fetch_suggestions(sid)
+    sid = get_session()
+    logs = history(sid)
 
-    buffer = io.BytesIO()
-    font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
-    pdfmetrics.registerFont(TTFont("DejaVu", font_path))
-
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        "VN",
-        fontName="DejaVu",
-        fontSize=11,
-        leading=14,
-        wordWrap="CJK"
-    ))
-
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
-        leftMargin=2*cm, rightMargin=2*cm,
-        topMargin=2*cm, bottomMargin=2.5*cm
+    buf = io.BytesIO()
+    pdfmetrics.registerFont(
+        TTFont("DejaVu", os.path.join(app.static_folder, "DejaVuSans.ttf"))
     )
 
-    story = []
-
-    logo_path = os.path.join(app.static_folder, "logo.png")
-    if os.path.exists(logo_path):
-        logo = Image(logo_path, width=4.5*cm, height=4.5*cm)
-        logo.hAlign = "CENTER"
-        story.append(logo)
-        story.append(Spacer(1, 12))
-
-    story.append(Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]))
-    story.append(Spacer(1, 12))
-
-    for h in history:
-        label = "NGƯỜI DÙNG" if h["role"] == "user" else "TRỢ LÝ"
-        table = Table(
-            [[label, Paragraph(h["content"], styles["VN"])]],
-            colWidths=[3*cm, 11.5*cm]
+    styles = getSampleStyleSheet()
+    styles.add(
+        ParagraphStyle(
+            "VN",
+            fontName="DejaVu",
+            fontSize=11,
+            leading=15,
+            spaceAfter=8
         )
-        table.setStyle(TableStyle([
-            ("FONT", (0,0), (-1,-1), "DejaVu"),
-            ("VALIGN", (0,0), (-1,-1), "TOP"),
-            ("LEFTPADDING", (0,0), (-1,-1), 6),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("TOPPADDING", (0,0), (-1,-1), 6),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
-            ("BACKGROUND", (0,0), (-1,-1),
-             colors.lightblue if h["role"]=="user" else colors.whitesmoke),
-        ]))
-        story.append(table)
-        story.append(Spacer(1, 10))
+    )
 
-    if suggestions:
-        story.append(Spacer(1, 12))
-        story.append(Paragraph("<b>GỢI Ý TIẾP THEO</b>", styles["VN"]))
-        for s in suggestions:
-            story.append(Paragraph(f"- {s}", styles["VN"]))
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm
+    )
 
-    doc.build(story, onFirstPage=pdf_footer, onLaterPages=pdf_footer)
-    buffer.seek(0)
+    story = [
+        Paragraph("<b>LỊCH SỬ CHAT</b>", styles["VN"]),
+        Spacer(1, 12),
+    ]
+
+    for m in logs:
+        role = "Người dùng" if m["role"] == "user" else "Trợ lý"
+        story.append(
+            Paragraph(f"<b>{role}:</b><br/>{m['content']}", styles["VN"])
+        )
+
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    buf.seek(0)
 
     return send_file(
-        buffer,
+        buf,
         as_attachment=True,
-        download_name="travel_chat_history.pdf",
+        download_name="lich_su_chat.pdf",
         mimetype="application/pdf"
     )
 
-# ---------------- MAP SEARCH ----------------
-@app.route("/search-location")
-def search_location():
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify({"error": "empty"}), 400
-
-    r = requests.get(
-        "https://serpapi.com/search.json",
-        params={
-            "q": q + " Vietnam",
-            "engine": "google_maps",
-            "api_key": SERPAPI_KEY
-        },
-        timeout=10
+# ================= HOME =================
+@app.route("/")
+def index():
+    sid = get_session()
+    r = make_response(
+        render_template("index.html", HOTLINE=HOTLINE, BUILDER=BUILDER_NAME)
     )
-    data = r.json()
+    r.set_cookie("sid", sid, httponly=True, samesite="Lax")
+    return r
 
-    if "place_results" not in data:
-        return jsonify({"error": "not_found"}), 404
-
-    place = data["place_results"]
-    return jsonify({
-        "title": place.get("title"),
-        "lat": place.get("gps_coordinates", {}).get("latitude"),
-        "lng": place.get("gps_coordinates", {}).get("longitude"),
-        "address": place.get("address")
-    })
-
-
-# ---------------- RUN ----------------
+# ================= RUN =================
 if __name__ == "__main__":
-
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
