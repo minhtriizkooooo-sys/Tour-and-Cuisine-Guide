@@ -5,8 +5,8 @@
 <title>Travel Assistant</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Google Maps JS (NO places) -->
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAP_API_KEY"></script>
+<!-- Google Maps (ONE ENGINE ONLY) -->
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAP_API_KEY&libraries=places"></script>
 
 <style>
 body {
@@ -45,12 +45,13 @@ footer {
     color: #666;
 }
 
-/* ===== MAIN LAYOUT ===== */
+/* ===== MAIN ===== */
 #container {
     display: flex;
-    height: calc(100vh - 96px); /* header + footer */
+    height: calc(100vh - 96px);
 }
 
+/* ===== MAP ===== */
 #map-section {
     flex: 2;
     position: relative;
@@ -70,9 +71,7 @@ footer {
 }
 #map-search input {
     width: 100%;
-    padding: 10px 12px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
+    padding: 10px;
     font-size: 14px;
 }
 
@@ -90,7 +89,6 @@ footer {
     overflow-y: auto;
     font-size: 14px;
 }
-
 .user {
     text-align: right;
     margin-bottom: 10px;
@@ -101,7 +99,6 @@ footer {
     border-radius: 6px;
     margin-bottom: 12px;
 }
-
 #chat-form {
     display: flex;
     border-top: 1px solid #ddd;
@@ -110,13 +107,12 @@ footer {
     flex: 1;
     padding: 10px;
     border: none;
-    outline: none;
 }
 #chat-form button {
     padding: 0 16px;
-    border: none;
     background: #007bff;
     color: white;
+    border: none;
     cursor: pointer;
 }
 </style>
@@ -124,18 +120,15 @@ footer {
 
 <body>
 
-<!-- ===== HEADER ===== -->
 <header>
-    <img src="/static/images
-/Logo_Marie_Curie.png" alt="Logo">
-    <h1>Vietnam Travel AI - Tour and Cuisine Guide</h1>
+    <img src="/static/images/Logo_Marie_Curie.png">
+    <h1>Vietnam Travel AI – Tour & Cuisine Guide</h1>
 </header>
 
-<!-- ===== MAIN ===== -->
 <div id="container">
     <div id="map-section">
         <div id="map-search">
-            <input id="place-input" type="text" placeholder="Tìm địa điểm (VD: Chợ Bến Thành)">
+            <input id="place-input" placeholder="Tìm địa điểm (VD: Chợ Bến Thành)">
         </div>
         <div id="map"></div>
     </div>
@@ -143,19 +136,16 @@ footer {
     <div id="chat">
         <div id="chat-box"></div>
         <form id="chat-form">
-            <input id="chat-input" type="text" placeholder="Hỏi chatbot du lịch">
-            <button type="submit">Gửi</button>
+            <input id="chat-input" placeholder="Hỏi chatbot du lịch">
+            <button>Gửi</button>
         </form>
     </div>
 </div>
 
-<!-- ===== FOOTER ===== -->
 <footer>
-  Hotline: <strong>{{ HOTLINE }}</strong> — © 2025 {{ BUILDER }}
+    Hotline: <strong>{{ HOTLINE }}</strong> — © 2025 {{ BUILDER }}
 </footer>
 
-<!-- ONE JS FILE ONLY -->
 <script src="/static/app.js"></script>
-
 </body>
 </html>
