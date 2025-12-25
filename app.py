@@ -3,7 +3,6 @@ import io
 import uuid
 import sqlite3
 import requests
-import wikipedia
 from datetime import datetime
 from flask import (
     Flask, request, jsonify, render_template,
@@ -31,7 +30,10 @@ SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
 DB_PATH = os.getenv("SQLITE_PATH", "chat_history.db")
 
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
-BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI – Tours and Cuisine Guide - Lại Nguyễn Minh Trí")
+BUILDER_NAME = os.getenv(
+    "BUILDER_NAME",
+    "Vietnam Travel AI – Tours & Cuisine Guide - Lại Nguyễn Minh Trí"
+)
 
 DEFAULT_CITY = "Thành phố Hồ Chí Minh"
 
@@ -116,17 +118,6 @@ def save_suggestions(sid, questions):
         )
     db.commit()
     db.close()
-
-def fetch_suggestions(sid):
-    if not sid:
-        return []
-    db = get_db()
-    rows = db.execute(
-        "SELECT question FROM suggestions WHERE session_id=?",
-        (sid,)
-    ).fetchall()
-    db.close()
-    return [r["question"] for r in rows]
 
 # ---------------- OPENAI ----------------
 SYSTEM_PROMPT = """
@@ -229,17 +220,20 @@ def search_youtube(query):
         if "youtube" in v.get("link", "")
     ]
 
-# ---------------- WIKIPEDIA ----------------
+# ---------------- WIKIPEDIA (REST API – NO LIB) ----------------
 def wiki_summary(place):
-    try:
-        wikipedia.set_lang("vi")
-        return wikipedia.summary(place, sentences=5)
-    except:
+    for lang in ["vi", "en"]:
         try:
-            wikipedia.set_lang("en")
-            return wikipedia.summary(place, sentences=4)
-        except:
-            return "Chưa có dữ liệu lịch sử chi tiết từ Wikipedia."
+            url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary/{place}"
+            r = requests.get(url, timeout=5)
+            if r.status_code == 200:
+                return r.json().get(
+                    "extract",
+                    "Chưa có dữ liệu lịch sử chi tiết."
+                )
+        except Exception:
+            pass
+    return "Chưa có dữ liệu lịch sử chi tiết từ Wikipedia."
 
 # ---------------- ROUTES ----------------
 @app.route("/")
@@ -267,20 +261,12 @@ def chat():
     suggestions = generate_suggestions(msg, reply)
     save_suggestions(sid, suggestions)
 
-    images = search_images(msg)
-    videos = search_youtube(msg)
-
     return jsonify({
         "reply": reply,
-        "images": images,
-        "videos": videos,
+        "images": search_images(msg),
+        "videos": search_youtube(msg),
         "suggestions": suggestions
     })
-
-@app.route("/history")
-def history():
-    sid = request.cookies.get("session_id")
-    return jsonify({"history": fetch_history(sid)})
 
 # ---------------- MAP SEARCH ----------------
 @app.route("/map-search")
@@ -312,7 +298,8 @@ def map_search():
                 "lng": gps["longitude"],
                 "address": p.get("address"),
                 "rating": p.get("rating"),
-                "hours": p.get("hours")
+                "hours": p.get("hours"),
+                "thumbnail": p.get("thumbnail")
             })
     return jsonify(results)
 
@@ -320,51 +307,34 @@ def map_search():
 @app.route("/api/place_detail")
 def place_detail():
     place_id = request.args.get("place_id")
-    name_param = request.args.get("name", "").strip()
+    name_param = request.args.get("name", DEFAULT_CITY)
 
-    if place_id:
-        r = requests.get(
-            "https://serpapi.com/search.json",
-            params={
-                "engine": "google_maps",
-                "place_id": place_id,
-                "hl": "vi",
-                "gl": "vn",
-                "api_key": SERPAPI_KEY
-            },
-            timeout=15
-        )
-        data = r.json()
-    else:
-        query = name_param or DEFAULT_CITY
-        r = requests.get(
-            "https://serpapi.com/search.json",
-            params={
-                "engine": "google_maps",
-                "q": query,
-                "hl": "vi",
-                "gl": "vn",
-                "api_key": SERPAPI_KEY
-            },
-            timeout=15
-        )
-        data = r.json()
+    r = requests.get(
+        "https://serpapi.com/search.json",
+        params={
+            "engine": "google_maps",
+            "place_id": place_id,
+            "q": name_param,
+            "hl": "vi",
+            "gl": "vn",
+            "api_key": SERPAPI_KEY
+        },
+        timeout=15
+    )
 
-    place = data.get("place_results", {})
-
-    name = place.get("title", name_param or DEFAULT_CITY)
-    history = wiki_summary(name)
+    place = r.json().get("place_results", {})
+    name = place.get("title", name_param)
 
     return jsonify({
         "name": name,
         "address": place.get("address", ""),
-        "rating": place.get("rating", "N/A"),
-        "reviews": place.get("reviews", "N/A"),
-        "hours": place.get("hours", "Không rõ"),
-        "image": place.get("photos", [{}])[0].get("image", ""),
-        "history": history,
-        "culture": f"Văn hóa và con người tại {name} mang đậm bản sắc địa phương.",
-        "food": f"Ẩm thực {name} nổi bật với nhiều món ăn đặc trưng vùng miền."
+        "rating": place.get("rating"),
+        "reviews": place.get("reviews"),
+        "hours": place.get("hours"),
+        "image": place.get("photos", [{}])[0].get("image"),
+        "history": wiki_summary(name),
+        "culture": f"Văn hóa và con người tại {name} mang đậm bản sắc địa phương Việt Nam.",
+        "food": f"Ẩm thực {name} nổi bật với các món đặc trưng vùng miền."
     })
 
 # ---------------- PDF ----------------
