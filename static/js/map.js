@@ -2,8 +2,8 @@ let startPoint = null;
 let endPoint = null;
 let routingControl = null;
 
-let clickMarker = null;      // marker khi click map
-let searchMarker = null;     // marker khi search
+let clickMarker = null;
+let searchMarker = null;
 let currentPlace = null;
 let placeHistory = [];
 
@@ -13,6 +13,26 @@ const map = L.map("map").setView([16.0471, 108.2068], 6);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
+
+// ================= NAVIGATION PANEL =================
+const navPanel = L.control({ position: "topright" });
+navPanel.onAdd = function () {
+  const div = L.DomUtil.create("div", "nav-panel");
+  div.innerHTML = `
+    <div style="background:#fff;padding:10px;border-radius:8px;max-width:260px">
+      <b>🧭 Điều hướng</b><br>
+      <select id="travelMode">
+        <option value="car">🚗 Ô tô</option>
+        <option value="foot">🚶 Đi bộ</option>
+      </select>
+      <div id="navSummary" style="margin-top:6px;font-size:13px"></div>
+      <div id="navSteps" style="max-height:200px;overflow:auto;font-size:13px"></div>
+      <button id="btnGoogleNav" style="margin-top:6px;width:100%">Mở Google Maps</button>
+    </div>
+  `;
+  return div;
+};
+navPanel.addTo(map);
 
 // ================= UTILS =================
 async function reverseGeocode(lat, lng) {
@@ -46,62 +66,83 @@ function getContext() {
   return placeHistory.slice(-3).join(", ");
 }
 
-// ================= SEARCH BOX =================
+// ================= SEARCH =================
 async function searchMap() {
   const q = document.getElementById("mapSearch").value.trim();
   if (!q) return;
 
-  try {
-    const results = await forwardGeocode(q);
-    if (!results.length) {
-      alert("Không tìm thấy địa điểm");
-      return;
-    }
+  const results = await forwardGeocode(q);
+  if (!results.length) return alert("Không tìm thấy địa điểm");
 
-    const p = results[0];
-    const lat = parseFloat(p.lat);
-    const lng = parseFloat(p.lon);
-    const placeName = p.display_name;
+  const p = results[0];
+  const lat = +p.lat;
+  const lng = +p.lon;
+  const name = p.display_name;
 
-    map.setView([lat, lng], 14);
+  map.setView([lat, lng], 14);
 
-    if (searchMarker) map.removeLayer(searchMarker);
+  if (searchMarker) map.removeLayer(searchMarker);
+  searchMarker = L.marker([lat, lng]).addTo(map).bindPopup(name).openPopup();
 
-    const searchIcon = L.icon({
-      iconUrl: "https://maps.gstatic.com/mapfiles/api-3/images/spotlight-poi2.png",
-      iconSize: [27, 43],
-      iconAnchor: [13, 41]
-    });
+  currentPlace = name;
+  rememberPlace(name);
 
-    searchMarker = L.marker([lat, lng], { icon: searchIcon })
-      .addTo(map)
-      .bindPopup(`📍 ${placeName}`)
-      .openPopup();
-
-    currentPlace = placeName;
-    rememberPlace(placeName);
-
-    searchMarker.on("click", () => {
-      askChatbot(
-        `Dựa trên các địa điểm đã xem: ${getContext()}.
-         Giới thiệu chi tiết ${placeName} về lịch sử, văn hóa, con người, ẩm thực và du lịch`
-      );
-    });
-
-  } catch (err) {
-    console.error("Search error:", err);
-  }
+  searchMarker.on("click", () => {
+    askChatbot(
+      `Dựa trên các địa điểm đã xem: ${getContext()}. Giới thiệu chi tiết ${name}`
+    );
+  });
 }
 
-// ================= MAP CLICK HANDLER =================
+// ================= ROUTING =================
+function createRoute(profile = "car") {
+  if (routingControl) map.removeControl(routingControl);
+
+  routingControl = L.Routing.control({
+    waypoints: [startPoint, endPoint],
+    router: L.Routing.osrmv1({
+      serviceUrl: "https://router.project-osrm.org/route/v1",
+      profile
+    }),
+    addWaypoints: false,
+    draggableWaypoints: false,
+    show: false
+  })
+    .on("routesfound", (e) => {
+      const r = e.routes[0];
+      const km = (r.summary.totalDistance / 1000).toFixed(1);
+      const min = Math.round(r.summary.totalTime / 60);
+
+      document.getElementById("navSummary").innerHTML =
+        `📏 ${km} km – ⏱ ${min} phút`;
+
+      const stepsEl = document.getElementById("navSteps");
+      stepsEl.innerHTML = "";
+
+      r.instructions.forEach((i) => {
+        const div = document.createElement("div");
+        div.innerHTML = "➡️ " + i.text;
+        stepsEl.appendChild(div);
+      });
+
+      document.getElementById("btnGoogleNav").onclick = () => {
+        window.open(
+          `https://www.google.com/maps/dir/${startPoint.lat},${startPoint.lng}/${endPoint.lat},${endPoint.lng}`,
+          "_blank"
+        );
+      };
+    })
+    .addTo(map);
+}
+
+// ================= MAP CLICK =================
 map.on("click", async (e) => {
   const { lat, lng } = e.latlng;
 
-  // ===== ROUTE MODE =====
   if (window.routeMode) {
     if (!startPoint) {
       startPoint = e.latlng;
-      L.marker(startPoint).addTo(map).bindPopup("📍 Điểm xuất phát").openPopup();
+      L.marker(startPoint).addTo(map).bindPopup("📍 Điểm đi").openPopup();
       return;
     }
 
@@ -109,102 +150,46 @@ map.on("click", async (e) => {
       endPoint = e.latlng;
       L.marker(endPoint).addTo(map).bindPopup("🏁 Điểm đến").openPopup();
 
-      if (routingControl) map.removeControl(routingControl);
-
-      routingControl = L.Routing.control({
-        waypoints: [startPoint, endPoint],
-        routeWhileDragging: false,
-        addWaypoints: false,
-        show: false
-      }).addTo(map);
+      const mode = document.getElementById("travelMode").value;
+      createRoute(mode === "foot" ? "foot" : "car");
 
       window.routeMode = false;
-      startPoint = null;
-      endPoint = null;
       return;
     }
   }
 
-  // ===== NORMAL MODE (CLICK MAP → CHATBOT) =====
   if (clickMarker) map.removeLayer(clickMarker);
   clickMarker = L.marker([lat, lng]).addTo(map);
 
-  try {
-    const data = await reverseGeocode(lat, lng);
+  const data = await reverseGeocode(lat, lng);
+  const place =
+    data.address.city ||
+    data.address.town ||
+    data.address.village ||
+    data.display_name;
 
-    const place =
-      data.address.city ||
-      data.address.town ||
-      data.address.village ||
-      data.address.county ||
-      data.display_name;
+  currentPlace = place;
+  rememberPlace(place);
 
-    currentPlace = place;
-    rememberPlace(place);
-
-    askChatbot(
-      `Dựa trên các địa điểm đã xem: ${getContext()}.
-       Giới thiệu văn hóa, lịch sử, con người, du lịch, ẩm thực và lịch trình tại ${place}`
-    );
-
-  } catch (err) {
-    console.error("Reverse geocode error:", err);
-  }
-});
-
-// ================= HOVER MAP → PREVIEW =================
-let hoverTimer = null;
-let hoverPopup = L.popup({
-  closeButton: false,
-  offset: [0, -10]
-});
-
-map.on("mousemove", (e) => {
-  clearTimeout(hoverTimer);
-
-  hoverTimer = setTimeout(async () => {
-    try {
-      const data = await reverseGeocode(e.latlng.lat, e.latlng.lng);
-
-      const name =
-        data.address.city ||
-        data.address.town ||
-        data.address.village ||
-        data.display_name;
-
-      hoverPopup
-        .setLatLng(e.latlng)
-        .setContent(`<b>${name}</b><br><small>Click để xem chi tiết</small>`)
-        .openOn(map);
-    } catch {}
-  }, 600);
+  askChatbot(
+    `Dựa trên các địa điểm đã xem: ${getContext()}. Giới thiệu ${place}`
+  );
 });
 
 // ================= POI =================
 const poiLayer = L.layerGroup().addTo(map);
 
-function addPOI(lat, lng, name, type = "poi") {
-  const icon = L.icon({
-    iconUrl:
-      type === "food"
-        ? "/static/icons/food.png"
-        : "/static/icons/museum.png",
-    iconSize: [26, 26]
-  });
-
-  const marker = L.marker([lat, lng], { icon }).addTo(poiLayer);
-
+function addPOI(lat, lng, name) {
+  const marker = L.marker([lat, lng]).addTo(poiLayer);
   marker.on("click", () => {
-    askChatbot(
-      `Giới thiệu chi tiết ${name} về lịch sử, đặc trưng, trải nghiệm và gợi ý tham quan`
-    );
+    askChatbot(`Giới thiệu chi tiết ${name}`);
   });
 }
 
-// ================= ROUTE BUTTON =================
+// ================= ROUTE MODE BUTTON =================
 function enableRouteMode() {
   window.routeMode = true;
   startPoint = null;
   endPoint = null;
-  alert("🧭 Chọn điểm đi → điểm đến trên bản đồ");
+  alert("🧭 Click điểm đi → điểm đến");
 }
