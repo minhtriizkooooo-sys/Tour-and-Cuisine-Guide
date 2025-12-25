@@ -1,192 +1,204 @@
-/* ================= RESET ================= */
+/* ===== RESET ===== */
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
-html, body {
-  height: 100%;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
-  background-color: #f4f6f8;
-  color: #222;
-}
-
-/* ================= LAYOUT ================= */
-.app-container {
-  display: flex;
-  height: 100vh;
-  width: 100vw;
+body {
+  font-family: Inter, Segoe UI, Arial, sans-serif;
+  background: #f4f6f8;
+  color: #111;
   overflow: hidden;
 }
 
-/* ================= MAP ================= */
+/* ===== HEADER ===== */
+.header {
+  height: 52px;
+  background: linear-gradient(90deg, #0f9d58, #0c7d42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.header img {
+  height: 34px;
+}
+
+.logo {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+
+/* ===== LAYOUT ===== */
+.main-layout {
+  display: flex;
+  height: calc(100vh - 90px);
+}
+
+/* ===== MAP ===== */
+.map-area {
+  flex: 2;
+  position: relative;
+  background: #ddd;
+}
+
 #map {
-  flex: 1;
+  width: 100%;
   height: 100%;
-  background: #e0e0e0;
-  z-index: 1;
 }
 
-/* Fix Leaflet default controls overlap */
-.leaflet-top,
-.leaflet-bottom {
-  z-index: 400;
+/* Search box */
+.search-box {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px;
+  display: flex;
+  gap: 6px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+  z-index: 1000;
 }
 
-/* ================= SIDEBAR / CHAT ================= */
-.sidebar {
-  width: 340px;              /* ↓ gọn hơn */
-  min-width: 300px;
-  max-width: 380px;
-  background: #ffffff;
-  border-left: 1px solid #e3e6ea;
+.search-box input {
+  border: none;
+  outline: none;
+  padding: 6px 10px;
+  font-size: 13px;
+  width: 220px;
+}
+
+.search-box button {
+  background: #0f9d58;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+/* ===== CHAT ===== */
+.chat-area {
+  flex: 1;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  display: flex;
+}
+
+.chat-box {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  z-index: 2;
 }
 
-/* ================= CHAT HEADER ================= */
-.chat-header {
-  padding: 10px 14px;        /* ↓ thấp hơn */
-  background: #ffffff;      /* bỏ gradient */
-  color: #111;
-  font-weight: 600;
-  font-size: 14px;
-  border-bottom: 1px solid #e3e6ea;
-}
-
-/* ================= CHAT BODY ================= */
-.chat-body {
+.messages {
   flex: 1;
-  padding: 12px;
+  padding: 14px;
   overflow-y: auto;
-  background-color: #fafbfc;
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-.chat-body::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-body::-webkit-scrollbar-thumb {
-  background: #cfd6dd;
-  border-radius: 4px;
-}
-
-/* ================= CHAT MESSAGE ================= */
-.message {
-  margin-bottom: 10px;
-}
-
-.message.user {
-  text-align: right;
-  color: #555;
-}
-
-.message.bot {
-  color: #222;
+  background: #fafafa;
 }
 
 .bubble {
-  display: inline-block;
-  padding: 8px 10px;         /* ↓ gọn */
-  border-radius: 10px;
-  max-width: 92%;
-  word-wrap: break-word;
-  background: transparent;  /* bỏ bong bóng màu */
+  max-width: 78%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }
 
-/* ================= CHAT INPUT ================= */
-.chat-input {
-  padding: 8px;
-  border-top: 1px solid #e3e6ea;
+.bubble.user {
+  background: #0f9d58;
+  color: #fff;
+  margin-left: auto;
+  border-bottom-right-radius: 4px;
+}
+
+.bubble.bot {
+  background: #e9ecef;
+  border-bottom-left-radius: 4px;
+}
+
+/* Suggestions */
+.suggestions {
+  padding: 8px 10px;
   display: flex;
   gap: 6px;
-  background: #ffffff;
+  flex-wrap: wrap;
+  border-top: 1px solid #eee;
 }
 
-.chat-input input {
-  flex: 1;
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid #d0d5da;
-  font-size: 14px;
-  outline: none;
+.suggestions button {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
 }
 
-.chat-input input:focus {
-  border-color: #1a73e8;
-}
-
-.chat-input button {
-  padding: 0 14px;
-  border-radius: 6px;
-  border: none;
-  background: #1a73e8;
+.suggestions button:hover {
+  background: #0f9d58;
   color: #fff;
-  font-weight: 600;
+  border-color: #0f9d58;
+}
+
+/* Input */
+.input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.input-row input {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid #ddd;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.input-row button {
+  background: #0f9d58;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
   cursor: pointer;
 }
 
-.chat-input button:hover {
-  background: #1558c0;
+/* ===== FOOTER ===== */
+.footer {
+  height: 38px;
+  background: #1f2933;
+  color: #cbd5e1;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
-/* ================= MAP POPUP ================= */
-.leaflet-popup-content-wrapper {
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.leaflet-popup-content {
-  margin: 6px 8px;
-  line-height: 1.4;
-}
-
-/* ================= ROUTE BUTTON ================= */
-.route-btn {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 500;
-  padding: 8px 12px;
-  background: #ffffff;
-  border-radius: 6px;
-  border: 1px solid #d0d5da;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.route-btn:hover {
-  background: #f0f3f6;
-}
-
-/* ================= POI ICON FIX ================= */
-.leaflet-marker-icon {
-  transition: transform 0.15s ease;
-}
-
-.leaflet-marker-icon:hover {
-  transform: scale(1.1);
-}
-
-/* ================= RESPONSIVE ================= */
-@media (max-width: 900px) {
-  .sidebar {
-    width: 100%;
-    max-width: 100%;
-    height: 40%;               /* ↓ không che map quá nhiều */
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    border-left: none;
-    border-top: 1px solid #e3e6ea;
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .main-layout {
+    flex-direction: column;
   }
 
-  #map {
-    height: 60%;
+  .map-area {
+    height: 55vh;
+  }
+
+  .chat-area {
+    height: 45vh;
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
   }
 }
