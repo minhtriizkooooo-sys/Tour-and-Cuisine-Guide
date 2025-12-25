@@ -1,30 +1,25 @@
-// =====================================================
-// GLOBAL STATE
-// =====================================================
+// ================= MAP.JS – FULL FIX =================
 let startPoint = null;
 let endPoint = null;
 let routingControl = null;
 
-let clickMarker = null;
-let searchMarker = null;
-
+let clickMarker = null;      // marker khi click map
+let searchMarker = null;     // marker khi search
 let currentPlace = null;
 let placeHistory = [];
 
-let routeMode = false;
+// ================= MODE FLAGS =================
+window.normalMode = true;    // click map → chatbot
+window.routeMode = false;    // chọn điểm đi/đến → route
 
-// =====================================================
-// MAP INIT
-// =====================================================
+// ================= MAP INIT =================
 const map = L.map("map").setView([16.0471, 108.2068], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
 
-// =====================================================
-// GEOCODING
-// =====================================================
+// ================= UTILS =================
 async function reverseGeocode(lat, lng) {
   const res = await fetch(
     `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
@@ -39,13 +34,9 @@ async function forwardGeocode(q) {
   return res.json();
 }
 
-// =====================================================
-// CHAT INTEGRATION
-// =====================================================
 function askChatbot(question) {
   const input = document.getElementById("msg");
   const sendBtn = document.getElementById("send");
-
   input.value = question;
   sendBtn.click();
 }
@@ -60,57 +51,67 @@ function getContext() {
   return placeHistory.slice(-3).join(", ");
 }
 
-// Gửi context địa điểm sang chat.js
-function updateChatContext(place) {
-  if (window.setPlaceContext) {
-    window.setPlaceContext(place);
-  }
+function setCurrentPlace(place) {
+  currentPlace = place;
 }
 
-// =====================================================
-// SEARCH LOCATION
-// =====================================================
+// ================= SEARCH BOX =================
 async function searchMap() {
   const q = document.getElementById("mapSearch").value.trim();
   if (!q) return;
 
-  const results = await forwardGeocode(q);
-  if (!results.length) {
-    alert("Không tìm thấy địa điểm");
-    return;
+  try {
+    const results = await forwardGeocode(q);
+    if (!results.length) {
+      alert("Không tìm thấy địa điểm");
+      return;
+    }
+
+    const p = results[0];
+    const lat = parseFloat(p.lat);
+    const lng = parseFloat(p.lon);
+    const placeName = p.display_name;
+
+    map.setView([lat, lng], 14);
+
+    if (searchMarker) map.removeLayer(searchMarker);
+
+    const searchIcon = L.icon({
+      iconUrl: "https://maps.gstatic.com/mapfiles/api-3/images/spotlight-poi2.png",
+      iconSize: [27, 43],
+      iconAnchor: [13, 41]
+    });
+
+    searchMarker = L.marker([lat, lng], { icon: searchIcon })
+      .addTo(map)
+      .bindPopup(`📍 ${placeName}`)
+      .openPopup();
+
+    setCurrentPlace(placeName);
+    rememberPlace(placeName);
+
+    // khi click marker → gọi chatbot
+    searchMarker.on("click", () => {
+      enableNormalMode();
+      askChatbot(
+        `Dựa trên các địa điểm đã xem: ${getContext()}.
+         Giới thiệu chi tiết ${placeName} về lịch sử, văn hóa, con người, ẩm thực và du lịch`
+      );
+    });
+
+    enableNormalMode();
+
+  } catch (err) {
+    console.error("Search error:", err);
   }
-
-  const p = results[0];
-  const lat = parseFloat(p.lat);
-  const lng = parseFloat(p.lon);
-  const placeName = p.display_name;
-
-  map.setView([lat, lng], 14);
-
-  if (searchMarker) map.removeLayer(searchMarker);
-
-  searchMarker = L.marker([lat, lng]).addTo(map)
-    .bindPopup(`📍 ${placeName}`)
-    .openPopup();
-
-  currentPlace = placeName;
-  rememberPlace(placeName);
-  updateChatContext(placeName);
-
-  searchMarker.on("click", () => {
-    askChatbot(
-      `Giới thiệu chi tiết ${placeName} về lịch sử, văn hóa, con người, ẩm thực và du lịch`
-    );
-  });
 }
 
-// =====================================================
-// MAP CLICK HANDLER
-// =====================================================
+// ================= MAP CLICK HANDLER =================
 map.on("click", async (e) => {
+  const { lat, lng } = e.latlng;
 
-  // ================= ROUTE MODE =================
-  if (routeMode) {
+  // ===== ROUTE MODE =====
+  if (window.routeMode) {
     if (!startPoint) {
       startPoint = e.latlng;
       L.marker(startPoint).addTo(map).bindPopup("📍 Điểm xuất phát").openPopup();
@@ -127,30 +128,26 @@ map.on("click", async (e) => {
         waypoints: [startPoint, endPoint],
         routeWhileDragging: false,
         addWaypoints: false,
-        show: true,
-        lineOptions: {
-          styles: [{ weight: 6 }]
-        }
+        show: false
       }).addTo(map);
 
-      // Chatbot giới thiệu tuyến đường & vùng đi qua
-      askChatbot(
-        `Giới thiệu các địa phương, văn hóa, ẩm thực và điểm du lịch nổi bật trên tuyến đường từ điểm xuất phát đến điểm đến này`
-      );
-
-      routeMode = false;
+      // reset route mode
+      window.routeMode = false;
       startPoint = null;
       endPoint = null;
+      enableNormalMode();
       return;
     }
   }
 
-  // ================= NORMAL MODE =================
+  // ===== NORMAL MODE =====
+  if (!window.normalMode) return;
+
   if (clickMarker) map.removeLayer(clickMarker);
-  clickMarker = L.marker(e.latlng).addTo(map);
+  clickMarker = L.marker([lat, lng]).addTo(map);
 
   try {
-    const data = await reverseGeocode(e.latlng.lat, e.latlng.lng);
+    const data = await reverseGeocode(lat, lng);
 
     const place =
       data.address.city ||
@@ -159,12 +156,12 @@ map.on("click", async (e) => {
       data.address.county ||
       data.display_name;
 
-    currentPlace = place;
+    setCurrentPlace(place);
     rememberPlace(place);
-    updateChatContext(place);
 
     askChatbot(
-      `Giới thiệu văn hóa, con người, lịch sử, ẩm thực và gợi ý lịch trình du lịch tại ${place}`
+      `Dựa trên các địa điểm đã xem: ${getContext()}.
+       Giới thiệu văn hóa, lịch sử, con người, du lịch, ẩm thực và lịch trình tại ${place}`
     );
 
   } catch (err) {
@@ -172,14 +169,9 @@ map.on("click", async (e) => {
   }
 });
 
-// =====================================================
-// HOVER PREVIEW
-// =====================================================
+// ================= HOVER MAP → PREVIEW =================
 let hoverTimer = null;
-let hoverPopup = L.popup({
-  closeButton: false,
-  offset: [0, -10]
-});
+let hoverPopup = L.popup({ closeButton: false, offset: [0, -10] });
 
 map.on("mousemove", (e) => {
   clearTimeout(hoverTimer);
@@ -187,6 +179,7 @@ map.on("mousemove", (e) => {
   hoverTimer = setTimeout(async () => {
     try {
       const data = await reverseGeocode(e.latlng.lat, e.latlng.lng);
+
       const name =
         data.address.city ||
         data.address.town ||
@@ -195,28 +188,43 @@ map.on("mousemove", (e) => {
 
       hoverPopup
         .setLatLng(e.latlng)
-        .setContent(`<b>${name}</b><br><small>Click để khám phá</small>`)
+        .setContent(`<b>${name}</b><br><small>Click để xem chi tiết</small>`)
         .openOn(map);
     } catch {}
   }, 600);
 });
 
-// =====================================================
-// ROUTE MODE BUTTON
-// =====================================================
-function enableRouteMode() {
-  routeMode = true;
-  startPoint = null;
-  endPoint = null;
+// ================= POI =================
+const poiLayer = L.layerGroup().addTo(map);
 
-  if (routingControl) {
-    map.removeControl(routingControl);
-    routingControl = null;
-  }
+function addPOI(lat, lng, name, type = "poi") {
+  const icon = L.icon({
+    iconUrl:
+      type === "food"
+        ? "/static/icons/food.png"
+        : "/static/icons/museum.png",
+    iconSize: [26, 26]
+  });
+
+  const marker = L.marker([lat, lng], { icon }).addTo(poiLayer);
+
+  marker.on("click", () => {
+    enableNormalMode();
+    askChatbot(
+      `Giới thiệu chi tiết ${name} về lịch sử, đặc trưng, trải nghiệm và gợi ý tham quan`
+    );
+  });
 }
 
-// =====================================================
-// EXPORT GLOBAL
-// =====================================================
-window.searchMap = searchMap;
-window.enableRouteMode = enableRouteMode;
+// ================= ROUTE BUTTON =================
+function enableRouteMode() {
+  window.routeMode = true;
+  window.normalMode = false;
+  startPoint = null;
+  endPoint = null;
+}
+
+function enableNormalMode() {
+  window.normalMode = true;
+  window.routeMode = false;
+}
