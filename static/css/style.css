@@ -9,12 +9,12 @@ body {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   background: #f4f6f8;
   color: #111;
-  overflow: hidden; /* Giữ layout cố định */
+  overflow: hidden; /* Giữ layout cố định không cho cuộn trang chính */
 }
 
-/* ===== HEADER (CHỈNH LOGO TO HƠN) ===== */
+/* ===== HEADER (LOGO LỚN & RÕ CHỮ) ===== */
 .header {
-  height: 80px; /* Tăng chiều cao header để chứa logo to */
+  height: 80px; 
   background: linear-gradient(90deg, #0f9d58, #0c7d42);
   display: flex;
   align-items: center;
@@ -24,25 +24,25 @@ body {
 }
 
 .header img {
-  height: 65px; /* Logo to rõ rệt */
+  height: 65px; 
   width: auto;
   object-fit: contain;
 }
 
 .logo {
-  font-size: 22px; /* Chữ to hơn */
+  font-size: 22px; 
   font-weight: 700;
   color: #fff;
   letter-spacing: 0.5px;
 }
 
-/* ===== LAYOUT ===== */
+/* ===== LAYOUT CHÍNH ===== */
 .main-layout {
   display: flex;
   height: calc(100vh - 118px); /* Trừ header 80px và footer 38px */
 }
 
-/* ===== MAP AREA ===== */
+/* ===== KHU VỰC BẢN ĐỒ (MAP) ===== */
 .map-area {
   flex: 2;
   position: relative;
@@ -54,7 +54,7 @@ body {
   height: 100%;
 }
 
-/* Search box & Navigation */
+/* Search box nổi trên bản đồ */
 .search-box {
   position: absolute;
   top: 15px;
@@ -77,7 +77,7 @@ body {
   outline: none;
   padding: 8px 15px;
   font-size: 14px;
-  width: 250px;
+  width: 200px;
   border-radius: 8px;
 }
 
@@ -101,44 +101,76 @@ body {
   background: #dc3545 !important;
 }
 
-/* ===== CHAT AREA ===== */
+/* Bảng chỉ đường (Route Panel) kiểu Google Map */
+#route-panel {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 15px;
+  z-index: 1001;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#route-panel input, #route-panel select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+/* ===== KHU VỰC CHATBOT (FULL FIX) ===== */
 .chat-area {
-  flex: 1.2; /* Tăng độ rộng chat một chút để xem ảnh dễ hơn */
+  flex: 1.2;
   background: #fff;
   border-left: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
 }
 
+/* Tab Lịch sử/PDF/Xóa */
 .chat-tabs {
   padding: 10px;
   background: #f8f9fa;
   border-bottom: 1px solid #eee;
   display: flex;
   gap: 5px;
-  justify-content: space-around;
 }
 
 .chat-tabs button {
   flex: 1;
   font-size: 11px;
-  padding: 6px;
+  padding: 8px 5px;
   cursor: pointer;
   border: 1px solid #ddd;
   background: #fff;
   border-radius: 4px;
+  transition: 0.2s;
 }
 
+.chat-tabs button:hover {
+  background: #e9ecef;
+}
+
+/* Khung tin nhắn - Chống tràn ngang & Cuộn dọc */
 .messages {
   flex: 1;
   padding: 15px;
-  overflow-y: auto;
+  overflow-y: auto; /* Cuộn dọc khi tin nhắn dài */
+  overflow-x: hidden; /* Tuyệt đối không tràn ngang */
   background: #fafafa;
   display: flex;
   flex-direction: column;
+  word-wrap: break-word; /* Tự xuống hàng nếu từ quá dài */
 }
 
-/* Bubble */
+/* Bong bóng chat */
 .bubble {
   max-width: 85%;
   padding: 12px 15px;
@@ -149,6 +181,7 @@ body {
   white-space: pre-wrap;
   word-wrap: break-word;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  position: relative;
 }
 
 .bubble.user {
@@ -165,7 +198,7 @@ body {
   border-bottom-left-radius: 2px;
 }
 
-/* Images & Video in Chat */
+/* Hình ảnh & Video trong Chat */
 .img-row {
   display: flex;
   gap: 8px;
@@ -174,8 +207,8 @@ body {
 }
 
 .img-item {
-  width: 120px;
-  height: 85px;
+  width: 110px;
+  height: 80px;
   object-fit: cover;
   border-radius: 8px;
   cursor: pointer;
@@ -200,11 +233,11 @@ body {
   font-weight: bold;
 }
 
-/* Suggestions */
+/* Suggestions (Gợi ý câu hỏi) */
 .suggestions {
   padding: 10px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   border-top: 1px solid #eee;
   background: #fff;
@@ -212,13 +245,12 @@ body {
 
 .suggestions button {
   font-size: 12px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border-radius: 20px;
   border: 1px solid #0f9d58;
   background: #fff;
   color: #0f9d58;
   cursor: pointer;
-  transition: 0.2s;
 }
 
 .suggestions button:hover {
@@ -257,15 +289,12 @@ body {
   justify-content: center;
 }
 
-/* ===== MODAL LIGHTBOX ===== */
+/* ===== MODAL LIGHTBOX (SỬA LỖI NÚT ĐÓNG) ===== */
 .modal {
   display: none;
   position: fixed;
   z-index: 9999;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0; /* Phủ toàn màn hình */
   background-color: rgba(0,0,0,0.9);
   align-items: center;
   justify-content: center;
@@ -281,12 +310,13 @@ body {
 
 .modal-close {
   position: absolute;
-  top: 30px;
-  right: 40px;
+  top: 20px;
+  right: 30px;
   color: #fff;
-  font-size: 40px;
+  font-size: 50px; /* To rõ để dễ bấm */
   font-weight: bold;
   cursor: pointer;
+  line-height: 1;
 }
 
 #modal-caption {
@@ -304,23 +334,26 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
 }
 
-/* ===== MOBILE ===== */
+/* ===== RESPONSIVE (MOBILE) ===== */
 @media (max-width: 768px) {
   .main-layout {
     flex-direction: column;
   }
   .map-area {
-    height: 50vh;
+    height: 45vh;
   }
   .chat-area {
-    height: 50vh;
+    height: 55vh;
     border-left: none;
     border-top: 2px solid #0f9d58;
   }
   .search-box input {
-    width: 150px;
+    width: 140px;
+  }
+  #route-panel {
+    width: 90%;
+    top: 60px;
   }
 }
