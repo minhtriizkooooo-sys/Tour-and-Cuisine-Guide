@@ -14,43 +14,11 @@
 
 <!-- ====== IMAGE MODAL STYLE ====== -->
 <style>
-/* Logo to hơn nhưng không phá layout */
-.header img {
-  height: 80px;
-  margin-right: 16px;
-}
-
-/* Image modal */
-.img-modal {
-  display: none;
-  position: fixed;
-  z-index: 9999;
-  inset: 0;
-  background: rgba(0,0,0,0.85);
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-}
-.img-modal img {
-  display: block;
-  max-width: 90%;
-  max-height: 80%;
-  border-radius: 8px;
-  margin-bottom: 10px;
-}
-.img-modal .caption {
-  color: #ddd;
-  text-align: center;
-  font-size: 14px;
-}
-.img-modal .close {
-  position: absolute;
-  top: 20px;
-  right: 30px;
-  font-size: 32px;
-  color: #fff;
-  cursor: pointer;
-}
+.header img { height: 80px; margin-right: 16px; }
+.img-modal { display: none; position: fixed; z-index: 9999; inset: 0; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; flex-direction: column; }
+.img-modal img { display: block; max-width: 90%; max-height: 80%; border-radius: 8px; margin-bottom: 10px; }
+.img-modal .caption { color: #ddd; text-align: center; font-size: 14px; }
+.img-modal .close { position: absolute; top: 20px; right: 30px; font-size: 32px; color: #fff; cursor: pointer; }
 </style>
 </head>
 
@@ -75,8 +43,6 @@
 
   <!-- CHAT -->
   <section class="chat-area">
-
-    <!-- CHAT TABS -->
     <div class="chat-tabs">
       <button id="btn-history">📜 Lịch sử chat</button>
       <button id="btn-clear">🗑 Xóa lịch sử</button>
@@ -88,7 +54,7 @@
       <div id="suggestions" class="suggestions"></div>
 
       <div class="input-row">
-        <input id="msg" placeholder="Hỏi về lịch trình, văn hóa, ẩm thực…" />
+        <input id="msg" placeholder="Hỏi về lịch trình, văn hóa, ẩm thực…">
         <button id="send">Gửi</button>
       </div>
     </div>
@@ -119,7 +85,9 @@ function closeImageModal() {
 }
 </script>
 
+<!-- Scripts -->
 <script src="/static/js/map.js"></script>
 <script src="/static/js/chat.js"></script>
+
 </body>
 </html>
