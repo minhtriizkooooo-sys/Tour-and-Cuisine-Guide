@@ -2,12 +2,12 @@ let startPoint = null;
 let endPoint = null;
 let routingControl = null;
 
-let clickMarker = null;      // marker khi click map
-let searchMarker = null;     // marker khi search
+let allMarkers = []; // Mảng quản lý tất cả marker để xóa sạch khi cần
 let currentPlace = null;
 let placeHistory = [];
 
 // ================= MAP INIT =================
+// Khởi tạo bản đồ tập trung vào Việt Nam
 const map = L.map("map").setView([16.0471, 108.2068], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -29,24 +29,34 @@ async function forwardGeocode(q) {
   return res.json();
 }
 
-function askChatbot(question) {
-  const input = document.getElementById("msg");
-  const sendBtn = document.getElementById("send");
-  input.value = question;
-  sendBtn.click();
-}
-
-function rememberPlace(place) {
-  if (place && !placeHistory.includes(place)) {
-    placeHistory.push(place);
+// Gọi hàm này từ window để đồng bộ với chat.js
+function triggerChat(question) {
+  if (window.askChatbot) {
+    window.askChatbot(question);
+  } else {
+    // Fallback nếu chat.js chưa load kịp
+    const input = document.getElementById("msg");
+    const sendBtn = document.getElementById("send");
+    if(input && sendBtn) {
+        input.value = question;
+        sendBtn.click();
+    }
   }
 }
 
-function getContext() {
-  return placeHistory.slice(-3).join(", ");
+// Hàm xóa toàn bộ Marker và Route trên bản đồ
+function clearMapDecorations() {
+    allMarkers.forEach(m => map.removeLayer(m));
+    allMarkers = [];
+    if (routingControl) {
+        map.removeControl(routingControl);
+        routingControl = null;
+    }
+    startPoint = null;
+    endPoint = null;
 }
 
-// ================= SEARCH BOX =================
+// ================= SEARCH BOX (ĐỊNH VỊ & KÍCH HOẠT CHAT) =================
 async function searchMap() {
   const q = document.getElementById("mapSearch").value.trim();
   if (!q) return;
@@ -54,7 +64,7 @@ async function searchMap() {
   try {
     const results = await forwardGeocode(q);
     if (!results.length) {
-      alert("Không tìm thấy địa điểm");
+      alert("Không tìm thấy địa điểm này");
       return;
     }
 
@@ -63,148 +73,83 @@ async function searchMap() {
     const lng = parseFloat(p.lon);
     const placeName = p.display_name;
 
+    // Di chuyển bản đồ đến vị trí tìm thấy
     map.setView([lat, lng], 14);
 
-    if (searchMarker) map.removeLayer(searchMarker);
+    // Xóa marker cũ trước khi thêm mới
+    clearMapDecorations();
 
-    const searchIcon = L.icon({
-      iconUrl: "https://maps.gstatic.com/mapfiles/api-3/images/spotlight-poi2.png",
-      iconSize: [27, 43],
-      iconAnchor: [13, 41]
-    });
-
-    searchMarker = L.marker([lat, lng], { icon: searchIcon })
-      .addTo(map)
+    const marker = L.marker([lat, lng]).addTo(map)
       .bindPopup(`📍 ${placeName}`)
       .openPopup();
+    
+    allMarkers.push(marker);
 
-    currentPlace = placeName;
-    rememberPlace(placeName);
-
-    searchMarker.on("click", () => {
-      askChatbot(
-        `Dựa trên các địa điểm đã xem: ${getContext()}.
-         Giới thiệu chi tiết ${placeName} về lịch sử, văn hóa, con người, ẩm thực và du lịch`
-      );
-    });
+    // Kích hoạt chatbot ngay lập tức khi tìm kiếm thành công
+    triggerChat(`Giới thiệu chi tiết về ${placeName} bao gồm lịch sử, văn hóa, con người, ẩm thực và gợi ý du lịch.`);
 
   } catch (err) {
     console.error("Search error:", err);
   }
 }
 
+// ================= NAVIGATION (ĐIỀU HƯỚNG) =================
+function enableRouteMode() {
+  window.routeMode = true;
+  clearMapDecorations();
+  alert("🧭 Chế độ điều hướng: Click điểm 1 (Bắt đầu) -> Click điểm 2 (Kết thúc)");
+}
+
 // ================= MAP CLICK HANDLER =================
 map.on("click", async (e) => {
   const { lat, lng } = e.latlng;
 
-  // ===== ROUTE MODE =====
+  // TRƯỜNG HỢP 1: ĐANG TRONG CHẾ ĐỘ CHỈ ĐƯỜNG
   if (window.routeMode) {
     if (!startPoint) {
       startPoint = e.latlng;
-      L.marker(startPoint).addTo(map).bindPopup("📍 Điểm xuất phát").openPopup();
+      const m = L.marker(startPoint).addTo(map).bindPopup("📍 Điểm bắt đầu").openPopup();
+      allMarkers.push(m);
       return;
     }
 
     if (!endPoint) {
       endPoint = e.latlng;
-      L.marker(endPoint).addTo(map).bindPopup("🏁 Điểm đến").openPopup();
+      const m = L.marker(endPoint).addTo(map).bindPopup("🏁 Điểm đến").openPopup();
+      allMarkers.push(m);
 
-      if (routingControl) map.removeControl(routingControl);
-
+      // Tạo đường đi
       routingControl = L.Routing.control({
         waypoints: [startPoint, endPoint],
         routeWhileDragging: false,
         addWaypoints: false,
-        show: false
+        draggableWaypoints: false,
+        show: true, // Hiện bảng chỉ dẫn
+        lineOptions: {
+            styles: [{ color: '#0f9d58', weight: 6 }]
+        }
       }).addTo(map);
 
-      window.routeMode = false;
-      startPoint = null;
-      endPoint = null;
+      window.routeMode = false; // Kết thúc chọn điểm
       return;
     }
   }
 
-  // ===== NORMAL MODE (CLICK MAP → CHATBOT) =====
-  if (clickMarker) map.removeLayer(clickMarker);
-  clickMarker = L.marker([lat, lng]).addTo(map);
+  // TRƯỜNG HỢP 2: CLICK BẤT KỲ ĐÂU (KỂ CẢ TRÊN ĐƯỜNG ĐI) ĐỂ HỎI CHATBOT
+  const tempMarker = L.marker([lat, lng]).addTo(map);
+  allMarkers.push(tempMarker);
 
   try {
     const data = await reverseGeocode(lat, lng);
+    const place = data.display_name;
 
-    const place =
-      data.address.city ||
-      data.address.town ||
-      data.address.village ||
-      data.address.county ||
-      data.display_name;
-
-    currentPlace = place;
-    rememberPlace(place);
-
-    askChatbot(
-      `Dựa trên các địa điểm đã xem: ${getContext()}.
-       Giới thiệu văn hóa, lịch sử, con người, du lịch, ẩm thực và lịch trình tại ${place}`
-    );
-
+    triggerChat(`Tôi đang ở tọa độ này (${lat}, ${lng}) gần ${place}. Hãy giới thiệu lịch sử, văn hóa và ẩm thực đặc trưng tại đây.`);
   } catch (err) {
-    console.error("Reverse geocode error:", err);
+    triggerChat(`Hãy giới thiệu về khu vực tại tọa độ ${lat}, ${lng}`);
   }
 });
 
-// ================= HOVER MAP → PREVIEW =================
-let hoverTimer = null;
-let hoverPopup = L.popup({
-  closeButton: false,
-  offset: [0, -10]
-});
-
-map.on("mousemove", (e) => {
-  clearTimeout(hoverTimer);
-
-  hoverTimer = setTimeout(async () => {
-    try {
-      const data = await reverseGeocode(e.latlng.lat, e.latlng.lng);
-
-      const name =
-        data.address.city ||
-        data.address.town ||
-        data.address.village ||
-        data.display_name;
-
-      hoverPopup
-        .setLatLng(e.latlng)
-        .setContent(`<b>${name}</b><br><small>Click để xem chi tiết</small>`)
-        .openOn(map);
-    } catch {}
-  }, 600);
-});
-
-// ================= POI =================
-const poiLayer = L.layerGroup().addTo(map);
-
-function addPOI(lat, lng, name, type = "poi") {
-  const icon = L.icon({
-    iconUrl:
-      type === "food"
-        ? "/static/icons/food.png"
-        : "/static/icons/museum.png",
-    iconSize: [26, 26]
-  });
-
-  const marker = L.marker([lat, lng], { icon }).addTo(poiLayer);
-
-  marker.on("click", () => {
-    askChatbot(
-      `Giới thiệu chi tiết ${name} về lịch sử, đặc trưng, trải nghiệm và gợi ý tham quan`
-    );
-  });
-}
-
-// ================= ROUTE BUTTON =================
-function enableRouteMode() {
-  window.routeMode = true;
-  startPoint = null;
-  endPoint = null;
-  alert("🧭 Chọn điểm đi → điểm đến trên bản đồ");
-}
+// Thêm hàm xóa marker vào global để UI gọi
+window.clearMarkers = clearMapDecorations;
+window.searchMap = searchMap;
+window.enableRouteMode = enableRouteMode;
