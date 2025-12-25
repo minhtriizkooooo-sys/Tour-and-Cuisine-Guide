@@ -1,60 +1,71 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vietnam Travel AI – Tour & Cuisine Guide</title>
+  <meta charset="UTF-8" />
+  <title>Vietnam Travel AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<link rel="stylesheet" href="/static/css/style.css">
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
+  />
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <!-- App CSS -->
+  <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 
 <body>
 
-<header class="header">
-  <img src="/static/images/Logo_Marie_Curie.png">
-  <div class="logo">Vietnam Travel AI – Tour & Cuisine Guide</div>
-</header>
+<div class="app-container">
 
-<div class="main-layout">
-
-<section class="map-area">
-  <div class="search-box">
-    <input id="mapSearch" placeholder="Tìm địa điểm tại Việt Nam">
-    <button onclick="searchMap()">Tìm</button>
-    <button onclick="enableRouteMode()">🧭</button>
-  </div>
+  <!-- ================= MAP ================= -->
   <div id="map"></div>
-</section>
 
-<section class="chat-area">
-  <div class="chat-tabs">
-    <button id="btn-history">Lịch sử chat</button>
-    <button id="btn-clear">Xóa lịch sử</button>
-    <button id="btn-export">Xuất PDF</button>
-  </div>
+  <!-- ================= CHAT SIDEBAR ================= -->
+  <div class="sidebar">
 
-  <div class="chat-box">
-    <div id="messages" class="messages"></div>
-    <div id="suggestions" class="suggestions"></div>
-    <div class="input-row">
-      <input id="msg" placeholder="Hỏi về lịch trình, văn hóa, ẩm thực…">
+    <!-- CHAT HEADER -->
+    <div class="chat-header">
+      Vietnam Travel AI
+    </div>
+
+    <!-- CHAT TABS -->
+    <div class="chat-tabs">
+      <button id="btn-history">Lịch sử chat</button>
+      <button id="btn-clear">Xóa lịch sử chat</button>
+      <button id="btn-export">Xuất PDF</button>
+    </div>
+
+    <!-- CHAT BODY -->
+    <div class="chat-body" id="messages">
+      <!-- messages rendered by chat.js -->
+    </div>
+
+    <!-- CHAT INPUT -->
+    <div class="chat-input">
+      <input
+        id="msg"
+        type="text"
+        placeholder="Hỏi về du lịch, lịch trình, văn hóa, ẩm thực…"
+        autocomplete="off"
+      />
       <button id="send">Gửi</button>
     </div>
-  </div>
-</section>
 
+  </div>
 </div>
 
-<footer class="footer">
-  © 2026 • {{ BUILDER }} • {{ HOTLINE }}
-</footer>
+<!-- ================= SCRIPTS ================= -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
 <script src="/static/js/map.js"></script>
 <script src="/static/js/chat.js"></script>
+
 </body>
 </html>
