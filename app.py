@@ -29,7 +29,7 @@ SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
 DB_PATH = os.getenv("SQLITE_PATH", "chat_history.db")
 
 HOTLINE = "+84-908-08-3566"
-BUILDER_NAME = "Vietnam Travel AI – Tours & Culture Guide"
+BUILDER_NAME = "Vietnam Travel AI – Tours, Cuisine & Culture Guide - Lại Nguyễn Minh Trí"
 DEFAULT_CITY = "Thành phố Hồ Chí Minh"
 
 # ================= DATABASE =================
@@ -234,3 +234,4 @@ def index():
 # ================= RUN =================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
+
