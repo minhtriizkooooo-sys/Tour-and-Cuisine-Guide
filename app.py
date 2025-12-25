@@ -1,5 +1,5 @@
 # ==============================
-# app.py – CLEAN FINAL VERSION (FIXED)
+# app.py – CLEAN FINAL VERSION (EXTENDED)
 # ==============================
 
 import os
@@ -149,7 +149,34 @@ def chat():
     reply = ask_gpt(history(sid))
     save_msg(sid, "assistant", reply)
 
-    return jsonify({"reply": reply})
+    # ---- enrich response (KHÔNG ẢNH HƯỞNG GPT) ----
+    place = msg
+
+    response = {
+        "reply": reply,
+
+        "images": [
+            {
+                "url": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Hoan_Kiem_Lake.jpg",
+                "caption": f"Hình ảnh tiêu biểu tại {place}"
+            }
+        ],
+
+        "youtube": [
+            {
+                "title": f"Khám phá {place}",
+                "video_id": "dQw4w9WgXcQ"
+            }
+        ],
+
+        "suggestions": [
+            f"Văn hóa {place}",
+            f"Ẩm thực {place}",
+            f"Lịch trình du lịch {place}"
+        ]
+    }
+
+    return jsonify(response)
 
 @app.route("/history")
 def api_history():
@@ -186,8 +213,8 @@ def export_pdf():
             "VN",
             fontName="DejaVu",
             fontSize=11,
-            leading=15,
-            spaceAfter=8
+            leading=16,
+            spaceAfter=10
         )
     )
 
@@ -201,15 +228,16 @@ def export_pdf():
     )
 
     story = [
-        Paragraph("<b>LỊCH SỬ CHAT</b>", styles["VN"]),
-        Spacer(1, 12),
+        Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]),
+        Spacer(1, 14),
     ]
 
     for m in logs:
-        role = "Người dùng" if m["role"] == "user" else "Trợ lý"
+        role = "👤 Người dùng" if m["role"] == "user" else "🤖 Trợ lý"
         story.append(
-            Paragraph(f"<b>{role}:</b><br/>{m['content']}", styles["VN"])
+            Paragraph(f"<b>{role}</b><br/>{m['content']}", styles["VN"])
         )
+        story.append(Spacer(1, 8))
 
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     buf.seek(0)
