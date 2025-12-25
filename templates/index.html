@@ -5,7 +5,8 @@
 <title>Travel Assistant</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAP_API_KEY&libraries=places"></script>
+<!-- Google Maps JS (NO places) -->
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAP_API_KEY"></script>
 
 <style>
 body {
@@ -14,6 +15,7 @@ body {
     background: #f4f6f8;
 }
 
+/* ===== HEADER ===== */
 header {
     height: 56px;
     display: flex;
@@ -22,27 +24,37 @@ header {
     background: #ffffff;
     border-bottom: 1px solid #ddd;
 }
-
 header img {
     height: 34px;
     margin-right: 10px;
 }
-
 header h1 {
     font-size: 18px;
     margin: 0;
 }
 
+/* ===== FOOTER ===== */
+footer {
+    height: 40px;
+    background: #ffffff;
+    border-top: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #666;
+}
+
+/* ===== MAIN LAYOUT ===== */
 #container {
     display: flex;
-    height: calc(100vh - 56px);
+    height: calc(100vh - 96px); /* header + footer */
 }
 
 #map-section {
     flex: 2;
     position: relative;
 }
-
 #map {
     width: 100%;
     height: 100%;
@@ -56,7 +68,6 @@ header h1 {
     width: 360px;
     z-index: 5;
 }
-
 #map-search input {
     width: 100%;
     padding: 10px 12px;
@@ -65,6 +76,7 @@ header h1 {
     font-size: 14px;
 }
 
+/* ===== CHAT ===== */
 #chat {
     flex: 1;
     display: flex;
@@ -72,53 +84,39 @@ header h1 {
     background: #ffffff;
     border-left: 1px solid #ddd;
 }
-
-#chat-messages {
+#chat-box {
     flex: 1;
     padding: 12px;
     overflow-y: auto;
     font-size: 14px;
 }
 
-.msg-user {
+.user {
     text-align: right;
     margin-bottom: 10px;
 }
-
-.msg-bot {
+.bot {
     background: #f1f3f5;
     padding: 10px;
     border-radius: 6px;
     margin-bottom: 12px;
 }
 
-#chat-input {
+#chat-form {
     display: flex;
     border-top: 1px solid #ddd;
 }
-
-#chat-input input {
+#chat-form input {
     flex: 1;
     padding: 10px;
     border: none;
     outline: none;
 }
-
-#chat-input button {
+#chat-form button {
     padding: 0 16px;
     border: none;
     background: #007bff;
     color: white;
-    cursor: pointer;
-}
-
-.info-btn {
-    margin-top: 8px;
-    padding: 6px 10px;
-    font-size: 12px;
-    background: #007bff;
-    color: white;
-    border: none;
     cursor: pointer;
 }
 </style>
@@ -126,115 +124,37 @@ header h1 {
 
 <body>
 
+<!-- ===== HEADER ===== -->
 <header>
-    <img src="logo.png">
+    <img src="/static/logo.png" alt="Logo">
     <h1>Travel Assistant</h1>
 </header>
 
+<!-- ===== MAIN ===== -->
 <div id="container">
     <div id="map-section">
         <div id="map-search">
-            <input id="place-input" type="text" placeholder="Tìm địa điểm trên bản đồ">
+            <input id="place-input" type="text" placeholder="Tìm địa điểm (VD: Chợ Bến Thành)">
         </div>
         <div id="map"></div>
     </div>
 
     <div id="chat">
-        <div id="chat-messages"></div>
-        <div id="chat-input">
-            <input id="userInput" type="text" placeholder="Hỏi chatbot du lịch">
-            <button onclick="sendMessage()">Gửi</button>
-        </div>
+        <div id="chat-box"></div>
+        <form id="chat-form">
+            <input id="chat-input" type="text" placeholder="Hỏi chatbot du lịch">
+            <button type="submit">Gửi</button>
+        </form>
     </div>
 </div>
 
-<script>
-let map, marker, infoWindow;
-let defaultCenter = { lat: 10.8231, lng: 106.6297 }; // HCM
+<!-- ===== FOOTER ===== -->
+<footer>
+    © 2025 Vietnam Travel AI · Hotline: {{ HOTLINE }}
+</footer>
 
-function initMap() {
-    map = new google.maps.Map(document.getElementById("map"), {
-        center: defaultCenter,
-        zoom: 12
-    });
-
-    infoWindow = new google.maps.InfoWindow();
-
-    const input = document.getElementById("place-input");
-    const autocomplete = new google.maps.places.Autocomplete(input);
-    autocomplete.bindTo("bounds", map);
-
-    autocomplete.addListener("place_changed", () => {
-        const place = autocomplete.getPlace();
-        if (!place.geometry) return;
-
-        if (marker) marker.setMap(null);
-
-        map.panTo(place.geometry.location);
-        map.setZoom(15);
-
-        marker = new google.maps.Marker({
-            map,
-            position: place.geometry.location
-        });
-
-        loadPlaceDetail(place.place_id, place.name);
-    });
-}
-
-function loadPlaceDetail(placeId, placeName) {
-    fetch(`/api/place_detail?place_id=${placeId}`)
-        .then(res => res.json())
-        .then(data => {
-            infoWindow.setContent(`
-                <strong>${placeName}</strong><br><br>
-                <b>Lịch sử:</b><br>${data.history}<br><br>
-                <b>Văn hóa – con người:</b><br>${data.culture}<br><br>
-                <b>Ẩm thực:</b><br>${data.food}<br>
-                <button class="info-btn" onclick="askChatbot('${placeName}')">
-                    Hỏi chatbot về địa điểm này
-                </button>
-            `);
-            infoWindow.open(map, marker);
-        });
-}
-
-/* ==== CHATBOT (GIỮ LOGIC CŨ) ==== */
-function addMessage(text, cls) {
-    const div = document.createElement("div");
-    div.className = cls;
-    div.innerHTML = text.replace(/\n/g, "<br>");
-    document.getElementById("chat-messages").appendChild(div);
-    div.scrollIntoView();
-}
-
-function sendMessage() {
-    const input = document.getElementById("userInput");
-    const msg = input.value.trim();
-    if (!msg) return;
-
-    addMessage(msg, "msg-user");
-    input.value = "";
-
-    fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg })
-    })
-    .then(res => res.json())
-    .then(data => {
-        addMessage(data.reply, "msg-bot");
-    });
-}
-
-function askChatbot(placeName) {
-    document.getElementById("userInput").value =
-        `Lập lịch trình du lịch cho ${placeName}`;
-    sendMessage();
-}
-
-window.onload = initMap;
-</script>
+<!-- ONE JS FILE ONLY -->
+<script src="/static/app.js"></script>
 
 </body>
 </html>
