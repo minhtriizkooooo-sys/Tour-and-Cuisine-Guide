@@ -7,7 +7,6 @@
 
 <link rel="stylesheet" href="/static/css/style.css">
 
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -16,43 +15,43 @@
 
 <body>
 
-<!-- ===== HEADER ===== -->
 <header class="header">
-  <img src="/static/images/Logo_Marie_Curie.png" alt="Logo">
+  <img src="/static/images/Logo_Marie_Curie.png">
   <div class="logo">Vietnam Travel AI – Tour & Cuisine Guide</div>
 </header>
 
-<!-- ===== MAIN ===== -->
 <div class="main-layout">
 
-  <!-- MAP -->
-  <section class="map-area">
-    <div class="search-box">
-      <input id="mapSearch" placeholder="Tìm địa điểm du lịch tại Việt Nam…">
-      <button onclick="searchMap()">Tìm</button>
+<section class="map-area">
+  <div class="search-box">
+    <input id="mapSearch" placeholder="Tìm địa điểm tại Việt Nam">
+    <button onclick="searchMap()">Tìm</button>
+    <button onclick="enableRouteMode()">🧭</button>
+  </div>
+  <div id="map"></div>
+</section>
+
+<section class="chat-area">
+  <div class="chat-tabs">
+    <button id="btn-history">Lịch sử chat</button>
+    <button id="btn-clear">Xóa lịch sử</button>
+    <button id="btn-export">Xuất PDF</button>
+  </div>
+
+  <div class="chat-box">
+    <div id="messages" class="messages"></div>
+    <div id="suggestions" class="suggestions"></div>
+    <div class="input-row">
+      <input id="msg" placeholder="Hỏi về lịch trình, văn hóa, ẩm thực…">
+      <button id="send">Gửi</button>
     </div>
-    <div id="map"></div>
-  </section>
-
-  <!-- CHAT -->
-  <section class="chat-area">
-    <div class="chat-box">
-      <div id="messages" class="messages"></div>
-
-      <div id="suggestions" class="suggestions"></div>
-
-      <div class="input-row">
-        <input id="msg" placeholder="Hỏi về lịch trình, văn hóa, ẩm thực…" />
-        <button id="send">Gửi</button>
-      </div>
-    </div>
-  </section>
+  </div>
+</section>
 
 </div>
 
-<!-- ===== FOOTER ===== -->
 <footer class="footer">
-  © 2026 Tour & Cuisine Guide • Designed by {{ BUILDER }} • 📞 {{ HOTLINE }}
+  © 2026 • {{ BUILDER }} • {{ HOTLINE }}
 </footer>
 
 <script src="/static/js/map.js"></script>
