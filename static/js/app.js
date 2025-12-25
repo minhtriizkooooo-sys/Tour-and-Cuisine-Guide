@@ -1,133 +1,73 @@
-// ===============================
-// app.js – FINAL FIX (MAP + CHAT)
-// ===============================
+let map, marker;
+const defaultCenter = { lat: 10.8231, lng: 106.6297 };
 
-let map;
-let markers = [];
-
-/* ========= WAIT GOOGLE MAPS ========= */
-function waitForGoogle(cb) {
-    if (window.google && google.maps) {
-        cb();
-    } else {
-        setTimeout(() => waitForGoogle(cb), 100);
-    }
-}
-
-/* ========= INIT ========= */
 document.addEventListener("DOMContentLoaded", () => {
-    bindChat();
-    bindSearch();
-    waitForGoogle(initMap);
-});
 
-/* ========= MAP ========= */
-function initMap() {
+    /* ================= MAP ================= */
     map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 10.8231, lng: 106.6297 }, // HCM
+        center: defaultCenter,
         zoom: 12
     });
-}
 
-async function searchMap(query) {
-    if (!query) return;
+    const input = document.getElementById("place-input");
+    const autocomplete = new google.maps.places.Autocomplete(input);
+    autocomplete.bindTo("bounds", map);
 
-    const res = await fetch(`/map-search?q=${encodeURIComponent(query)}`);
-    const places = await res.json();
+    autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) return;
 
-    clearMarkers();
+        if (marker) marker.setMap(null);
 
-    places.forEach(p => {
-        const marker = new google.maps.Marker({
-            position: { lat: p.lat, lng: p.lng },
+        map.panTo(place.geometry.location);
+        map.setZoom(15);
+
+        marker = new google.maps.Marker({
             map,
-            title: p.name
+            position: place.geometry.location
         });
 
-        marker.addListener("click", () => loadPlaceDetail(p));
-        markers.push(marker);
+        addBot(`📍 <b>${place.name}</b><br>
+        Bạn có thể hỏi tôi về lịch trình, văn hóa hoặc ẩm thực nơi này.`);
     });
 
-    if (places.length) {
-        map.setCenter({ lat: places[0].lat, lng: places[0].lng });
-        map.setZoom(14);
+    /* ================= CHAT ================= */
+    const chatBox = document.getElementById("chat-box");
+    const chatForm = document.getElementById("chat-form");
+    const chatInput = document.getElementById("chat-input");
+
+    function addUser(text) {
+        const div = document.createElement("div");
+        div.className = "user";
+        div.innerText = text;
+        chatBox.appendChild(div);
+        div.scrollIntoView();
     }
-}
 
-function clearMarkers() {
-    markers.forEach(m => m.setMap(null));
-    markers = [];
-}
+    function addBot(text) {
+        const div = document.createElement("div");
+        div.className = "bot";
+        div.innerHTML = text.replace(/\n/g, "<br>");
+        chatBox.appendChild(div);
+        div.scrollIntoView();
+    }
 
-/* ========= PLACE DETAIL ========= */
-async function loadPlaceDetail(place) {
-    const res = await fetch(
-        `/api/place_detail?place_id=${place.place_id}&name=${encodeURIComponent(place.name)}`
-    );
-    const d = await res.json();
-
-    const content = `
-        <strong>${d.name}</strong><br><br>
-        <b>Địa chỉ:</b> ${d.address || "—"}<br>
-        <b>Đánh giá:</b> ${d.rating || "—"}<br><br>
-        <b>Văn hóa:</b><br>${d.culture}<br><br>
-        <b>Ẩm thực:</b><br>${d.food}<br><br>
-        <button onclick="askChat('${d.name}')">Hỏi chatbot</button>
-    `;
-
-    const infowindow = new google.maps.InfoWindow({ content });
-    infowindow.open(map);
-}
-
-/* ========= CHAT ========= */
-function bindChat() {
-    const form = document.getElementById("chat-form");
-    const input = document.getElementById("chat-input");
-
-    form.addEventListener("submit", async (e) => {
+    chatForm.addEventListener("submit", e => {
         e.preventDefault();
-        const msg = input.value.trim();
+        const msg = chatInput.value.trim();
         if (!msg) return;
 
-        appendMsg("user", msg);
-        input.value = "";
+        addUser(msg);
+        chatInput.value = "";
 
-        const res = await fetch("/chat", {
+        fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ msg })
-        });
-
-        const data = await res.json();
-        appendMsg("bot", data.reply);
-
-        // tự động tìm map theo nội dung chat
-        searchMap(msg);
+            body: JSON.stringify({ message: msg })
+        })
+        .then(res => res.json())
+        .then(data => addBot(data.reply))
+        .catch(() => addBot("⚠️ Không kết nối được chatbot."));
     });
-}
 
-function appendMsg(role, text) {
-    const box = document.getElementById("chat-box");
-    const div = document.createElement("div");
-    div.className = role;
-    div.innerHTML = text.replace(/\n/g, "<br>");
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-}
-
-function askChat(place) {
-    const input = document.getElementById("chat-input");
-    input.value = `Giới thiệu du lịch ${place}`;
-    document.getElementById("chat-form").dispatchEvent(new Event("submit"));
-}
-
-/* ========= MAP SEARCH INPUT ========= */
-function bindSearch() {
-    const input = document.getElementById("place-input");
-    input.addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            searchMap(input.value.trim());
-        }
-    });
-}
+});
