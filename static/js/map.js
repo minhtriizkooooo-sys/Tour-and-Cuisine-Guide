@@ -1,40 +1,30 @@
+// =====================================================
+// GLOBAL STATE
+// =====================================================
 let startPoint = null;
 let endPoint = null;
 let routingControl = null;
 
 let clickMarker = null;
 let searchMarker = null;
+
 let currentPlace = null;
 let placeHistory = [];
 
-// ================= MAP INIT =================
+let routeMode = false;
+
+// =====================================================
+// MAP INIT
+// =====================================================
 const map = L.map("map").setView([16.0471, 108.2068], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
 
-// ================= NAVIGATION PANEL =================
-const navPanel = L.control({ position: "topright" });
-navPanel.onAdd = function () {
-  const div = L.DomUtil.create("div", "nav-panel");
-  div.innerHTML = `
-    <div style="background:#fff;padding:10px;border-radius:8px;max-width:260px">
-      <b>🧭 Điều hướng</b><br>
-      <select id="travelMode">
-        <option value="car">🚗 Ô tô</option>
-        <option value="foot">🚶 Đi bộ</option>
-      </select>
-      <div id="navSummary" style="margin-top:6px;font-size:13px"></div>
-      <div id="navSteps" style="max-height:200px;overflow:auto;font-size:13px"></div>
-      <button id="btnGoogleNav" style="margin-top:6px;width:100%">Mở Google Maps</button>
-    </div>
-  `;
-  return div;
-};
-navPanel.addTo(map);
-
-// ================= UTILS =================
+// =====================================================
+// GEOCODING
+// =====================================================
 async function reverseGeocode(lat, lng) {
   const res = await fetch(
     `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
@@ -49,9 +39,13 @@ async function forwardGeocode(q) {
   return res.json();
 }
 
+// =====================================================
+// CHAT INTEGRATION
+// =====================================================
 function askChatbot(question) {
   const input = document.getElementById("msg");
   const sendBtn = document.getElementById("send");
+
   input.value = question;
   sendBtn.click();
 }
@@ -66,83 +60,60 @@ function getContext() {
   return placeHistory.slice(-3).join(", ");
 }
 
-// ================= SEARCH =================
+// Gửi context địa điểm sang chat.js
+function updateChatContext(place) {
+  if (window.setPlaceContext) {
+    window.setPlaceContext(place);
+  }
+}
+
+// =====================================================
+// SEARCH LOCATION
+// =====================================================
 async function searchMap() {
   const q = document.getElementById("mapSearch").value.trim();
   if (!q) return;
 
   const results = await forwardGeocode(q);
-  if (!results.length) return alert("Không tìm thấy địa điểm");
+  if (!results.length) {
+    alert("Không tìm thấy địa điểm");
+    return;
+  }
 
   const p = results[0];
-  const lat = +p.lat;
-  const lng = +p.lon;
-  const name = p.display_name;
+  const lat = parseFloat(p.lat);
+  const lng = parseFloat(p.lon);
+  const placeName = p.display_name;
 
   map.setView([lat, lng], 14);
 
   if (searchMarker) map.removeLayer(searchMarker);
-  searchMarker = L.marker([lat, lng]).addTo(map).bindPopup(name).openPopup();
 
-  currentPlace = name;
-  rememberPlace(name);
+  searchMarker = L.marker([lat, lng]).addTo(map)
+    .bindPopup(`📍 ${placeName}`)
+    .openPopup();
+
+  currentPlace = placeName;
+  rememberPlace(placeName);
+  updateChatContext(placeName);
 
   searchMarker.on("click", () => {
     askChatbot(
-      `Dựa trên các địa điểm đã xem: ${getContext()}. Giới thiệu chi tiết ${name}`
+      `Giới thiệu chi tiết ${placeName} về lịch sử, văn hóa, con người, ẩm thực và du lịch`
     );
   });
 }
 
-// ================= ROUTING =================
-function createRoute(profile = "car") {
-  if (routingControl) map.removeControl(routingControl);
-
-  routingControl = L.Routing.control({
-    waypoints: [startPoint, endPoint],
-    router: L.Routing.osrmv1({
-      serviceUrl: "https://router.project-osrm.org/route/v1",
-      profile
-    }),
-    addWaypoints: false,
-    draggableWaypoints: false,
-    show: false
-  })
-    .on("routesfound", (e) => {
-      const r = e.routes[0];
-      const km = (r.summary.totalDistance / 1000).toFixed(1);
-      const min = Math.round(r.summary.totalTime / 60);
-
-      document.getElementById("navSummary").innerHTML =
-        `📏 ${km} km – ⏱ ${min} phút`;
-
-      const stepsEl = document.getElementById("navSteps");
-      stepsEl.innerHTML = "";
-
-      r.instructions.forEach((i) => {
-        const div = document.createElement("div");
-        div.innerHTML = "➡️ " + i.text;
-        stepsEl.appendChild(div);
-      });
-
-      document.getElementById("btnGoogleNav").onclick = () => {
-        window.open(
-          `https://www.google.com/maps/dir/${startPoint.lat},${startPoint.lng}/${endPoint.lat},${endPoint.lng}`,
-          "_blank"
-        );
-      };
-    })
-    .addTo(map);
-}
-
-// ================= MAP CLICK =================
+// =====================================================
+// MAP CLICK HANDLER
+// =====================================================
 map.on("click", async (e) => {
-  const { lat, lng } = e.latlng;
 
-  if (window.routeMode) {
+  // ================= ROUTE MODE =================
+  if (routeMode) {
     if (!startPoint) {
       startPoint = e.latlng;
-      L.marker(startPoint).addTo(map).bindPopup("📍 Điểm đi").openPopup();
+      L.marker(startPoint).addTo(map).bindPopup("📍 Điểm xuất phát").openPopup();
       return;
     }
 
@@ -150,46 +121,102 @@ map.on("click", async (e) => {
       endPoint = e.latlng;
       L.marker(endPoint).addTo(map).bindPopup("🏁 Điểm đến").openPopup();
 
-      const mode = document.getElementById("travelMode").value;
-      createRoute(mode === "foot" ? "foot" : "car");
+      if (routingControl) map.removeControl(routingControl);
 
-      window.routeMode = false;
+      routingControl = L.Routing.control({
+        waypoints: [startPoint, endPoint],
+        routeWhileDragging: false,
+        addWaypoints: false,
+        show: true,
+        lineOptions: {
+          styles: [{ weight: 6 }]
+        }
+      }).addTo(map);
+
+      // Chatbot giới thiệu tuyến đường & vùng đi qua
+      askChatbot(
+        `Giới thiệu các địa phương, văn hóa, ẩm thực và điểm du lịch nổi bật trên tuyến đường từ điểm xuất phát đến điểm đến này`
+      );
+
+      routeMode = false;
+      startPoint = null;
+      endPoint = null;
       return;
     }
   }
 
+  // ================= NORMAL MODE =================
   if (clickMarker) map.removeLayer(clickMarker);
-  clickMarker = L.marker([lat, lng]).addTo(map);
+  clickMarker = L.marker(e.latlng).addTo(map);
 
-  const data = await reverseGeocode(lat, lng);
-  const place =
-    data.address.city ||
-    data.address.town ||
-    data.address.village ||
-    data.display_name;
+  try {
+    const data = await reverseGeocode(e.latlng.lat, e.latlng.lng);
 
-  currentPlace = place;
-  rememberPlace(place);
+    const place =
+      data.address.city ||
+      data.address.town ||
+      data.address.village ||
+      data.address.county ||
+      data.display_name;
 
-  askChatbot(
-    `Dựa trên các địa điểm đã xem: ${getContext()}. Giới thiệu ${place}`
-  );
+    currentPlace = place;
+    rememberPlace(place);
+    updateChatContext(place);
+
+    askChatbot(
+      `Giới thiệu văn hóa, con người, lịch sử, ẩm thực và gợi ý lịch trình du lịch tại ${place}`
+    );
+
+  } catch (err) {
+    console.error("Reverse geocode error:", err);
+  }
 });
 
-// ================= POI =================
-const poiLayer = L.layerGroup().addTo(map);
+// =====================================================
+// HOVER PREVIEW
+// =====================================================
+let hoverTimer = null;
+let hoverPopup = L.popup({
+  closeButton: false,
+  offset: [0, -10]
+});
 
-function addPOI(lat, lng, name) {
-  const marker = L.marker([lat, lng]).addTo(poiLayer);
-  marker.on("click", () => {
-    askChatbot(`Giới thiệu chi tiết ${name}`);
-  });
-}
+map.on("mousemove", (e) => {
+  clearTimeout(hoverTimer);
 
-// ================= ROUTE MODE BUTTON =================
+  hoverTimer = setTimeout(async () => {
+    try {
+      const data = await reverseGeocode(e.latlng.lat, e.latlng.lng);
+      const name =
+        data.address.city ||
+        data.address.town ||
+        data.address.village ||
+        data.display_name;
+
+      hoverPopup
+        .setLatLng(e.latlng)
+        .setContent(`<b>${name}</b><br><small>Click để khám phá</small>`)
+        .openOn(map);
+    } catch {}
+  }, 600);
+});
+
+// =====================================================
+// ROUTE MODE BUTTON
+// =====================================================
 function enableRouteMode() {
-  window.routeMode = true;
+  routeMode = true;
   startPoint = null;
   endPoint = null;
-  alert("🧭 Click điểm đi → điểm đến");
+
+  if (routingControl) {
+    map.removeControl(routingControl);
+    routingControl = null;
+  }
 }
+
+// =====================================================
+// EXPORT GLOBAL
+// =====================================================
+window.searchMap = searchMap;
+window.enableRouteMode = enableRouteMode;
