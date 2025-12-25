@@ -1,109 +1,90 @@
-const SESSION_ID = Math.random().toString(36).substring(7);
+import os
+import io
+import uuid
+import sqlite3
+import requests
+from flask import Flask, request, jsonify, render_template, send_file
+from flask_cors import CORS
+from serpapi import GoogleSearch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.enums import TA_LEFT
 
-// HÀM GỬI TIN NHẮN (Đưa ra global để map.js gọi được)
-async function sendMsg(customText = null) {
-    const input = document.getElementById("msg");
-    const messagesEl = document.getElementById("messages");
-    const suggestionsEl = document.getElementById("suggestions");
+app = Flask(__name__)
+CORS(app)
 
-    const text = customText || input.value.trim();
-    if (!text) return;
+# --- THAY KEY THẬT CỦA BẠN VÀO ĐÂY ---
+OPENAI_API_KEY = "sk-..." 
+SERPAPI_KEY = "..."
 
-    // Hiển thị tin user
-    appendBubble("user", text);
-    input.value = "";
-    suggestionsEl.innerHTML = "";
+DB_PATH = "chat_history.db"
 
-    const loading = appendBubble("bot", "Đang kết nối dữ liệu thực tế...");
+def db_conn():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-    try {
-        const r = await fetch("/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ msg: text, sid: SESSION_ID })
-        });
-        const j = await r.json();
-        loading.remove();
+def init_db():
+    with db_conn() as conn:
+        conn.execute("CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT)")
+        conn.commit()
+init_db()
 
-        appendBubble("bot", j.reply);
-        if (j.images) renderImages(j.images);
-        if (j.suggestions) renderSuggestions(j.suggestions);
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-    } catch (e) {
-        if(loading) loading.remove();
-        appendBubble("bot", "⚠️ Lỗi kết nối API. Hãy kiểm tra lại API Key trong app.py");
-    }
-}
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.json
+    msg = data.get("msg", "")
+    sid = data.get("sid", "default")
+    
+    # 1. SERPAPI - Lấy dữ liệu thật
+    search = GoogleSearch({"q": msg, "api_key": SERPAPI_KEY, "hl": "vi"})
+    res = search.get_dict()
+    context = " ".join([o.get("snippet", "") for o in res.get("organic_results", [])[:3]])
+    images = [{"url": i.get("thumbnail"), "caption": i.get("title")} for i in res.get("inline_images", [])[:4]]
 
-function appendBubble(role, text) {
-    const messagesEl = document.getElementById("messages");
-    const b = document.createElement("div");
-    b.className = "bubble " + role;
-    b.innerText = text;
-    messagesEl.appendChild(b);
-    messagesEl.scrollTop = messagesEl.scrollHeight; // Tự động cuộn xuống
-    return b;
-}
+    # 2. OPENAI - Trả lời
+    r = requests.post("https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": f"Dữ liệu thật: {context}. Hãy trả lời chi tiết."},
+                {"role": "user", "content": msg + " [SUGGESTIONS] gợi ý 1|gợi ý 2|gợi ý 3 [/SUGGESTIONS]"}
+            ]
+        })
+    
+    full_reply = r.json()["choices"][0]["message"]["content"]
+    reply_text = full_reply.split("[SUGGESTIONS]")[0].strip()
+    
+    # Lưu DB
+    with db_conn() as conn:
+        conn.execute("INSERT INTO messages (session_id, role, content) VALUES (?,?,?)", (sid, "user", msg))
+        conn.execute("INSERT INTO messages (session_id, role, content) VALUES (?,?,?)", (sid, "bot", reply_text))
+        conn.commit()
 
-function renderImages(images) {
-    const messagesEl = document.getElementById("messages");
-    if (!images || !images.length) return;
-    const row = document.createElement("div");
-    row.className = "img-row";
-    images.forEach(img => {
-        const el = document.createElement("img");
-        el.src = img.url;
-        el.className = "img-item";
-        el.onclick = () => {
-            const modal = document.getElementById("img-modal");
-            document.getElementById("img-modal-src").src = img.url;
-            document.getElementById("img-modal-caption").innerText = img.caption || "";
-            modal.style.display = "flex";
-        };
-        row.appendChild(el);
-    });
-    messagesEl.appendChild(row);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-}
+    return jsonify({"reply": reply_text, "images": images})
 
-function renderSuggestions(list) {
-    const suggestionsEl = document.getElementById("suggestions");
-    suggestionsEl.innerHTML = "";
-    list.forEach(s => {
-        const btn = document.createElement("button");
-        btn.innerText = s;
-        btn.onclick = () => sendMsg(s);
-        suggestionsEl.appendChild(btn);
-    });
-}
+@app.route("/export-pdf", methods=["POST"])
+def export_pdf():
+    sid = request.json.get("sid")
+    with db_conn() as conn:
+        rows = conn.execute("SELECT role, content FROM messages WHERE session_id=?", (sid,)).fetchall()
+    buf = io.BytesIO()
+    try: pdfmetrics.registerFont(TTFont("DejaVu", "static/DejaVuSans.ttf"))
+    except: pass
+    doc = SimpleDocTemplate(buf, pagesize=A4)
+    story = [Paragraph(f"<b>{r['role']}:</b> {r['content']}", ParagraphStyle('VN', fontName='DejaVu' if 'DejaVu' in pdfmetrics.getRegisteredFontNames() else 'Helvetica', fontSize=10, leading=14)) for r in rows]
+    doc.build(story)
+    buf.seek(0)
+    return send_file(buf, as_attachment=True, download_name="history.pdf")
 
-// Gắn vào window cho Map.js gọi
-window.sendMsg = sendMsg;
-window.askChatbot = sendMsg;
-
-document.addEventListener("DOMContentLoaded", () => {
-    // ĐÓNG MODAL TUYỆT ĐỐI
-    document.addEventListener("click", (e) => {
-        const modal = document.getElementById("img-modal");
-        if (!modal) return;
-        if (e.target.id === "img-close" || e.target === modal) {
-            modal.style.display = "none";
-        }
-    });
-
-    document.getElementById("send").onclick = () => sendMsg();
-    document.getElementById("msg").onkeydown = (e) => { if(e.key === "Enter") sendMsg(); };
-
-    // XUẤT PDF
-    document.getElementById("btn-export").onclick = async () => {
-        const r = await fetch("/export-pdf", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ sid: SESSION_ID })
-        });
-        const blob = await r.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url; a.download = "Lich_su_hanh_trinh.pdf"; a.click();
-    };
-});
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
