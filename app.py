@@ -95,6 +95,8 @@ def save_message(sid, role, content):
     db.close()
 
 def fetch_history(sid):
+    if not sid:
+        return []
     db = get_db()
     rows = db.execute(
         "SELECT role, content, created_at FROM messages WHERE session_id=? ORDER BY id",
@@ -114,6 +116,8 @@ def save_suggestions(sid, questions):
     db.close()
 
 def fetch_suggestions(sid):
+    if not sid:
+        return []
     db = get_db()
     rows = db.execute(
         "SELECT question FROM suggestions WHERE session_id=?",
@@ -127,16 +131,16 @@ SYSTEM_PROMPT = """
 Bạn là chuyên gia du lịch Việt Nam.
 
 QUY TẮC:
-- Nếu người dùng KHÔNG nêu địa điểm → mặc định tư vấn TP. Hồ Chí Minh, Việt Nam
-- Nếu câu hỏi KHÔNG liên quan du lịch → trả lời xin lỗi lịch sự
+- Nếu người dùng KHÔNG nêu địa điểm → mặc định tư vấn TP. Hồ Chí Minh
+- Nếu KHÔNG liên quan du lịch → xin lỗi lịch sự
 
 FORMAT:
 1) Thời gian lý tưởng
 2) Lịch trình
 3) Chi phí
-4) Gợi ý hình ảnh & video (mô tả)
+4) Gợi ý hình ảnh & video
 
-Trả lời bằng tiếng Việt, không HTML.
+Trả lời bằng tiếng Việt.
 """
 
 def call_openai(user_msg):
@@ -157,7 +161,6 @@ def call_openai(user_msg):
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
 
-# ---------------- SUGGESTIONS ----------------
 def generate_suggestions(question, answer):
     prompt = f"""
 Dựa trên câu hỏi và câu trả lời sau, hãy gợi ý 3 câu hỏi tiếp theo.
@@ -184,7 +187,7 @@ Trả lời: {answer}
     text = r.json()["choices"][0]["message"]["content"]
     return [x.strip("- ").strip() for x in text.splitlines() if x.strip()]
 
-# ---------------- SERPAPI ----------------
+# ---------------- SERPAPI IMAGE / VIDEO ----------------
 def search_images(query):
     if not SERPAPI_KEY:
         return []
@@ -193,7 +196,8 @@ def search_images(query):
         params={
             "q": query,
             "tbm": "isch",
-            "num": 4,
+            "hl": "vi",
+            "gl": "vn",
             "api_key": SERPAPI_KEY
         },
         timeout=10
@@ -211,7 +215,8 @@ def search_youtube(query):
         params={
             "q": query,
             "tbm": "vid",
-            "num": 3,
+            "hl": "vi",
+            "gl": "vn",
             "api_key": SERPAPI_KEY
         },
         timeout=10
@@ -245,25 +250,11 @@ def chat():
     reply = call_openai(msg)
     save_message(sid, "bot", reply)
 
-    # context sát hơn (2–3 dòng đầu)
-    reply_lines = [
-        l.strip("0123456789). -")
-        for l in reply.splitlines()
-        if l.strip()
-    ][:3]
-
-    context_query = f"{msg}. {' '.join(reply_lines)}"
-
     suggestions = generate_suggestions(msg, reply)
     save_suggestions(sid, suggestions)
 
-    images = search_images(context_query)
-    videos = search_youtube(context_query)
-
-    # fallback không phải du lịch → thêm video
-    if "Xin lỗi, nhưng tôi chỉ có thể tư vấn về du lịch tại Việt Nam" in reply:
-        if not videos:
-            videos = search_youtube("Du lịch TP. Hồ Chí Minh")
+    images = search_images(msg)
+    videos = search_youtube(msg)
 
     return jsonify({
         "reply": reply,
@@ -275,9 +266,43 @@ def chat():
 @app.route("/history")
 def history():
     sid = request.cookies.get("session_id")
-    return jsonify({"history": fetch_history(sid) if sid else []})
+    return jsonify({"history": fetch_history(sid)})
 
-# ---------------- PDF FOOTER ----------------
+# ---------------- MAP SEARCH (SERPAPI GOOGLE MAPS) ----------------
+@app.route("/map-search")
+def map_search():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify([])
+
+    r = requests.get(
+        "https://serpapi.com/search.json",
+        params={
+            "engine": "google_maps",
+            "q": q,
+            "hl": "vi",
+            "gl": "vn",
+            "api_key": SERPAPI_KEY
+        },
+        timeout=15
+    )
+
+    data = r.json()
+    results = []
+
+    for p in data.get("local_results", []):
+        gps = p.get("gps_coordinates")
+        if gps:
+            results.append({
+                "name": p.get("title"),
+                "lat": gps["latitude"],
+                "lng": gps["longitude"],
+                "address": p.get("address")
+            })
+
+    return jsonify(results)
+
+# ---------------- PDF ----------------
 def pdf_footer(canvas, doc):
     canvas.saveState()
     canvas.setFont("DejaVu", 9)
@@ -286,12 +311,10 @@ def pdf_footer(canvas, doc):
     canvas.drawRightString(A4[0]-2*cm, 1.2*cm, f"Trang {doc.page}")
     canvas.restoreState()
 
-# ---------------- EXPORT PDF ----------------
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     sid = request.cookies.get("session_id")
     history = fetch_history(sid)
-    suggestions = fetch_suggestions(sid)
 
     buffer = io.BytesIO()
     font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
@@ -302,8 +325,7 @@ def export_pdf():
         "VN",
         fontName="DejaVu",
         fontSize=11,
-        leading=14,
-        wordWrap="CJK"
+        leading=14
     ))
 
     doc = SimpleDocTemplate(
@@ -313,41 +335,13 @@ def export_pdf():
     )
 
     story = []
-
-    logo_path = os.path.join(app.static_folder, "logo.png")
-    if os.path.exists(logo_path):
-        logo = Image(logo_path, width=4.5*cm, height=4.5*cm)
-        logo.hAlign = "CENTER"
-        story.append(logo)
-        story.append(Spacer(1, 12))
-
-    story.append(Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]))
+    story.append(Paragraph("<b>LỊCH SỬ CHAT</b>", styles["VN"]))
     story.append(Spacer(1, 12))
 
     for h in history:
         label = "NGƯỜI DÙNG" if h["role"] == "user" else "TRỢ LÝ"
-        table = Table(
-            [[label, Paragraph(h["content"], styles["VN"])]],
-            colWidths=[3*cm, 11.5*cm]
-        )
-        table.setStyle(TableStyle([
-            ("FONT", (0,0), (-1,-1), "DejaVu"),
-            ("VALIGN", (0,0), (-1,-1), "TOP"),
-            ("LEFTPADDING", (0,0), (-1,-1), 6),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("TOPPADDING", (0,0), (-1,-1), 6),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
-            ("BACKGROUND", (0,0), (-1,-1),
-             colors.lightblue if h["role"]=="user" else colors.whitesmoke),
-        ]))
-        story.append(table)
-        story.append(Spacer(1, 10))
-
-    if suggestions:
-        story.append(Spacer(1, 12))
-        story.append(Paragraph("<b>GỢI Ý TIẾP THEO</b>", styles["VN"]))
-        for s in suggestions:
-            story.append(Paragraph(f"- {s}", styles["VN"]))
+        story.append(Paragraph(f"<b>{label}:</b> {h['content']}", styles["VN"]))
+        story.append(Spacer(1, 8))
 
     doc.build(story, onFirstPage=pdf_footer, onLaterPages=pdf_footer)
     buffer.seek(0)
@@ -355,41 +349,10 @@ def export_pdf():
     return send_file(
         buffer,
         as_attachment=True,
-        download_name="travel_chat_history.pdf",
+        download_name="lich_su_chat.pdf",
         mimetype="application/pdf"
     )
 
-# ---------------- MAP SEARCH ----------------
-@app.route("/search-location")
-def search_location():
-    q = request.args.get("q", "").strip()
-    if not q:
-        return jsonify({"error": "empty"}), 400
-
-    r = requests.get(
-        "https://serpapi.com/search.json",
-        params={
-            "q": q + " Vietnam",
-            "engine": "google_maps",
-            "api_key": SERPAPI_KEY
-        },
-        timeout=10
-    )
-    data = r.json()
-
-    if "place_results" not in data:
-        return jsonify({"error": "not_found"}), 404
-
-    place = data["place_results"]
-    return jsonify({
-        "title": place.get("title"),
-        "lat": place.get("gps_coordinates", {}).get("latitude"),
-        "lng": place.get("gps_coordinates", {}).get("longitude"),
-        "address": place.get("address")
-    })
-
-
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
