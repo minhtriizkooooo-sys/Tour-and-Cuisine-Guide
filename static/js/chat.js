@@ -1,96 +1,65 @@
 async function askChatbot(msg) {
+    if (!msg.trim()) return;
     const chatBox = document.getElementById('chat-box');
-    chatBox.innerHTML += `<div><b>Bạn:</b> ${msg}</div>`;
+    
+    // 1. Hiển thị tin nhắn của bạn
+    chatBox.innerHTML += `<div class="message user-msg" style="text-align:right; margin:10px; background:#e3f2fd; padding:10px; border-radius:10px;"><b>Bạn:</b> ${msg}</div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
 
-    const res = await fetch('/chat', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({msg: msg})
-    });
-    const data = await res.json();
+    // 2. Gọi API
+    try {
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ msg: msg })
+        });
+        const data = await response.json();
 
-    let imgHtml = '<div class="img-gallery">';
-    data.images.forEach((src, i) => {
-        imgHtml += `<img src="${src}" onclick="openImg('${src}')">`;
-    });
-    imgHtml += '</div>';
+        // 3. Xử lý gallery ảnh
+        let imgHtml = '<div class="img-gallery" style="display:flex; overflow-x:auto; gap:10px; margin:10px 0;">';
+        data.images.forEach(src => {
+            imgHtml += `<img src="${src}" style="height:100px; border-radius:5px; cursor:pointer;" onclick="openImg('${src}')">`;
+        });
+        imgHtml += '</div>';
 
-    chatBox.innerHTML += `
-        <div>
-            <b>AI:</b> ${data.text.replace(/\n/g, '<br>')}
-            ${imgHtml}
-            <br><a href="${data.youtube}" target="_blank">Xem Video liên quan</a>
-        </div>
-    `;
+        // 4. Xử lý câu hỏi gợi ý
+        let suggestHtml = '<div class="suggestions-area">';
+        if (data.suggestions) {
+            data.suggestions.forEach(q => {
+                suggestHtml += `<button class="suggest-btn" onclick="askChatbot('${q}')">${q}</button>`;
+            });
+        }
+        suggestHtml += '</div>';
+
+        // 5. Hiển thị tin nhắn của AI
+        chatBox.innerHTML += `
+            <div class="message bot-msg" style="text-align:left; margin:10px; background:#f5f5f5; padding:10px; border-radius:10px; border-left:4px solid #2c3e50;">
+                <b>AI:</b> <br>${data.text.replace(/\n/g, '<br>')}
+                ${imgHtml}
+                <br><a href="${data.youtube}" target="_blank" style="color:#d32f2f; font-weight:bold;">📺 Xem Video thực tế</a>
+                ${suggestHtml}
+            </div>
+        `;
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+    } catch (e) {
+        chatBox.innerHTML += `<div style="color:red;">Lỗi kết nối server!</div>`;
+    }
 }
+
+// Bắt sự kiện click nút gửi
+document.getElementById('send-btn').onclick = () => {
+    const input = document.getElementById('user-input');
+    askChatbot(input.value);
+    input.value = '';
+};
+
+// Bắt sự kiện phím Enter
+document.getElementById('user-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') document.getElementById('send-btn').click();
+});
 
 function openImg(src) {
     document.getElementById('full-img').src = src;
     document.getElementById('overlay').style.display = 'flex';
 }
-function closeImg() { document.getElementById('overlay').style.display = 'none'; }
-
-document.getElementById('user-input').addEventListener('keypress', (e) => {
-    if(e.key === 'Enter') {
-        askChatbot(e.target.value);
-        e.target.value = '';
-    }
-});
-
-let currentImages = [];
-let currentImgIndex = 0;
-
-function updateOverlayImg() {
-    document.getElementById('full-img').src = currentImages[currentImgIndex];
-}
-
-window.openImg = (images, index) => {
-    currentImages = images;
-    currentImgIndex = index;
-    updateOverlayImg();
-    document.getElementById('overlay').style.display = 'flex';
-};
-
-window.nextImg = () => {
-    currentImgIndex = (currentImgIndex + 1) % currentImages.length;
-    updateOverlayImg();
-};
-
-window.prevImg = () => {
-    currentImgIndex = (currentImgIndex - 1 + currentImages.length) % currentImages.length;
-    updateOverlayImg();
-};
-
-// Hàm xử lý khi click vào câu hỏi gợi ý
-async function handleSuggestion(text) {
-    await askChatbot(text);
-}
-
-// Logic hiển thị tin nhắn có hình ảnh và nút gợi ý
-function appendBotMessage(data) {
-    const chatBox = document.getElementById('chat-box');
-    let imgHtml = `<div class="img-gallery">`;
-    data.images.forEach((src, i) => {
-        imgHtml += `<img class="img-item" src="${src}" onclick="openImg(${JSON.stringify(data.images)}, ${i})">`;
-    });
-    imgHtml += `</div>`;
-
-    // Giả sử AI trả về câu hỏi gợi ý ở cuối chuỗi bằng dấu [Suggest]
-    let suggestionHtml = "";
-    if(data.suggestions) {
-        data.suggestions.forEach(s => {
-            suggestionHtml += `<button class="tab-btn" style="margin:5px; font-size:0.8rem" onclick="handleSuggestion('${s}')">${s}</button>`;
-        });
-    }
-
-    chatBox.innerHTML += `
-        <div class="message bot-msg">
-            ${data.text.replace(/\n/g, '<br>')}
-            ${imgHtml}
-            <p><a href="${data.youtube}" target="_blank">📺 Xem Video liên quan</a></p>
-            <div class="suggestions-area">${suggestionHtml}</div>
-        </div>
-    `;
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
