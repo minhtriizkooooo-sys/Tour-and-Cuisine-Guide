@@ -93,3 +93,25 @@ function openImg(src) {
     document.getElementById('full-img').src = src;
     document.getElementById('overlay').style.display = 'flex';
 }
+
+function exportPDF() {
+    const chatBox = document.getElementById('chat-box');
+    
+    // Kiểm tra xem có nội dung để xuất không
+    if (chatBox.innerText.trim() === "" || chatBox.innerText.includes("Xin chào!")) {
+        alert("Chưa có nội dung hội thoại để xuất PDF!");
+        return;
+    }
+
+    // Cấu hình định dạng PDF
+    const opt = {
+        margin:       10,
+        filename:     'lich-trinh-du-lich-vietnam.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // Chạy lệnh xuất PDF từ nội dung chat-box
+    html2pdf().set(opt).from(chatBox).save();
+}
