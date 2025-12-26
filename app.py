@@ -1,45 +1,13 @@
 from flask import Flask, render_template, request, jsonify
 from playwright.sync_api import sync_playwright
 import os
-import re
 
 app = Flask(__name__)
-
-def clean_and_format(raw_text, query):
-    """
-    Hàm này đóng vai trò 'Bộ não' thay thế AI:
-    Nó sẽ lọc dữ liệu thô, loại bỏ rác và định dạng lại thành các mục chuyên nghiệp.
-    """
-    if not raw_text:
-        return "Xin lỗi, không tìm thấy dữ liệu cụ thể cho địa danh này."
-
-    # Chia nhỏ dữ liệu dựa trên dấu phân cách
-    parts = raw_text.split('|')
-    
-    # Tạo cấu trúc bài viết
-    formatted_html = f"<h3>🌟 Khám phá du lịch: {query.upper()}</h3><br>"
-    
-    # Mục 1: Tổng quan (Lấy đoạn đầu tiên cào được)
-    formatted_html += f"<b>📍 Tổng quan:</b><br>{parts[0].strip()}<br><br>"
-    
-    # Mục 2: Văn hóa & Đặc điểm (Lấy các đoạn tiếp theo)
-    if len(parts) > 1:
-        formatted_html += f"<b>🏛️ Văn hóa & Cảnh quan:</b><br><ul>"
-        for p in parts[1:3]:
-            if len(p) > 20:
-                formatted_html += f"<li>{p.strip()}</li>"
-        formatted_html += "</ul><br>"
-        
-    # Mục 3: Ẩm thực & Kinh nghiệm (Đoạn cuối)
-    if len(parts) > 3:
-        formatted_html += f"<b>🍲 Ẩm thực & Lời khuyên:</b><br>{parts[3].strip()}<br>"
-
-    return formatted_html
 
 def search_google_all_in_one(query):
     try:
         with sync_playwright() as p:
-            # Khởi chạy trình duyệt với cấu hình Cloud
+            # Cấu hình tối ưu cho Render/Koyeb
             browser = p.chromium.launch(
                 headless=True, 
                 args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
@@ -49,38 +17,24 @@ def search_google_all_in_one(query):
             )
             page = context.new_page()
 
-            # --- 1. LẤY THÔNG TIN VĂN BẢN VÀ VIDEO ---
-            search_url = f"https://www.google.com/search?q={query}+travel+guide+vietnam"
-            page.goto(search_url, timeout=60000)
-            
-            # Cào dữ liệu văn bản (lấy các thẻ div mô tả của Google)
+            # 1. Cào thông tin và Video
+            page.goto(f"https://www.google.com/search?q={query}+du+lịch+lịch+sử+văn+hoá+ẩm+thực", timeout=60000)
             texts = page.evaluate('''() => {
-                let items = Array.from(document.querySelectorAll('div.VwiC3b')).slice(0, 5);
-                return items.map(el => el.innerText).join(' | ');
+                return Array.from(document.querySelectorAll('div.VwiC3b')).slice(0, 4).map(el => el.innerText).join(' | ');
             }''')
-            
-            # Lấy link YouTube đầu tiên
-            yt_link = page.evaluate('''() => {
-                const link = document.querySelector('a[href*="youtube.com/watch"]');
-                return link ? link.href : "";
-            }''')
+            yt_link = page.evaluate('() => document.querySelector("a[href*=\'youtube.com/watch\']")?.href || ""')
 
-            # --- 2. LẤY HÌNH ẢNH THỰC TẾ ---
-            img_url = f"https://www.google.com/search?q={query}+vietnam+tourism+photography&tbm=isch"
-            page.goto(img_url, timeout=60000)
-            # Đợi ảnh load một chút
-            page.wait_for_timeout(2000)
-            images = page.evaluate('''() => {
-                return Array.from(document.querySelectorAll('img'))
-                    .slice(1, 7)
-                    .map(img => img.src)
-                    .filter(src => src && src.startsWith('http'));
+            # 2. Cào hình ảnh
+            page.goto(f"https://www.google.com/search?q={query}+vietnam+travel+photography&tbm=isch")
+            page.wait_for_timeout(1000)
+            imgs = page.evaluate('''() => {
+                return Array.from(document.querySelectorAll('img')).slice(1, 6).map(i => i.src).filter(s => s.startsWith('http'));
             }''')
 
             browser.close()
-            return {"context": texts, "yt": yt_link, "imgs": images}
+            return {"context": texts, "yt": yt_link, "imgs": imgs}
     except Exception as e:
-        print(f"Lỗi hệ thống: {e}")
+        print(f"Lỗi Playwright: {e}")
         return {"context": "", "yt": "", "imgs": []}
 
 @app.route('/')
@@ -89,33 +43,33 @@ def index():
 
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
-    try:
-        user_msg = request.json.get('msg', '')
-        if not user_msg:
-            return jsonify({"text": "Bạn chưa nhập câu hỏi."})
+    user_msg = request.json.get('msg', '')
+    data = search_google_all_in_one(user_msg)
+    
+    # AI Logic (Thuật toán tự định dạng dữ liệu thông minh)
+    parts = data['context'].split('|')
+    smart_html = f"<div style='font-family: Arial; line-height: 1.6;'>"
+    smart_html += f"<h3 style='color: #0077b6;'>📍 Khám phá: {user_msg}</h3>"
+    
+    if len(parts) > 0:
+        smart_html += f"<p><b>Tổng quan:</b> {parts[0]}</p>"
+    if len(parts) > 1:
+        smart_html += f"<p><b>🏛️ Văn hóa & Cảnh quan:</b> <ul>"
+        for p in parts[1:3]:
+            smart_html += f"<li>{p.strip()}</li>"
+        smart_html += "</ul></p>"
+    
+    smart_html += "</div>"
 
-        # 1. Cào dữ liệu thô từ Google
-        data = search_google_all_in_one(user_msg)
-        
-        # 2. Xử lý dữ liệu thô thành giao diện 'Thông minh' mà không cần API AI
-        smart_text = clean_and_format(data['context'], user_msg)
-        
-        # 3. Tạo gợi ý thủ công dựa trên địa danh
-        suggestions = [
-            f"Đặc sản {user_msg}",
-            f"Lịch trình 3 ngày tại {user_msg}"
-        ]
+    suggestions = [f"Đặc sản {user_msg}", f"Kinh nghiệm đi {user_msg} tự túc"]
 
-        return jsonify({
-            "text": smart_text,
-            "images": data['imgs'],
-            "youtube": data['yt'],
-            "suggestions": suggestions
-        })
-    except Exception as e:
-        return jsonify({"text": f"Có lỗi xảy ra: {str(e)}"})
+    return jsonify({
+        "text": smart_html,
+        "images": data['imgs'],
+        "youtube": data['yt'],
+        "suggestions": suggestions
+    })
 
 if __name__ == '__main__':
-    # Koyeb/Render dùng PORT từ environment
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
