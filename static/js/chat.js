@@ -1,12 +1,24 @@
+// Mảng lưu trữ lịch sử cuộc gọi
+let chatHistory = [];
+
 async function askChatbot(msg) {
     if (!msg.trim()) return;
+    
+    // Lưu vào lịch sử nếu là câu hỏi mới
+    if (!chatHistory.includes(msg)) {
+        chatHistory.unshift(msg); // Thêm vào đầu mảng
+        updateHistoryUI();
+    }
+
     const chatBox = document.getElementById('chat-box');
     
-    // 1. Hiển thị tin nhắn của bạn
-    chatBox.innerHTML += `<div class="message user-msg" style="text-align:right; margin:10px; background:#e3f2fd; padding:10px; border-radius:10px;"><b>Bạn:</b> ${msg}</div>`;
+    // Hiển thị tin nhắn người dùng
+    chatBox.innerHTML += `
+        <div class="message user-msg">
+            <b>Bạn:</b> ${msg}
+        </div>`;
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    // 2. Gọi API
     try {
         const response = await fetch('/chat', {
             method: 'POST',
@@ -15,50 +27,68 @@ async function askChatbot(msg) {
         });
         const data = await response.json();
 
-        // 3. Xử lý gallery ảnh
-        let imgHtml = '<div class="img-gallery" style="display:flex; overflow-x:auto; gap:10px; margin:10px 0;">';
+        // Tạo Gallery ảnh
+        let imgHtml = '<div class="img-gallery">';
         data.images.forEach(src => {
-            imgHtml += `<img src="${src}" style="height:100px; border-radius:5px; cursor:pointer;" onclick="openImg('${src}')">`;
+            imgHtml += `<img src="${src}" class="img-item" onclick="openImg('${src}')">`;
         });
         imgHtml += '</div>';
 
-        // 4. Xử lý câu hỏi gợi ý
-        let suggestHtml = '<div class="suggestions-area">';
-        if (data.suggestions) {
-            data.suggestions.forEach(q => {
-                suggestHtml += `<button class="suggest-btn" onclick="askChatbot('${q}')">${q}</button>`;
-            });
-        }
+        // Tạo câu hỏi gợi ý
+        let suggestHtml = '<div style="margin-top:10px; display:flex; gap:5px; flex-wrap:wrap;">';
+        data.suggestions.forEach(s => {
+            suggestHtml += `<button class="tab-btn" style="font-size:0.75rem; border:1px solid #0077b6; border-radius:15px; padding:3px 10px;" onclick="askChatbot('${s}')">${s}</button>`;
+        });
         suggestHtml += '</div>';
 
-        // 5. Hiển thị tin nhắn của AI
+        // Hiển thị tin nhắn AI
         chatBox.innerHTML += `
-            <div class="message bot-msg" style="text-align:left; margin:10px; background:#f5f5f5; padding:10px; border-radius:10px; border-left:4px solid #2c3e50;">
+            <div class="message bot-msg">
                 <b>AI:</b> <br>${data.text.replace(/\n/g, '<br>')}
                 ${imgHtml}
-                <br><a href="${data.youtube}" target="_blank" style="color:#d32f2f; font-weight:bold;">📺 Xem Video thực tế</a>
+                ${data.youtube ? `<br><a href="${data.youtube}" target="_blank" style="color:#d00; font-weight:bold;">📺 Xem Video thực tế</a>` : ''}
                 ${suggestHtml}
             </div>
         `;
         chatBox.scrollTop = chatBox.scrollHeight;
 
     } catch (e) {
-        chatBox.innerHTML += `<div style="color:red;">Lỗi kết nối server!</div>`;
+        chatBox.innerHTML += `<div style="color:red; padding:10px;">Lỗi kết nối server!</div>`;
     }
 }
 
-// Bắt sự kiện click nút gửi
+// Cập nhật giao diện danh sách lịch sử
+function updateHistoryUI() {
+    const historyList = document.getElementById('history-list');
+    if (!historyList) return;
+
+    historyList.innerHTML = chatHistory.map(item => `
+        <div class="history-item" onclick="loadHistoryItem('${item}')">
+            📍 ${item.substring(0, 30)}${item.length > 30 ? '...' : ''}
+        </div>
+    `).join('');
+}
+
+// Khi nhấn vào một mục trong lịch sử
+function loadHistoryItem(msg) {
+    showTab('chat'); // Quay lại tab hội thoại
+    document.getElementById('user-input').value = msg;
+    askChatbot(msg);
+}
+
+// Xử lý nút Gửi
 document.getElementById('send-btn').onclick = () => {
     const input = document.getElementById('user-input');
     askChatbot(input.value);
     input.value = '';
 };
 
-// Bắt sự kiện phím Enter
+// Xử lý phím Enter
 document.getElementById('user-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') document.getElementById('send-btn').click();
 });
 
+// Xem ảnh phóng to
 function openImg(src) {
     document.getElementById('full-img').src = src;
     document.getElementById('overlay').style.display = 'flex';
