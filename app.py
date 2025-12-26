@@ -1,133 +1,109 @@
-import os
-import io
-import uuid
-import sqlite3
-import requests
-from flask import Flask, request, jsonify, render_template, send_file
-from flask_cors import CORS
-from serpapi import GoogleSearch
+pip install streamlit
 
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import cm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.enums import TA_LEFT
+import streamlit as st
+import asyncio
+import google.generativeai as genai
+from playwright.async_api import async_playwright
 
-app = Flask(__name__)
-CORS(app)
+# --- CẤU HÌNH ---
+st.set_page_config(page_title="AI Search Bot", page_icon="🌐")
+st.title("🌐 AI Search Real-time Bot")
 
-# CẤU HÌNH BIẾN MÔI TRƯỜNG (Ưu tiên lấy từ Render Settings)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "Dán_Key_Vào_Đây_Nếu_Chạy_Local")
-SERPAPI_KEY = os.getenv("SERPAPI_KEY", "Dán_Key_Vào_Đây_Nếu_Chạy_Local")
-DB_PATH = "chat_history.db"
+# Nhập API Key ngay trên giao diện cho tiện
+api_key = st.sidebar.text_input("Nhập Gemini API Key:", type="password")
 
-def db_conn():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+if api_key:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
-def init_db():
-    with db_conn() as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT)")
-        conn.commit()
-init_db()
+# Khởi tạo lịch sử chat trong session của Streamlit
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-SYSTEM_PROMPT = """Bạn là chuyên gia du lịch Việt Nam. 
-Phải trả lời chi tiết về Lịch sử, Văn hóa, Ẩm thực và Lịch trình. 
-Định dạng bằng icon 📍, 🏛, 👥, 🍜. Không bao giờ từ chối trả lời địa danh cụ thể.
-Cuối bài hãy gợi ý 3 câu hỏi trong thẻ [SUGGESTIONS] câu 1|câu 2|câu 3 [/SUGGESTIONS]."""
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-@app.route("/chat", methods=["POST"])
-def chat():
-    try:
-        data = request.json
-        msg = data.get("msg", "")
-        sid = data.get("sid", "default")
-
-        # 1. Gọi SerpApi lấy thông tin thực tế (Tránh trả lời sai lệch)
-        images = []
-        try:
-            search = GoogleSearch({"q": msg, "api_key": SERPAPI_KEY, "hl": "vi", "gl": "vn"})
-            res = search.get_dict()
-            if "inline_images" in res:
-                images = [{"url": img.get("thumbnail"), "caption": img.get("title")} for img in res["inline_images"][:4]]
-        except: pass
-
-        # 2. Gọi OpenAI trả lời chi tiết
-        r = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": msg}],
-                "temperature": 0.7
-            },
-            timeout=25
+# Hàm cào Google (giống như các bước trước)
+async def search_google_direct(query):
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
-        r.raise_for_status()
-        full_reply = r.json()["choices"][0]["message"]["content"]
-
-        reply_text = full_reply.split("[SUGGESTIONS]")[0].strip()
-        suggestions = []
-        if "[SUGGESTIONS]" in full_reply:
-            s_part = full_reply.split("[SUGGESTIONS]")[1].split("[/SUGGESTIONS]")[0]
-            suggestions = [s.strip() for s in s_part.split("|")]
-
-        # 3. Lưu lịch sử vào Database
-        with db_conn() as conn:
-            conn.execute("INSERT INTO messages (session_id, role, content) VALUES (?,?,?)", (sid, "user", msg))
-            conn.execute("INSERT INTO messages (session_id, role, content) VALUES (?,?,?)", (sid, "bot", reply_text))
-            conn.commit()
-
-        return jsonify({"reply": reply_text, "suggestions": suggestions, "images": images})
-    except Exception as e:
-        print(f"Lỗi Server: {e}")
-        return jsonify({"reply": f"⚠️ Lỗi hệ thống: {str(e)}"}), 500
-
-@app.route("/export-pdf", methods=["POST"])
-def export_pdf():
-    try:
-        sid = request.json.get("sid")
-        with db_conn() as conn:
-            rows = conn.execute("SELECT role, content FROM messages WHERE session_id=?", (sid,)).fetchall()
-        
-        buf = io.BytesIO()
-        font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
+        page = await context.new_page()
         try:
-            pdfmetrics.registerFont(TTFont("DejaVu", font_path))
-            font_name = "DejaVu"
-        except: font_name = "Helvetica"
+            await page.goto(f"https://www.google.com/search?q={query}", timeout=10000)
+            await page.wait_for_selector('div.g', timeout=5000)
+            results = await page.evaluate('''() => {
+                let items = [];
+                document.querySelectorAll('div.g').forEach((el, i) => {
+                    if (i < 3) {
+                        let t = el.querySelector('h3')?.innerText;
+                        let s = el.querySelector('div.VwiC3b')?.innerText;
+                        if (t && s) items.push(`${t}: ${s}`);
+                    }
+                });
+                return items.join('\\n');
+            }''')
+        except:
+            results = "Không lấy được dữ liệu mới nhất từ Google."
+        await browser.close()
+        return results
+# Hiển thị lịch sử chat ra màn hình
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-        doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
-        styles = getSampleStyleSheet()
-        # WordWrap chuẩn tiếng Việt
-        style_vn = ParagraphStyle("VN", fontName=font_name, fontSize=11, leading=16, alignment=TA_LEFT)
+# Xử lý khi người dùng nhập câu hỏi
+if prompt := st.chat_input("Hỏi tôi bất cứ thứ gì mới nhất..."):
+    # 1. Hiển thị câu hỏi của user
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # 2. Xử lý phản hồi của Bot
+    with st.chat_message("assistant"):
+        with st.status("🔍 Đang lên Google tìm kiếm..."):
+            # Chạy hàm async trong Streamlit
+            search_data = asyncio.run(search_google_direct(prompt))
+            st.write("Đã tìm thấy dữ liệu. Đang tổng hợp...")
+
+        # Tạo prompt gửi cho AI
+        history_text = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[-5:]])
+        full_prompt = f"""
+        Lịch sử: {history_text}
+        Dữ liệu Google: {search_data}
+        Câu hỏi: {prompt}
+        Hãy trả lời ngắn gọn, có dẫn nguồn nếu có thể.
+        """
         
-        story = [Paragraph("BÁO CÁO LỊCH TRÌNH DU LỊCH", styles["Title"]), Spacer(1, 20)]
-        for r in rows:
-            label = "<b>KHÁCH:</b>" if r["role"] == "user" else "<b>CURIE AI:</b>"
-            story.append(Paragraph(f"{label}<br/>{r['content']}", style_vn))
-            story.append(Spacer(1, 15))
+        response =
+
+model.generate_content(full_prompt)
+        full_response = response.text
+        st.markdown(full_response)
+
+    # Lưu phản hồi vào lịch sử
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+from fpdf import FPDF
+
+@app.route('/export-pdf', methods=['POST'])
+def export_pdf():
+    history = request.json.get('history', [])
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Bạn cần tải file font .ttf về và để vào thư mục fonts/
+    # pdf.add_font('DejaVu', '', 'fonts/DejaVuSans.ttf', uni=True)
+    pdf.set_font('Arial', 'B', 16)
+    pdf.cell(0, 10, 'Lịch sử du lịch - Vietnam Travel AI', ln=True, align='C')
+    pdf.ln(10)
+    
+    pdf.set_font('Arial', '', 12)
+    for msg in history:
+        role = "Bạn: " if msg['role'] == 'user' else "Bot: "
+        pdf.multi_cell(0, 10, f"{role}{msg['content']}\n")
+        pdf.ln(2)
         
-        doc.build(story)
-        buf.seek(0)
-        return send_file(buf, as_attachment=True, download_name="Tour_Da_Lat.pdf", mimetype="application/pdf")
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    path = "history_travel.pdf"
+    pdf.output(path)
+    return send_file(path, as_attachment=True)
 
-@app.route("/clear", methods=["POST"])
-def clear():
-    sid = request.json.get("sid")
-    with db_conn() as conn:
-        conn.execute("DELETE FROM messages WHERE session_id=?", (sid,))
-        conn.commit()
-    return jsonify({"status": "ok"})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
