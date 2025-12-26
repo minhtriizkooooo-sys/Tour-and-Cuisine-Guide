@@ -1,49 +1,70 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vietnam Travel AI</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
-        header, footer { background: #2c3e50; color: white; padding: 10px; text-align: center; }
-        #main-container { display: flex; flex: 1; overflow: hidden; }
-        #map-side { width: 40%; border-right: 2px solid #ddd; }
-        #chat-side { width: 60%; display: flex; flex-direction: column; padding: 20px; }
-        #chat-box { flex: 1; overflow-y: auto; border: 1px solid #eee; margin-bottom: 10px; }
-        .img-gallery img { width: 100px; cursor: pointer; margin: 5px; border-radius: 5px; }
-        #overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center; }
+        /* Thêm một chút style trực tiếp để đảm bảo layout không vỡ */
+        #map { height: 500px; width: 100%; border-radius: 8px; }
+        .suggestions-area { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+        .suggest-btn { background: #e1f5fe; border: 1px solid #01579b; border-radius: 15px; padding: 5px 12px; cursor: pointer; font-size: 0.85rem; }
+        .suggest-btn:hover { background: #b3e5fc; }
+        #input-container { display: flex; gap: 10px; padding: 10px 0; }
+        #user-input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        #send-btn { padding: 10px 20px; background: #2c3e50; color: white; border: none; cursor: pointer; border-radius: 4px; }
     </style>
 </head>
 <body>
     <header>
-        <img src="/static/Logo_Marie_Curie.png">
-        <h1>Vietnam Travel AI - Tours & Cuisine Guide</h1>
+        <div style="display:flex; align-items:center; justify-content:center; gap:15px;">
+            <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" style="height:50px;">
+            <h1>Vietnam Travel AI - Tours & Cuisine Guide</h1>
+        </div>
     </header>
+    
     <div id="main-container">
         <div id="map-side">
-            <div id="map-tabs">
-                <button onclick="switchMapTab('search')">Tìm kiếm</button>
-                <button onclick="switchMapTab('nav')">Chỉ đường</button>
-                <button id="clear-markers">Xoá Marker</button>
+            <div id="map-tabs" style="padding:10px; background:#f8f9fa;">
+                <div id="search-box">
+                    <input type="text" id="map-search-input" placeholder="Nhập địa danh cần tìm...">
+                    <button onclick="searchLocation()">Tìm kiếm</button>
+                </div>
+                <div id="nav-box" style="margin-top:5px; display:none;">
+                    <input type="text" id="start-point" placeholder="Điểm đi...">
+                    <input type="text" id="end-point" placeholder="Điểm đến...">
+                    <button onclick="getDirections()">Chỉ đường</button>
+                </div>
+                <button onclick="toggleNavView()" style="margin-top:5px; font-size:0.7rem;">Chuyển Tìm kiếm/Chỉ đường</button>
+                <button id="clear-markers" style="font-size:0.7rem;">Xoá Marker</button>
             </div>
-            <div id="map" style="height: 90%;"></div>
+            <div id="map"></div>
         </div>
+
         <div id="chat-side">
             <div id="chat-tabs">
-                <button>Lịch sử</button> <button onclick="clearChat()">Xóa</button> <button>Xuất PDF</button>
+                <button onclick="exportPDF()">Xuất PDF</button>
+                <button onclick="document.getElementById('chat-box').innerHTML=''">Xóa lịch sử</button>
             </div>
             <div id="chat-box"></div>
-            <input type="text" id="user-input" placeholder="Nhập địa danh...">
+            <div id="input-container">
+                <input type="text" id="user-input" placeholder="Hỏi về địa danh, văn hóa, ẩm thực...">
+                <button id="send-btn">Gửi</button>
+            </div>
         </div>
     </div>
-    <div id="overlay">
-        <button onclick="closeImg()">Close</button>
-        <img id="full-img" src="">
+
+    <div id="overlay" onclick="this.style.display='none'">
+        <button onclick="closeImg()" style="position:absolute; top:20px; right:20px; color:white;">Đóng</button>
+        <img id="full-img" src="" style="max-width:90%; max-height:90%;">
     </div>
-    <footer>Design by Vietnam Travel AI- Tours & Cuisine Guide - Lại Nguyễn Minh Trí  - Hotline: +84-908-08-3566</footer>
+
+    <footer>Design by Vietnam Travel AI- Tours & Cuisine Guide - Lại Nguyễn Minh Trí - Hotline: +84-908-08-3566</footer>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="/static/map.js"></script>
-    <script src="/static/chat.js"></script>
+    <script src="/static/js/map.js"></script>
+    <script src="/static/js/chat.js"></script>
 </body>
 </html>
-
