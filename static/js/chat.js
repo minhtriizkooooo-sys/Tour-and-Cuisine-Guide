@@ -115,3 +115,67 @@ function exportPDF() {
     // Chạy lệnh xuất PDF từ nội dung chat-box
     html2pdf().set(opt).from(chatBox).save();
 }
+
+// Hàm hiển thị trạng thái đang xử lý
+function showLoading(status) {
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.display = status ? 'flex' : 'none';
+}
+
+// CẬP NHẬT HÀM ASKCHATBOT
+async function askChatbot(msg) {
+    if (!msg.trim()) return;
+    
+    showLoading(true); // <--- BẮT ĐẦU HIỆN "ĐANG XỬ LÝ"
+
+    // (Các code lưu lịch sử giữ nguyên...)
+
+    try {
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ msg: msg })
+        });
+        const data = await response.json();
+        
+        // (Code hiển thị tin nhắn AI giữ nguyên...)
+
+    } catch (e) {
+        // Xử lý lỗi
+    } finally {
+        showLoading(false); // <--- TẮT "ĐANG XỬ LÝ" SAU KHI XONG
+    }
+}
+
+// CẬP NHẬT HÀM TÌM KIẾM BẢN ĐỒ (Trong map.js hoặc chat.js)
+async function searchLocation() {
+    const query = document.getElementById('map-search-input').value;
+    if(!query) return;
+
+    showLoading(true); // <--- HIỆN KHI ĐANG TÌM ĐỊA DANH
+
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+        const data = await res.json();
+        // (Xử lý bản đồ giữ nguyên...)
+        
+        // Sau đó gọi chatbot
+        await askChatbot(`Kể cho tôi về ${query}`);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        showLoading(false); // <--- TẮT KHI ĐÃ XONG
+    }
+}
+
+function exportPDF() {
+    showLoading(true);
+    const chatBox = document.getElementById('chat-box');
+    
+    const opt = { /* ...cấu hình giữ nguyên... */ };
+
+    html2pdf().set(opt).from(chatBox).save().then(() => {
+        showLoading(false); // Tắt khi file đã tải xuống
+    });
+}
+
