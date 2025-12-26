@@ -1,53 +1,33 @@
 from flask import Flask, render_template, request, jsonify
-from playwright.sync_api import sync_playwright
+from duckduckgo_search import DDGS
 import os
 
 app = Flask(__name__)
 
-def search_comprehensive(query):
+def search_travel_data(query):
     try:
-        with sync_playwright() as p:
-            # Render lưu browser ở đường dẫn cụ thể, ta sẽ để Playwright tự tìm 
-            # nhưng thêm cấu hình tối giản nhất để tránh treo RAM
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--single-process'
-                ]
-            )
-            context = browser.new_context(user_agent="Mozilla/5.0")
-            page = context.new_page()
+        results = {"text": "", "images": [], "videos": []}
+        with DDGS() as ddgs:
+            # 1. Lấy thông tin văn hóa/ẩm thực (Search)
+            search_query = f"{query} lịch sử văn hóa ẩm thực đặc sản du lịch"
+            main_search = list(ddgs.text(search_query, region='vn-vi', max_results=3))
+            if main_search:
+                content = ""
+                for r in main_search:
+                    content += f"🔹 {r['body']}\n\n"
+                results["text"] = content
             
-            # Tăng timeout lên 60s vì gói Free của Render khá chậm
-            search_url = f"https://www.google.com/search?q={query}+lịch+sử+văn+hoá+ẩm+thực+vietnam&hl=vi"
-            page.goto(search_url, timeout=60000)
+            # 2. Lấy hình ảnh thực tế
+            image_search = list(ddgs.images(f"{query} du lịch cảnh đẹp", max_results=5))
+            results["images"] = [img['image'] for img in image_search]
             
-            # Đợi một chút để nội dung kịp load
-            page.wait_for_timeout(2000) 
-
-            snippets = page.evaluate('''() => {
-                const elements = Array.from(document.querySelectorAll('div.VwiC3b')).slice(0, 3);
-                return elements.map(el => el.innerText).join(' | ');
-            }''')
+            # 3. Lấy link video thực tế (không chỉ là search link)
+            video_search = list(ddgs.videos(f"du lịch {query} review", max_results=3))
+            results["videos"] = [{"title": v['title'], "url": v['content']} for v in video_search]
             
-            # Lấy ảnh
-            page.goto(f"https://www.google.com/search?q={query}+du+lich+vietnam&tbm=isch", timeout=60000)
-            page.wait_for_timeout(2000)
-            imgs = page.evaluate('''() => {
-                return Array.from(document.querySelectorAll('img'))
-                    .slice(2, 6)
-                    .map(i => i.src)
-                    .filter(s => s && s.startsWith('http'));
-            }''')
-            
-            browser.close()
-            return {"context": snippets, "imgs": imgs}
-            
+        return results
     except Exception as e:
-        print(f"Lỗi thực thi: {e}")
+        print(f"Lỗi tìm kiếm: {e}")
         return None
 
 @app.route('/')
@@ -57,30 +37,37 @@ def index():
 @app.route('/chat', methods=['POST'])
 def chat_endpoint():
     user_msg = request.json.get('msg', '')
-    data = search_comprehensive(user_msg)
+    if not user_msg:
+        return jsonify({"text": "Hãy nhập địa danh bạn muốn khám phá!"})
+
+    data = search_travel_data(user_msg)
     
-    if not data or not data['context']:
-        # Nếu lỗi, thử trả về một câu trả lời mặc định thay vì báo lỗi tài nguyên
+    if not data or not data['text']:
         return jsonify({
-            "text": f"🤖 Tôi tìm thấy {user_msg} là một địa điểm tuyệt vời tại Việt Nam. Tuy nhiên kết nối dữ liệu chi tiết đang chậm, bạn hãy thử lại sau vài giây hoặc hỏi về địa điểm khác nhé!",
+            "text": f"🤖 Rất tiếc, tôi không tìm thấy thông tin cụ thể về '{user_msg}'. Bạn có thể thử các địa danh nổi tiếng như Đà Lạt, Phú Quốc, Sa Pa...",
             "images": [],
-            "youtube": f"https://www.youtube.com/results?search_query={user_msg}",
-            "suggestions": ["Hà Nội", "Hội An", "Đà Nẵng"]
+            "videos": []
         })
 
-    parts = data['context'].split('|')
+    # Xây dựng nội dung phản hồi HTML đặc sắc
+    video_html = "<h4>📺 Video trải nghiệm thực tế:</h4>"
+    for v in data['videos']:
+        video_html += f"<li><a href='{v['url']}' target='_blank' style='color:#00b4d8'><b>{v['title']}</b></a></li>"
+
     html_res = f"""
-    <div style='line-height:1.6'>
-        <h3 style='color:#0077b6;'>📍 {user_msg.upper()}</h3>
-        <p><b>Thông tin:</b> {parts[0] if len(parts)>0 else 'Đang cập nhật...'}</p>
-        <p><b>Chi tiết:</b> {parts[1] if len(parts)>1 else 'Đang nghiên cứu thêm...'}</p>
+    <div style='line-height:1.6; font-family: Arial, sans-serif;'>
+        <h2 style='color:#023e8a; border-bottom: 2px solid #00b4d8;'>🌟 KHÁM PHÁ {user_msg.upper()}</h2>
+        <div style='background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 10px;'>
+            {data['text'].replace('\n', '<br>')}
+        </div>
+        {video_html}
     </div>
     """
+    
     return jsonify({
         "text": html_res,
-        "images": data['imgs'],
-        "youtube": f"https://www.youtube.com/results?search_query={user_msg}",
-        "suggestions": [f"Ẩm thực {user_msg}", f"Tour {user_msg}"]
+        "images": data['images'],
+        "suggestions": [f"Đặc sản {user_msg}", f"Giá vé tham quan {user_msg}", "Lịch trình du lịch"]
     })
 
 if __name__ == '__main__':
