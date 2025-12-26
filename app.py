@@ -1,98 +1,71 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify
 import google.generativeai as genai
 from playwright.sync_api import sync_playwright
-from fpdf import FPDF
 import os
 
 app = Flask(__name__)
 
-# Lấy API Key từ biến môi trường của Render
+# Cấu hình Gemini (Nên dùng biến môi trường trên Render)
 api_key = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 def search_all_in_one(query):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-        page = context.new_page()
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_context(user_agent="Mozilla/5.0...").new_page()
 
-        # Tìm Text
-        page.goto(f"https://www.google.com/search?q={query}+lịch+sử+văn+hoá+ẩm+thực")
-        texts = page.evaluate('''() => Array.from(document.querySelectorAll('div.VwiC3b')).slice(0,3).map(el => el.innerText).join(' ')''')
-        yt_link = page.evaluate('''() => document.querySelector('a[href*="youtube.com"]')?.href || ""''')
+            # Tìm Text
+            page.goto(f"https://www.google.com/search?q={query}+travel+guide+vietnam")
+            texts = page.evaluate('''() => Array.from(document.querySelectorAll('div.VwiC3b')).slice(0,3).map(el => el.innerText).join(' ')''')
+            yt_link = page.evaluate('''() => document.querySelector('a[href*="youtube.com"]')?.href || ""''')
 
-        # Tìm Images
-        page.goto(f"https://www.google.com/search?q={query}+travel+photography&tbm=isch")
-        images = page.evaluate('''() => Array.from(document.querySelectorAll('img')).slice(1,5).map(img => img.src)''')
+            # Tìm Images
+            page.goto(f"https://www.google.com/search?q={query}+vietnam+tourism&tbm=isch")
+            images = page.evaluate('''() => Array.from(document.querySelectorAll('img')).slice(1,5).map(img => img.src)''')
 
-        browser.close()
-        return {"context": texts, "yt": yt_link, "imgs": images}
+            browser.close()
+            return {"context": texts, "yt": yt_link, "imgs": images}
+    except Exception as e:
+        print(f"Lỗi cào dữ liệu: {e}")
+        return {"context": "", "yt": "", "imgs": []}
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# CHỈ GIỮ LẠI MỘT HÀM CHAT NÀY
 @app.route('/chat', methods=['POST'])
-def chat():
+def chat_endpoint(): # Đổi tên hàm thành chat_endpoint để tránh trùng lặp nếu cần
     user_msg = request.json.get('msg', '')
     data = search_all_in_one(user_msg)
     
     prompt = f"""
-    Dữ liệu tìm kiếm: {data['context']}
-    Dựa vào dữ liệu trên, hãy viết về địa danh {user_msg}:
-    1. Lịch sử phát triển. 
-    2. Con người & Văn hoá. 
-    3. Ẩm thực đặc sắc. 
-    4. Gợi ý du lịch.
-    Cuối cùng, đề xuất 2 câu hỏi gợi ý.
-    """
-    response = model.generate_content(prompt)
-    return jsonify({
-        "text": response.text,
-        "images": data['imgs'],
-        "youtube": data['yt']
-    })
-
-
-@app.route('/chat', methods=['POST'])
-def chat():
-    user_msg = request.json.get('msg', '')
-    data = search_all_in_one(user_msg) # Hàm cào Google/Playwright của bạn
-    
-    prompt = f"""
-    Dữ liệu tìm kiếm được: {data['context']}
-    Câu hỏi người dùng: {user_msg}
-
-    Bạn là một chuyên gia du lịch Việt Nam. Hãy trả lời chi tiết về:
-    1. Lịch sử & Con người.
-    2. Văn hoá & Đặc điểm địa lý.
-    3. Ẩm thực đặc sắc phải thử.
-    4. Tư vấn lịch trình du lịch ngắn gọn.
-
-    Lưu ý: Cuối bài trả lời, hãy liệt kê đúng 2 câu hỏi gợi ý liên quan theo định dạng sau:
-    [SUGGESTIONS]
-    - Câu hỏi 1?
-    - Câu hỏi 2?
+    Dựa vào thông tin: {data['context']}
+    Người dùng hỏi về: {user_msg}
+    Hãy đóng vai chuyên gia du lịch trả lời chi tiết về: Lịch sử, Văn hoá, Ẩm thực và Tư vấn du lịch.
+    Cuối cùng, hãy đưa ra 2 câu hỏi gợi ý bắt đầu bằng [SUGGESTIONS].
     """
     
     response = model.generate_content(prompt)
-    raw_text = response.text
+    full_text = response.text
     
-    # Tách lấy phần văn bản và phần gợi ý
-    parts = raw_text.split("[SUGGESTIONS]")
-    main_content = parts[0]
+    # Tách gợi ý
+    parts = full_text.split("[SUGGESTIONS]")
+    main_text = parts[0]
     suggestions = []
     if len(parts) > 1:
-        suggestions = [s.strip("- ").strip() for s in parts[1].strip().split("\n") if s.strip()]
+        suggestions = [s.strip("- ").strip() for s in parts[1].split("\n") if s.strip()]
 
     return jsonify({
-        "text": main_content,
+        "text": main_text,
         "images": data['imgs'],
         "youtube": data['yt'],
-        "suggestions": suggestions[:2] # Trả về tối đa 2 câu hỏi
+        "suggestions": suggestions[:2]
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
+    # Render yêu cầu port phải lấy từ môi trường
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
