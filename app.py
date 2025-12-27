@@ -4,18 +4,26 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# LẤY API KEY TỪ RENDER (Khớp chính xác tên GEMINI-KEY)
-# Sử dụng .strip() để loại bỏ khoảng trắng dư thừa nếu có
-api_key = os.environ.get("GEMINI-KEY")
+# Danh sách các Key lấy từ Render
+keys = [os.environ.get("GEMINI-KEY"), os.environ.get("GEMINI-KEY-1")]
+# Lọc bỏ các giá trị None nếu bạn chưa điền đủ 2 key
+valid_keys = [k.strip() for k in keys if k]
 
-if api_key:
-    # Cấu hình Gemini
-    genai.configure(api_key=api_key.strip())
-    # Sử dụng bản flash để phản hồi nhanh, tránh lỗi Timeout trên Render
-   model = genai.GenerativeModel('gemini-pro')
-    print("✅ Đã kết nối thành công với GEMINI-KEY!")
-else:
-    print("❌ LỖI: Không tìm thấy biến môi trường 'GEMINI-KEY'. Hãy kiểm tra lại Tab Environment trên Render!")
+# Biến đếm để luân phiên key
+key_index = 0
+
+def get_next_model():
+    global key_index
+    if not valid_keys:
+        return None
+    
+    # Lấy key theo thứ tự 0 -> 1 -> 0 -> 1
+    current_key = valid_keys[key_index]
+    key_index = (key_index + 1) % len(valid_keys)
+    
+    genai.configure(api_key=current_key)
+    # Dùng gemini-pro để ổn định nhất, tránh lỗi 404
+    return genai.GenerativeModel('gemini-pro')
 
 @app.route('/')
 def index():
@@ -25,33 +33,33 @@ def index():
 def chat():
     user_input = request.json.get('msg', '')
     if not user_input:
-        return jsonify({"text": "Bạn muốn hỏi về địa điểm nào?"})
+        return jsonify({"text": "Hãy nhập tên địa danh bạn muốn khám phá!"})
 
-    # Kiểm tra lại Key trước khi gọi AI
-    if not api_key:
-        return jsonify({"text": "🤖 Bot chưa có API Key. Hãy kiểm tra lại tên biến 'GEMINI-KEY' trên Render."})
-
+    # Thử gọi AI (nếu lỗi key này sẽ tự đổi sang key kia ở lượt sau)
     try:
-        # Prompt tối ưu cho gia đình và ẩm thực
+        model = get_next_model()
+        if not model:
+            return jsonify({"text": "❌ Hệ thống chưa cài đặt API Key trên Render!"})
+
         prompt = f"""
-        Bạn là hướng dẫn viên du lịch thân thiện. 
-        Yêu cầu: Thiết kế tour chi tiết và gợi ý món ăn cho: {user_input}.
-        Định dạng trả về: Sử dụng HTML (<h3>, 📍, 🍴, <br>) để nội dung dễ đọc trên ứng dụng.
+        Bạn là hướng dẫn viên du lịch chuyên nghiệp.
+        Yêu cầu: Tư vấn chi tiết về {user_input} (Lịch trình, món ăn, lưu ý).
+        Định dạng: Trình bày bằng HTML đẹp (dùng <h3>, 📍, 🍴, <br>).
         """
         
         response = model.generate_content(prompt)
-        
-        # Trả kết quả về giao diện
-        return jsonify({
-            "text": response.text
-        })
+        return jsonify({"text": response.text})
 
     except Exception as e:
-        print(f"Lỗi AI: {e}")
-        return jsonify({"text": "⚠️ Hiện tại AI đang bận hoặc API Key chưa kích hoạt. Vui lòng thử lại sau vài giây!"})
+        print(f"Lỗi: {e}")
+        # Nếu lỗi 429 (hết lượt) hoặc lỗi key, thử lại lần nữa với key tiếp theo ngay lập tức
+        try:
+            model = get_next_model()
+            response = model.generate_content(prompt)
+            return jsonify({"text": response.text})
+        except:
+            return jsonify({"text": "⚠️ Cả 2 Key đều đang bận hoặc gặp lỗi. Bạn vui lòng đợi 30 giây rồi thử lại nhé!"})
 
 if __name__ == '__main__':
-    # Render yêu cầu dùng đúng Port từ hệ thống
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
-
