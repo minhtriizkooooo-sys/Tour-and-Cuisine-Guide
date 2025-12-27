@@ -16,7 +16,7 @@
             --shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         body { margin: 0; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; background: #f0f7ff; }
-        
+       
         header {
             background: var(--header-bg);
             color: white;
@@ -35,7 +35,7 @@
             gap: 12px;
         }
         .logo img {
-            height: 40px;
+            height: 80px; /* To hơn để thấy rõ chữ trong logo */
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
@@ -50,11 +50,9 @@
             transition: 0.3s;
         }
         .refresh-btn:hover { background: rgba(255,255,255,0.4); }
-
         main { flex: 1; display: flex; overflow: hidden; }
         #map-container { flex: 1; position: relative; }
         #map { height: 100%; width: 100%; }
-
         .left-controls {
             position: absolute;
             top: 15px;
@@ -100,7 +98,6 @@
         .btn-green { background: var(--green); }
         .btn-blue:hover { background: var(--primary-dark); }
         .btn-green:hover { background: #218838; }
-
         #chat-side {
             width: 420px;
             background: white;
@@ -159,7 +156,6 @@
         .ai-section b {
             color: var(--primary);
         }
-
         .input-area {
             padding: 16px;
             border-top: 1px solid #eee;
@@ -188,7 +184,6 @@
             transition: 0.3s;
         }
         .send-circle:hover { background: var(--primary-dark); transform: scale(1.05); }
-
         footer {
             background: var(--header-bg);
             color: white;
@@ -215,6 +210,39 @@
             70% { box-shadow: 0 0 0 10px rgba(74,222,128,0); }
             100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
         }
+
+        /* Lightbox cho ảnh */
+        #lightbox {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+        #lightbox img {
+            max-width: 90%;
+            max-height: 80%;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
+        #lightbox-caption {
+            color: white;
+            font-size: 1.1rem;
+            margin-top: 15px;
+            text-align: center;
+            max-width: 90%;
+        }
+        #lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 40px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -227,7 +255,6 @@
         <i class="fa fa-sync-alt"></i> Refresh App
     </button>
 </header>
-
 <main>
     <div id="map-container">
         <div class="left-controls">
@@ -241,11 +268,11 @@
                 <input type="text" id="start-node" placeholder="Điểm xuất phát (ví dụ: Sài Gòn)">
                 <input type="text" id="end-node" placeholder="Điểm đến (ví dụ: Đà Lạt)">
                 <button class="btn-green" onclick="drawRoute()">Vẽ lộ trình</button>
+                <button class="btn-blue" onclick="clearMap()" style="margin-top:12px;">Xóa Markers & Route</button>
             </div>
         </div>
         <div id="map"></div>
     </div>
-
     <div id="chat-side">
         <div class="chat-tabs">
             <div class="tab active"><i class="fa fa-comments"></i> CHAT</div>
@@ -266,6 +293,13 @@
     </div>
 </main>
 
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+    <span id="lightbox-close" onclick="closeLightbox()">&times;</span>
+    <img id="lightbox-img" src="">
+    <div id="lightbox-caption"></div>
+</div>
+
 <footer>
     <div><i class="fa fa-user"></i> Developer: <b>Lại Nguyễn Minh Trí</b> | <i class="fa fa-phone"></i> +84-908-08-3566</div>
     <div class="status"><span class="dot"></span> AI Active & Ready</div>
@@ -273,37 +307,32 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
-
 <script>
-    // Bản đồ đẹp hơn: dùng OpenStreetMap.fr (nhãn tiếng Việt tốt, màu sắc tươi)
-    const map = L.map('map', {
-        zoomControl: true,
-        zoomAnimation: true
-    }).setView([16.0, 107.0], 6); // Toàn quốc Việt Nam
-
+    const map = L.map('map', { zoomControl: true }).setView([16.0, 107.0], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Tiles &copy; Humanitarian OSM',
-        maxZoom: 20
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    // Alternative đẹp khác (nếu muốn đổi): Thunderforest Landscape (cần API key miễn phí)
-    // L.tileLayer('https://{s}.tile.thunderforest.com/landscape/{z}/{x}/{y}.png?apikey=YOUR_KEY', { ... })
-
     let routeControl = null;
+    let markers = [];
+
+    function clearMap() {
+        if (routeControl) { map.removeControl(routeControl); routeControl = null; }
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+    }
 
     async function searchLocation() {
         const q = document.getElementById('search-input').value.trim();
         if (!q) return;
-
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Việt Nam')}&limit=1`);
         const data = await res.json();
         if (data[0]) {
             const lat = data[0].lat;
             const lon = data[0].lon;
             map.setView([lat, lon], 14);
-            L.marker([lat, lon]).addTo(map)
-                .bindPopup(`<b>${q}</b>`)
-                .openPopup();
+            const marker = L.marker([lat, lon]).addTo(map).bindPopup(`<b>${q}</b>`).openPopup();
+            markers.push(marker);
             sendMessage(`Kể tôi nghe về ${q}`);
         } else {
             appendMessage('bot', 'Không tìm thấy địa điểm. Hãy thử tên khác nhé!');
@@ -333,20 +362,11 @@
 
         routeControl = L.Routing.control({
             waypoints: [p1, p2],
-            router: L.Routing.osrmv1({
-                serviceUrl: 'https://router.project-osrm.org/route/v1'
-            }),
+            router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
             lineOptions: { styles: [{ color: '#28a745', weight: 7, opacity: 0.8 }] },
             createMarker: function(i, wp) {
-                return L.marker(wp.latLng, {
-                    icon: L.icon({
-                        iconUrl: i === 0 ? 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' :
-                                 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-                        iconSize: [25, 41],
-                        iconAnchor: [12, 41]
-                    })
-                });
+                const iconUrl = i === 0 ? 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png';
+                return L.marker(wp.latLng, { icon: L.icon({ iconUrl, shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25,41], iconAnchor: [12,41] }) });
             },
             addWaypoints: false,
             draggableWaypoints: false,
@@ -356,7 +376,8 @@
         }).addTo(map);
     }
 
-    // Chat functions (giữ nguyên)
+    let pendingMsg = null;
+
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
         const msg = text || input.value.trim();
@@ -364,15 +385,23 @@
         input.value = "";
         appendMessage('user', msg);
 
+        // Hiển thị "Đang xử lý..."
+        pendingMsg = appendMessage('bot', '<div class="ai-section">Đang xử lý... <i class="fa fa-spinner fa-spin"></i></div>');
+
         try {
             const res = await fetch('/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ msg })
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({msg: msg})
             });
             const data = await res.json();
+
+            // Xóa "Đang xử lý..."
+            if (pendingMsg) pendingMsg.remove();
+
             renderBot(data);
         } catch (e) {
+            if (pendingMsg) pendingMsg.remove();
             appendMessage('bot', 'Lỗi kết nối server. Vui lòng thử lại!');
         }
     }
@@ -383,14 +412,31 @@
         if (data.culture) html += `<div class="ai-section"><b>Văn hóa:</b> ${data.culture}</div>`;
         if (data.cuisine) html += `<div class="ai-section"><b>Ẩm thực:</b> ${data.cuisine}</div>`;
         if (data.travel_tips) html += `<div class="ai-section"><b>Mẹo du lịch:</b> ${data.travel_tips}</div>`;
-        
+
+        // Hiển thị hình ảnh (4 ảnh mẫu đẹp, có caption)
+        const images = [
+            {url: "https://images.unsplash.com/photo-1504917584950-87b1c35a4f63?w=800", caption: "Cảnh quan thiên nhiên hùng vĩ"},
+            {url: "https://images.unsplash.com/photo-1559637636-9d2c8e1e5d3b?w=800", caption: "Biển xanh và bãi cát trắng"},
+            {url: "https://images.unsplash.com/photo-1519904981063-b0e9b457dd48?w=800", caption: "Phố cổ lung linh về đêm"},
+            {url: "https://images.unsplash.com/photo-1583417319072-3d1168f75b7e?w=800", caption: "Văn hóa và con người Việt Nam"}
+        ];
+        html += `<div class="ai-section"><b>Hình ảnh gợi ý:</b></div>`;
+        images.forEach(img => {
+            html += `<img src="${img.url}" alt="${img.caption}" style="width:100%; border-radius:10px; margin:10px 0; cursor:pointer;" onclick="openLightbox('${img.url.replace('w=800','w=1200')}', '${img.caption}')">`;
+        });
+
+        // YouTube video liên quan (3 link mở tab mới)
         if (data.youtube_keyword) {
-            html += `<div class="ai-section"><b>Video gợi ý:</b></div>`;
-            html += `<iframe width="100%" height="220" src="https://www.youtube.com/embed/videoseries?list=${data.youtube_keyword}+du+lich+viet+nam" frameborder="0" allowfullscreen></iframe>`;
+            const keyword = encodeURIComponent(data.youtube_keyword + " du lịch Việt Nam");
+            html += `<div class="ai-section"><b>Video gợi ý trên YouTube:</b></div><ul style="padding-left:20px;">`;
+            html += `<li><a href="https://www.youtube.com/results?search_query=${keyword}" target="_blank">1. Tìm kiếm: "${data.youtube_keyword} du lịch Việt Nam"</a></li>`;
+            html += `<li><a href="https://www.youtube.com/results?search_query=${keyword}+review" target="_blank">2. Review chi tiết về ${data.youtube_keyword}</a></li>`;
+            html += `<li><a href="https://www.youtube.com/results?search_query=${keyword}+hành+trình" target="_blank">3. Hành trình khám phá ${data.youtube_keyword}</a></li>`;
+            html += `</ul>`;
         }
 
         if (data.suggestions && data.suggestions.length > 0) {
-            html += `<div class="ai-section"><b>Gợi ý tiếp theo:</b></div>`;
+            html += `<div class="ai-section"><b>Gợi ý hỏi tiếp:</b></div>`;
             data.suggestions.forEach(s => {
                 html += `<div style="margin:8px 0; padding:10px; background:#e3f2fd; border-radius:10px; cursor:pointer;" onclick="sendMessage('${s}')">${s}</div>`;
             });
@@ -405,11 +451,22 @@
         div.innerHTML = content;
         document.getElementById('chat-box').appendChild(div);
         document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+        return div;
+    }
+
+    function openLightbox(src, caption) {
+        document.getElementById('lightbox-img').src = src;
+        document.getElementById('lightbox-caption').innerText = caption;
+        document.getElementById('lightbox').style.display = 'flex';
+    }
+
+    function closeLightbox() {
+        document.getElementById('lightbox').style.display = 'none';
     }
 
     async function clearHistory() {
         if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử chat?')) {
-            await fetch('/clear_history', { method: 'POST' });
+            await fetch('/clear_history', {method: 'POST'});
             location.reload();
         }
     }
