@@ -1,5 +1,4 @@
 flask==3.0.3
 gunicorn==22.0.0
-duckduckgo_search==6.2.13
-google-generativeai
+google-genai
 fpdf2
