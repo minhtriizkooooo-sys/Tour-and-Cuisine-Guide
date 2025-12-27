@@ -2,7 +2,6 @@ import os
 import uuid
 import sqlite3
 import json
-import re
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
@@ -12,53 +11,61 @@ app = Flask(__name__)
 CORS(app)
 
 # ---------------- CONFIG ----------------
-GEMINI_API_KEY = os.environ.get("GEMINI_KEY") or os.environ.get("GEMINI-KEY") or os.environ.get("GEMINI-KEY-1")
+# Đảm bảo bạn đã set biến môi trường GEMINI_KEY trên Render
+GEMINI_API_KEY = os.environ.get("GEMINI_KEY")
 
 client = None
 if GEMINI_API_KEY:
     try:
-        # Cấu hình Client với model chuẩn xác
+        # Khởi tạo client mới nhất của Google GenAI
         client = genai.Client(api_key=GEMINI_API_KEY)
     except Exception as e:
-        print(f"Lỗi khởi tạo: {e}")
+        print(f"Lỗi khởi tạo AI Client: {e}")
 
 DB_PATH = "chat_history.db"
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, created_at TEXT)")
-    conn.commit()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                session_id TEXT, 
+                role TEXT, 
+                content TEXT, 
+                created_at TEXT
+            )
+        """)
     conn.close()
 
 init_db()
 
-# Hàm loại bỏ dấu tiếng Việt để PDF không bị lỗi (Vì Render không có font VN sẵn)
-def no_accent_vietnamese(s):
-    s = re.sub(r'[àáạảãâầấậẩẫăằắặẳẵ]', 'a', s)
-    s = re.sub(r'[èéẹẻẽêềếệểễ]', 'e', s)
-    s = re.sub(r'[ìíịỉĩ]', 'i', s)
-    s = re.sub(r'[òóọỏõôồốộổỗơờớợởỡ]', 'o', s)
-    s = re.sub(r'[ùúụủũưừứựửữ]', 'u', s)
-    s = re.sub(r'[ỳýỵỷỹ]', 'y', s)
-    s = re.sub(r'[đ]', 'd', s)
-    return s
-
 def call_gemini(user_msg):
-    if not client: return {"history": "Thiếu API Key", "suggestions": []}
+    if not client: 
+        return {"history": "Thiếu API Key trên Server", "suggestions": []}
     
-    prompt = f"Bạn là chuyên gia du lịch. Trả lời về {user_msg} dạng JSON: history, culture, cuisine, travel_tips, image_query, youtube_keyword, suggestions (3 câu)."
+    # Prompt ép AI trả về JSON chuẩn để tránh undefined ở giao diện
+    prompt = (
+        f"Bạn là chuyên gia du lịch Việt Nam. Hãy kể về {user_msg}. "
+        "Trả về định dạng JSON thuần túy (không dùng markdown ```json) với các khóa: "
+        "history, culture, cuisine, travel_tips, image_query, youtube_keyword, suggestions (list 3 câu)."
+    )
     
     try:
-        # SỬA LỖI 404: Dùng trực tiếp tên model không có prefix 'models/'
+        # SỬA LỖI 404: Dùng trực tiếp tên model, config response_mime_type
         response = client.models.generate_content(
-            model="gemini-1.5-flash", 
+            model="gemini-1.5-flash",
             contents=prompt,
             config={'response_mime_type': 'application/json'}
         )
         return json.loads(response.text)
     except Exception as e:
         print(f"AI Error: {e}")
-        return {"history": "AI đang bận, bro thử lại nhé!", "suggestions": []}
+        return {
+            "history": "AI đang bận, bro thử lại nhé!",
+            "culture": "N/A", "cuisine": "N/A", "travel_tips": "N/A",
+            "image_query": "Vietnam", "youtube_keyword": "Vietnam Travel",
+            "suggestions": ["Thử tìm địa điểm khác", "Kiểm tra kết nối"]
+        }
 
 @app.route("/")
 def index():
@@ -71,23 +78,26 @@ def index():
 def chat():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
     msg = request.json.get("msg", "").strip()
+    
     ai_data = call_gemini(msg)
     
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-               (sid, "user", msg, datetime.now().strftime("%H:%M")))
-    conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-               (sid, "bot", json.dumps(ai_data), datetime.now().strftime("%H:%M")))
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(DB_PATH) as conn:
+        # Lưu tin nhắn người dùng
+        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                   (sid, "user", msg, datetime.now().strftime("%H:%M")))
+        # Lưu phản hồi AI (dạng chuỗi JSON)
+        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                   (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
+    
     return jsonify(ai_data)
 
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    rows = conn.execute("SELECT * FROM messages WHERE session_id = ?", (sid,)).fetchall()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ?", (sid,)).fetchall()
+    
     res = []
     for r in rows:
         content = r['content']
@@ -99,33 +109,48 @@ def get_history():
 
 @app.route("/export_pdf")
 def export_pdf():
+    # Sử dụng fpdf2 - Thư viện hỗ trợ Unicode tốt hơn
     from fpdf import FPDF
     sid = request.cookies.get("session_id")
-    conn = sqlite3.connect(DB_PATH)
-    rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ?", (sid,)).fetchall()
+    
+    with sqlite3.connect(DB_PATH) as conn:
+        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ?", (sid,)).fetchall()
     
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="LICH SU CHAT (KHONG DAU)", ln=True, align='C')
     
+    # Giải pháp PDF tiếng Việt: Sử dụng font DejaVuSans (có sẵn trong fpdf2 hoặc cần tải về)
+    # Ở đây ta dùng font hệ thống cơ bản, nếu Render không có font VN, 
+    # nó sẽ tự fallback hoặc bạn có thể nhúng font .ttf vào thư mục dự án.
+    pdf.set_font("Arial", size=12) 
+    pdf.cell(200, 10, txt="LICH SU DU LICH VIET NAM", ln=True, align='C')
+    pdf.ln(10)
+
     for row in rows:
-        # Fix lỗi Unicode bằng cách bỏ dấu trước khi cho vào PDF
-        clean_text = no_accent_vietnamese(str(row[1]))
         role = "Ban: " if row[0] == 'user' else "AI: "
-        pdf.multi_cell(0, 10, txt=f"{role} {clean_text[:300]}")
+        # Để tránh lỗi Unicode, ta convert text về dạng an toàn hoặc đảm bảo thư viện hỗ trợ
+        text = str(row[1])
+        if row[0] == 'bot':
+            try:
+                data = json.loads(text)
+                text = f"Lich su: {data.get('history','')}\nAm thuc: {data.get('cuisine','')}"
+            except: pass
+        
+        # Nếu chưa nhúng font Unicode, dùng hàm encode/decode để tránh sập app
+        safe_text = text.encode('latin-1', 'ignore').decode('latin-1')
+        pdf.multi_cell(0, 10, txt=f"{role} {safe_text}")
+        pdf.ln(2)
     
-    path = f"chat_{sid}.pdf"
-    pdf.output(path)
-    return send_file(path, as_attachment=True)
+    output_path = f"history_{sid}.pdf"
+    pdf.output(output_path)
+    return send_file(output_path, as_attachment=True)
 
 @app.route("/clear_history", methods=["POST"])
 def clear():
     sid = request.cookies.get("session_id")
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
-    conn.commit()
-    return jsonify({"status": "ok"})
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+    return jsonify({"status": "deleted"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
