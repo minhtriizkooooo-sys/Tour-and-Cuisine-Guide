@@ -5,19 +5,41 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Cấu hình danh sách Key luân phiên từ Render Environment
+# Cấu hình Key luân phiên
 keys = [os.environ.get("GEMINI-KEY"), os.environ.get("GEMINI-KEY-1")]
 valid_keys = [k.strip() for k in keys if k]
 key_index = 0
 
-def get_next_model():
+def get_chat_response(user_input):
     global key_index
-    if not valid_keys: return None
-    current_key = valid_keys[key_index]
-    key_index = (key_index + 1) % len(valid_keys)
-    genai.configure(api_key=current_key)
-    # Lưu ý: 'models/gemini-1.5-flash' là tên chính xác nhất hiện tại
-    return genai.GenerativeModel('gemini-1.5-flash')
+    if not valid_keys: return {"error": "No API Key found"}
+    
+    try:
+        current_key = valid_keys[key_index]
+        key_index = (key_index + 1) % len(valid_keys)
+        
+        genai.configure(api_key=current_key)
+        # Sử dụng cấu hình tối giản nhất để tránh lỗi 404
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        prompt = f"""
+        Bạn là hướng dẫn viên du lịch chuyên nghiệp. Trả lời về: {user_input}.
+        BẮT BUỘC trả về định dạng JSON (không kèm markdown):
+        {{
+          "text": "Nội dung trả lời chi tiết (dùng <h3>, <ul>, <li>)",
+          "video_id": "Mã ID YouTube (ví dụ: 'Y7vM0_5_S_4')",
+          "image_tag": "vietnam travel",
+          "suggestions": ["Câu hỏi 1", "Câu hỏi 2", "Câu hỏi 3"]
+        }}
+        """
+        
+        response = model.generate_content(prompt)
+        # Bóc tách JSON an toàn
+        raw_text = response.text.replace('```json', '').replace('```', '').strip()
+        return json.loads(raw_text)
+    except Exception as e:
+        print(f"Error detail: {e}")
+        return None
 
 @app.route('/')
 def index():
@@ -25,37 +47,14 @@ def index():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    user_data = request.json
-    user_input = user_data.get('msg', '')
-    
-    try:
-        model = get_next_model()
-        if not model: return jsonify({"error": "No API Key"})
-
-        # Prompt ép AI trả về JSON để frontend dễ xử lý hình ảnh/video
-        prompt = f"""
-        Bạn là trợ lý du lịch AI chuyên nghiệp tại Việt Nam.
-        Yêu cầu cho câu hỏi: "{user_input}"
-        Hãy trả lời bằng định dạng JSON nghiêm ngặt sau:
-        {{
-          "text": "Nội dung trả lời chi tiết, chuyên sâu, dùng tag HTML như <h3>, <ul>, <li> để trình bày.",
-          "video_id": "Mã ID video Youtube liên quan (ví dụ: dQw4w9WgXcQ)",
-          "image_keyword": "Từ khóa tiếng Anh để tìm ảnh đẹp (ví dụ: 'dalat city' hoặc 'vietnamese food')",
-          "suggestions": ["Câu hỏi gợi ý 1", "Câu hỏi gợi ý 2", "Câu hỏi gợi ý 3"]
-        }}
-        """
-        
-        response = model.generate_content(prompt)
-        # Làm sạch chuỗi JSON nếu AI trả về kèm markdown
-        clean_json = response.text.replace('```json', '').replace('```', '').strip()
-        return jsonify(json.loads(clean_json))
-
-    except Exception as e:
-        print(f"Lỗi: {e}")
-        return jsonify({
-            "text": f"⚠️ Hệ thống đang bận một chút. Bạn hãy thử lại sau 10 giây nhé! (Error: {str(e)})",
-            "video_id": "", "image_keyword": "travel", "suggestions": ["Giới thiệu Đà Lạt", "Món ăn Hội An"]
-        })
+    data = request.json
+    res = get_chat_response(data.get('msg', ''))
+    if res:
+        return jsonify(res)
+    return jsonify({
+        "text": "Hệ thống đang bảo trì API, vui lòng thử lại sau.",
+        "video_id": "", "image_tag": "travel", "suggestions": ["Hà Nội", "Đà Nẵng"]
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
