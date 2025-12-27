@@ -306,12 +306,12 @@
     <div class="status"><span class="dot"></span> AI Active & Ready</div>
 </footer>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+<!-- <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script> -->
 <script>
     const map = L.map('map').setView([16.0, 107.0], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: ''
     }).addTo(map);
 
     let routeControl = null;
@@ -324,12 +324,28 @@
         markers = [];
     }
 
+    async function searchLocation() {
+        const q = document.getElementById('search-input').value.trim();
+        if (!q) return;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Việt Nam')}&limit=1`);
+        const data = await res.json();
+        if (data[0]) {
+            const lat = data[0].lat;
+            const lon = data[0].lon;
+            map.setView([lat, lon], 14);
+            const marker = L.marker([lat, lon]).addTo(map).bindPopup(`<b>${q}</b>`).openPopup();
+            markers.push(marker);
+            sendMessage(`Kể tôi nghe về ${q}`);
+        } else {
+            appendMessage('bot', 'Không tìm thấy địa điểm. Hãy thử tên khác nhé!');
+        }
+    }
+
     async function drawRoute() {
         const start = document.getElementById('start-node').value.trim();
         const end = document.getElementById('end-node').value.trim();
         if (!start || !end) return;
 
-        // Hiển thị loading trong chat
         routePendingMsg = appendMessage('bot', '<div class="ai-section">Đang tìm đường từ <b>' + start + '</b> đến <b>' + end + '</b>... <i class="fa fa-spinner fa-spin"></i></div>');
 
         const getLatLng = async (query) => {
@@ -344,7 +360,7 @@
         if (routePendingMsg) routePendingMsg.remove();
 
         if (!p1 || !p2) {
-            appendMessage('bot', 'Không tìm thấy một trong hai địa điểm. Hãy kiểm tra lại tên.');
+            appendMessage('bot', 'Không tìm thấy một trong hai địa điểm. Vui lòng kiểm tra lại tên.');
             return;
         }
 
@@ -355,8 +371,19 @@
             router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
             lineOptions: { styles: [{ color: '#28a745', weight: 7, opacity: 0.8 }] },
             createMarker: function(i, wp) {
-                const iconUrl = i === 0 ? 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png';
-                return L.marker(wp.latLng, { icon: L.icon({ iconUrl, shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25,41], iconAnchor: [12,41] }) });
+                const name = i === 0 ? start : end;
+                const marker = L.marker(wp.latLng, {
+                    icon: L.icon({
+                        iconUrl: i === 0 ? 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+                        iconSize: [25,41],
+                        iconAnchor: [12,41]
+                    })
+                }).bindPopup(`<b>${name}</b>`);
+                marker.on('click', function() {
+                    sendMessage(`Kể tôi nghe về ${name}`);
+                });
+                return marker;
             },
             addWaypoints: false,
             draggableWaypoints: false,
@@ -365,7 +392,7 @@
             language: 'vi'
         }).addTo(map);
 
-        appendMessage('bot', '<div class="ai-section"><b>Đã vẽ lộ trình thành công!</b> Bạn có thể xem trên bản đồ.</div>');
+        appendMessage('bot', '<div class="ai-section"><b>Đã vẽ lộ trình thành công từ ' + start + ' đến ' + end + '!</b> Click vào marker để hỏi AI về địa điểm.</div>');
     }
 
     let pendingMsg = null;
@@ -403,24 +430,20 @@
         if (data.cuisine) html += `<div class="ai-section"><b>Ẩm thực:</b> ${data.cuisine}</div>`;
         if (data.travel_tips) html += `<div class="ai-section"><b>Mẹo du lịch:</b> ${data.travel_tips}</div>`;
 
-        // Hình ảnh động theo query (dùng Unsplash source với từ khóa)
-        const keyword = encodeURIComponent(query || "Việt Nam du lịch");
-        const images = [
-            `https://source.unsplash.com/800x600/?${keyword},landscape`,
-            `https://source.unsplash.com/800x600/?${keyword},culture`,
-            `https://source.unsplash.com/800x600/?${keyword},food`,
-            `https://source.unsplash.com/800x600/?${keyword},travel`
-        ];
-        html += `<div class="ai-section"><b>Hình ảnh gợi ý về "${query || 'địa điểm'}"</b></div>`;
-        images.forEach((src, i) => {
-            const captions = ["Cảnh quan thiên nhiên", "Văn hóa địa phương", "Ẩm thực đặc sắc", "Điểm đến nổi bật"];
-            html += `<img src="${src}" alt="${captions[i]}" style="width:100%; border-radius:10px; margin:10px 0; cursor:pointer;" onclick="openLightbox('${src.replace('800x600', '1200x800')}', '${captions[i]} - ${query || 'Việt Nam'}')">`;
-        });
+        // Hình ảnh động từ Unsplash (dựa trên query)
+        const keyword = encodeURIComponent(query || data.image_query || "du lịch Việt Nam");
+        html += `<div class="ai-section"><b>Hình ảnh gợi ý:</b></div>`;
+        for (let i = 1; i <= 4; i++) {
+            const src = `https://source.unsplash.com/random/800x600?${keyword}&sig=${i}`;
+            const caption = `Ảnh ${i} về ${query || 'địa điểm'}`;
+            html += `<img src="${src}" alt="${caption}" style="width:100%; border-radius:10px; margin:10px 0; cursor:pointer;" onclick="openLightbox('${src.replace('800x600', '1200x900')}', '${caption}')">`;
+        }
 
+        // YouTube
         if (data.youtube_keyword) {
             const kw = encodeURIComponent(data.youtube_keyword + " du lịch Việt Nam");
-            html += `<div class="ai-section"><b>Video gợi ý trên YouTube:</b></div><ul style="padding-left:20px;">`;
-            html += `<li><a href="https://www.youtube.com/results?search_query=${kw}" target="_blank">1. Tổng hợp video về "${data.youtube_keyword}"</a></li>`;
+            html += `<div class="ai-section"><b>Video gợi ý:</b></div><ul style="padding-left:20px;">`;
+            html += `<li><a href="https://www.youtube.com/results?search_query=${kw}" target="_blank">1. Tìm kiếm video về "${data.youtube_keyword}"</a></li>`;
             html += `<li><a href="https://www.youtube.com/results?search_query=${kw}+review" target="_blank">2. Review chi tiết</a></li>`;
             html += `<li><a href="https://www.youtube.com/results?search_query=${kw}+hành+trình" target="_blank">3. Hành trình khám phá</a></li>`;
             html += `</ul>`;
@@ -452,8 +475,9 @@
     }
 
     function closeLightbox(e) {
-        if (e && e.target !== document.getElementById('lightbox-img')) return;
-        document.getElementById('lightbox').style.display = 'none';
+        if (e.target.id === 'lightbox' || e.target.id === 'lightbox-close') {
+            document.getElementById('lightbox').style.display = 'none';
+        }
     }
 
     async function clearHistory() {
