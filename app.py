@@ -1,51 +1,40 @@
 import os
 import json
 from flask import Flask, render_template, request, jsonify
-# Chuyển sang dùng google-genai (thư viện mới nhất của Google)
-from google import genai 
+from google import genai
 
 app = Flask(__name__)
 
-# Cấu hình Key luân phiên
+# Lấy Key từ Render
 keys = [os.environ.get("GEMINI-KEY"), os.environ.get("GEMINI-KEY-1")]
 valid_keys = [k.strip() for k in keys if k]
 key_index = 0
 
 def get_chat_response(user_input):
     global key_index
-    if not valid_keys:
-        return {"error": "Không tìm thấy API Key trong biến môi trường"}
+    if not valid_keys: return None
     
     try:
-        # Chọn Key luân phiên
         current_key = valid_keys[key_index]
         key_index = (key_index + 1) % len(valid_keys)
         
-        # Khởi tạo Client theo chuẩn mới
-        client = genai.Client(api_key=current_key)
+        # QUAN TRỌNG: Ép sử dụng API version v1 để tránh lỗi 404 v1beta
+        client = genai.Client(
+            api_key=current_key,
+            http_options={'api_version': 'v1'}
+        )
         
-        prompt = f"""
-        Bạn là hướng dẫn viên du lịch chuyên nghiệp. Trả lời về: {user_input}.
-        Yêu cầu trả về JSON thuần túy (KHÔNG được bao quanh bởi ```json):
-        {{
-          "text": "Nội dung trả lời chi tiết (dùng <h3>, <ul>, <li>)",
-          "video_id": "Mã ID YouTube thực tế liên quan",
-          "image_tag": "từ khóa tìm ảnh tiếng Anh",
-          "suggestions": ["Gợi ý 1", "Gợi ý 2", "Gợi ý 3"]
-        }}
-        """
+        prompt = f"Bạn là hướng dẫn viên du lịch. Trả lời về: {user_input}. Trả về JSON: {{\"text\": \"...\", \"video_id\": \"\", \"image_tag\": \"travel\", \"suggestions\": []}}"
         
-        # Gọi API theo cấu trúc mới nhất
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=prompt
         )
-        
-        # Chuyển đổi văn bản sang JSON
-        return json.loads(response.text)
-        
+        # Loại bỏ markdown nếu AI trả về nhầm
+        clean_json = response.text.replace('```json', '').replace('```', '').strip()
+        return json.loads(clean_json)
     except Exception as e:
-        print(f"Lỗi chi tiết: {str(e)}")
+        print(f"Lỗi chi tiết: {e}")
         return None
 
 @app.route('/')
@@ -56,19 +45,8 @@ def index():
 def chat():
     data = request.json
     res = get_chat_response(data.get('msg', ''))
-    
-    if res:
-        return jsonify(res)
-    
-    # Trường hợp lỗi, trả về dữ liệu mặc định để Web không bị đứng
-    return jsonify({
-        "text": "Hệ thống AI đang phản hồi chậm hoặc lỗi Key. Bạn vui lòng thử lại sau giây lát!",
-        "video_id": "", 
-        "image_tag": "vietnam-travel", 
-        "suggestions": ["Hà Nội", "Hội An", "Phú Quốc"]
-    })
+    if res: return jsonify(res)
+    return jsonify({"text": "AI đang bận, hãy thử lại.", "video_id": "", "image_tag": "vietnam", "suggestions": []})
 
 if __name__ == '__main__':
-    # Render yêu cầu port phải lấy từ biến môi trường
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
