@@ -13,18 +13,15 @@
         :root { --primary: #0284c7; --bg: #f8fafc; --white: #ffffff; }
         body { margin: 0; display: flex; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); }
         
-        /* Map Side */
         #map-container { flex: 1; position: relative; border-right: 2px solid #e2e8f0; }
         #map { height: 100%; width: 100%; }
         
         .map-tools { position: absolute; top: 10px; left: 50px; z-index: 1000; display: flex; gap: 8px; }
         .tool-btn { background: var(--white); border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 6px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 5px; }
-        .tool-btn:hover { background: #f1f5f9; }
 
         .map-panel { position: absolute; top: 60px; left: 50px; z-index: 1000; background: var(--white); padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); width: 320px; display: none; }
         .map-panel input { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 6px; }
 
-        /* Chat Side */
         #chat-container { width: 450px; display: flex; flex-direction: column; background: var(--white); }
         .chat-header { background: var(--primary); color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
         .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
@@ -33,22 +30,16 @@
         .user { align-self: flex-end; background: var(--primary); color: white; border-bottom-right-radius: 2px; }
         .bot { align-self: flex-start; background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 2px; border: 1px solid #e2e8f0; }
 
-        /* AI Content Styles */
-        .ai-img { width: 100%; border-radius: 8px; margin-top: 10px; cursor: zoom-in; }
-        .ai-section { margin-bottom: 10px; }
+        .ai-img { width: 100%; border-radius: 8px; margin-top: 10px; cursor: zoom-in; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .ai-section { margin-bottom: 10px; border-bottom: 1px dashed #ddd; padding-bottom: 5px; }
         .ai-section b { color: var(--primary); display: block; margin-bottom: 3px; }
         
-        /* Overlay */
         #overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:none; justify-content:center; align-items:center; flex-direction:column; }
         #overlay img { max-width: 90%; max-height: 80%; border-radius: 8px; }
-        #overlay p { color: white; margin-top: 15px; font-size: 18px; }
 
-        /* Footer */
-        footer { padding: 10px; text-align: center; background: #f1f5f9; font-size: 13px; border-top: 1px solid #e2e8f0; }
-        .designer { color: var(--primary); font-weight: bold; }
-
-        #suggestions { padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #eee; }
+        #suggestions { padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #eee; background: #fff; }
         .sug-btn { background: #f0f9ff; border: 1px solid #bae6fd; color: #0369a1; padding: 5px 12px; border-radius: 15px; font-size: 12px; cursor: pointer; }
+        footer { padding: 10px; text-align: center; background: #f1f5f9; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -62,13 +53,13 @@
 
     <div id="search-panel" class="map-panel">
         <input type="text" id="search-input" placeholder="Nhập tên địa danh...">
-        <button class="tool-btn" style="width:100%" onclick="searchLocation()">Tìm địa điểm</button>
+        <button class="tool-btn" style="width:100%; justify-content: center;" onclick="searchLocation()">Tìm địa điểm</button>
     </div>
 
     <div id="route-panel" class="map-panel">
-        <input type="text" id="start-node" placeholder="Điểm đi (Ví dụ: Hà Nội)">
-        <input type="text" id="end-node" placeholder="Điểm đến (Ví dụ: Đà Nẵng)">
-        <button class="tool-btn" style="width:100%" onclick="drawRoute()">Bắt đầu chỉ đường</button>
+        <input type="text" id="start-node" placeholder="Điểm đi...">
+        <input type="text" id="end-node" placeholder="Điểm đến...">
+        <button class="tool-btn" style="width:100%; justify-content: center;" onclick="drawRoute()">Dẫn đường</button>
     </div>
 
     <div id="map"></div>
@@ -78,14 +69,14 @@
     <div class="chat-header">
         <span><b>🇻🇳 Tour & Cuisine Guide</b></span>
         <div style="display:flex; gap:15px">
-            <i class="fa fa-history" onclick="loadHistory()" style="cursor:pointer"></i>
-            <i class="fa fa-trash" onclick="clearHistory()" style="cursor:pointer"></i>
-            <a href="/export_pdf" style="color:white"><i class="fa fa-file-pdf"></i></a>
+            <i class="fa fa-history" title="Lịch sử" onclick="loadHistory()" style="cursor:pointer"></i>
+            <i class="fa fa-trash" title="Xóa chat" onclick="clearHistory()" style="cursor:pointer"></i>
+            <a href="/export_pdf" title="Xuất PDF" style="color:white"><i class="fa fa-file-pdf"></i></a>
         </div>
     </div>
     
     <div id="chat-box" class="chat-box">
-        <div class="msg bot">Chào bạn! Hãy click vào bản đồ hoặc nhập địa danh để khám phá văn hóa & ẩm thực nhé!</div>
+        <div class="msg bot">Chào bạn! Hãy click vào bản đồ hoặc nhập địa danh để bắt đầu nhé!</div>
     </div>
 
     <div id="suggestions"></div>
@@ -97,13 +88,12 @@
         </button>
     </div>
 
-    <footer>Developer: <span class="designer">Lại Nguyễn Minh Trí</span></footer>
+    <footer>Developer: <span style="color:var(--primary); font-weight:bold">Lại Nguyễn Minh Trí</span></footer>
 </div>
 
 <div id="overlay" onclick="this.style.display='none'">
     <img id="overlay-img" src="">
-    <p id="overlay-caption"></p>
-    <button style="position:absolute; top:20px; right:20px; background:none; border:none; color:white; font-size:30px">&times;</button>
+    <p id="overlay-caption" style="color:white; margin-top:10px"></p>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -112,24 +102,23 @@
 <script>
     var map = L.map('map').setView([16.047, 108.206], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
     var marker, routeControl;
 
-    // 1. Click Map lấy địa danh
+    // 1. Click Map
     map.on('click', async function(e) {
         if(marker) map.removeLayer(marker);
         marker = L.marker(e.latlng).addTo(map);
         
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
         const data = await res.json();
-        const placeName = data.address.city || data.address.province || data.address.state || "địa điểm này";
-        sendMessage(`Kể cho tôi về du lịch, con người và ẩm thực tại ${placeName}`);
+        const placeName = data.address.city || data.address.province || data.address.state || "vị trí này";
+        sendMessage(`Kể cho tôi về du lịch và ẩm thực tại ${placeName}`);
     });
 
-    // 2. Gửi tin nhắn
+    // 2. Gửi tin nhắn (Đã sửa .trim())
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
-        const msg = text || input.value.strip();
+        const msg = text || input.value.trim();
         if(!msg) return;
         input.value = "";
 
@@ -148,25 +137,33 @@
         }
     }
 
+    // 3. Gộp hàm RenderBotResponse (Fix triệt để lỗi Undefined)
     function renderBotResponse(data) {
+        const history = data.history || "Đang cập nhật lịch sử...";
+        const culture = data.culture || "Đang cập nhật văn hóa...";
+        const cuisine = data.cuisine || "Đang cập nhật ẩm thực...";
+        const travel = data.travel_tips || "Đang cập nhật tư vấn...";
+        
         const html = `
-            <div class="ai-section"><b>📜 Lịch sử:</b> ${data.history}</div>
-            <div class="ai-section"><b>👥 Văn hóa:</b> ${data.culture}</div>
-            <div class="ai-section"><b>🍜 Ẩm thực:</b> ${data.cuisine}</div>
-            <div class="ai-section"><b>✈️ Tư vấn:</b> ${data.travel_tips}</div>
-            <img class="ai-img" src="https://source.unsplash.com/featured/?${data.image_query}" onclick="showFullImg(this.src, '${data.image_query}')">
-            <div style="margin-top:10px">
+            <div class="ai-section"><b>📜 Lịch sử:</b> ${history}</div>
+            <div class="ai-section"><b>👥 Văn hóa:</b> ${culture}</div>
+            <div class="ai-section"><b>🍜 Ẩm thực:</b> ${cuisine}</div>
+            <div class="ai-section"><b>✈️ Tư vấn:</b> ${travel}</div>
+            ${data.image_query ? `<img class="ai-img" src="https://source.unsplash.com/400x300/?${data.image_query}" onclick="showFullImg(this.src, '${data.image_query}')">` : ''}
+            ${data.youtube_keyword ? `<div style="margin-top:10px">
                 <iframe width="100%" height="200" src="https://www.youtube.com/embed?listType=search&list=${data.youtube_keyword} du lịch" frameborder="0" allowfullscreen></iframe>
-            </div>
+            </div>` : ''}
         `;
         appendMessage('bot', html);
         
-        // Gợi ý
+        // Cập nhật gợi ý
         const sugBox = document.getElementById('suggestions');
-        sugBox.innerHTML = data.suggestions.map(s => `<button class="sug-btn" onclick="sendMessage('${s}')">${s}</button>`).join('');
+        if (data.suggestions) {
+            sugBox.innerHTML = data.suggestions.map(s => `<button class="sug-btn" onclick="sendMessage('${s}')">${s}</button>`).join('');
+        }
     }
 
-    // 3. Tính năng Map nâng cao
+    // 4. Map & Chat Utils
     function togglePanel(id) {
         const p = document.getElementById(id);
         p.style.display = (p.style.display === 'block') ? 'none' : 'block';
@@ -185,23 +182,11 @@
         }
     }
 
-    function drawRoute() {
-        const start = document.getElementById('start-node').value;
-        const end = document.getElementById('end-node').value;
-        if(routeControl) map.removeControl(routeControl);
-
-        // Geocoding đơn giản cho demo (Thực tế cần lấy Lat/Lon của 2 điểm)
-        alert("Đang tìm lộ trình cho: " + start + " đến " + end);
-        // Tích hợp Leaflet Routing Machine tại đây
-    }
-
     function resetMap() {
         map.setView([16.047, 108.206], 6);
-        if(routeControl) map.removeControl(routeControl);
         if(marker) map.removeLayer(marker);
     }
 
-    // 4. Tiện ích Chat
     function appendMessage(role, content) {
         const chatBox = document.getElementById('chat-box');
         const div = document.createElement('div');
@@ -212,45 +197,24 @@
     }
 
     function showFullImg(src, caption) {
-        const overlay = document.getElementById('overlay');
         document.getElementById('overlay-img').src = src;
-        document.getElementById('overlay-caption').innerText = "Hình ảnh: " + caption;
-        overlay.style.display = 'flex';
+        document.getElementById('overlay-caption').innerText = "Địa danh: " + caption;
+        document.getElementById('overlay').style.display = 'flex';
     }
 
-
-    function renderBotResponse(data) {
-    // Thêm kiểm tra dữ liệu để tránh 'undefined'
-    const history = data.history || "Không có dữ liệu lịch sử";
-    const culture = data.culture || "Không có dữ liệu văn hóa";
-    const cuisine = data.cuisine || "Không có dữ liệu ẩm thực";
-    const travel = data.travel_tips || "Không có tư vấn";
-    
-    const html = `
-        <div class="msg bot">
-            <p><b>📜 Lịch sử:</b> ${history}</p>
-            <p><b>👥 Văn hóa:</b> ${culture}</p>
-            <p><b>🍜 Ẩm thực:</b> ${cuisine}</p>
-            <p><b>✈️ Tư vấn:</b> ${travel}</p>
-            ${data.image_query ? `<img src="https://source.unsplash.com/400x300/?${data.image_query}" class="ai-img">` : ''}
-        </div>
-    `;
-    appendMessage('bot', html);
-}
-
     async function clearHistory() {
-        if(confirm("Xóa toàn bộ lịch sử chat?")) {
+        if(confirm("Xóa lịch sử chat?")) {
             await fetch('/clear_history', {method: 'POST'});
             document.getElementById('chat-box').innerHTML = "";
-            appendMessage('bot', 'Lịch sử đã được dọn dẹp!');
+            document.getElementById('suggestions').innerHTML = "";
+            appendMessage('bot', 'Lịch sử đã xóa sạch!');
         }
     }
 
     async function loadHistory() {
         const res = await fetch('/history');
         const data = await res.json();
-        const chatBox = document.getElementById('chat-box');
-        chatBox.innerHTML = "";
+        document.getElementById('chat-box').innerHTML = "";
         data.forEach(m => {
             if(m.role === 'user') appendMessage('user', m.content);
             else renderBotResponse(m.content);
