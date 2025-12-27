@@ -2,142 +2,188 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vietnam Travel AI - Map Explorer</title>
+    <title>Vietnam Travel AI - Minh Trí</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
     <style>
-        :root { --primary-blue: #0077b6; --light-blue: #e0f2f1; --bg-gray: #f8f9fa; }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
-
-        .main-wrapper { display: flex; height: 100vh; width: 100vw; }
-
-        /* Bản đồ bên trái */
-        #map { flex: 1; height: 100%; border-right: 2px solid #ddd; }
-
-        /* Khung chat bên phải */
-        .chat-container { width: 450px; display: flex; flex-direction: column; background: white; box-shadow: -2px 0 10px rgba(0,0,0,0.1); }
+        :root { --blue: #0284c7; --sky: #e0f2fe; }
+        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
         
-        header { background: var(--primary-blue); color: white; padding: 15px; text-align: center; }
-        .chat-box { flex: 1; overflow-y: auto; padding: 20px; background: var(--bg-gray); display: flex; flex-direction: column; gap: 15px; }
+        /* Map Section */
+        #map-side { flex: 1; position: relative; }
+        #map { height: 100%; width: 100%; }
+        .map-tabs { position: absolute; top: 10px; left: 50px; z-index: 1000; display: flex; gap: 5px; }
+        .tab-btn { background: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-weight: bold; }
         
-        .msg { padding: 12px 15px; border-radius: 15px; max-width: 85%; line-height: 1.6; font-size: 14.5px; }
-        .msg.user { align-self: flex-end; background: var(--primary-blue); color: white; border-bottom-right-radius: 2px; }
-        .msg.bot { align-self: flex-start; background: white; border: 1px solid #ddd; border-bottom-left-radius: 2px; }
+        /* Search/Route Panels */
+        .panel { position: absolute; top: 55px; left: 50px; z-index: 1000; background: white; padding: 15px; border-radius: 8px; display: none; width: 300px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
 
-        .suggestion-row { padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; background: white; border-top: 1px solid #eee; }
-        .sug-btn { border: 1px solid var(--primary-blue); background: white; color: var(--primary-blue); padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; }
+        /* Chat Section */
+        #chat-side { width: 450px; display: flex; flex-direction: column; border-left: 2px solid #ddd; }
+        .chat-header { background: var(--blue); color: white; padding: 15px; display: flex; justify-content: space-between; }
+        .chat-box { flex: 1; overflow-y: auto; padding: 15px; background: #f9f9f9; }
+        .msg { margin-bottom: 15px; padding: 12px; border-radius: 10px; line-height: 1.5; }
+        .user { background: var(--blue); color: white; align-self: flex-end; margin-left: 20%; }
+        .bot { background: white; border: 1px solid #ddd; margin-right: 20%; }
+        
+        /* Image & Video */
+        .img-container { cursor: pointer; margin: 10px 0; border-radius: 8px; overflow: hidden; }
+        .img-container img { width: 100%; transition: 0.3s; }
+        .img-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:none; justify-content:center; align-items:center; }
+        .img-overlay img { max-width: 90%; max-height: 80%; }
+        .close-btn { position: absolute; top: 20px; right: 20px; color: white; font-size: 30px; cursor: pointer; }
 
-        .input-group { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #eee; }
-        input { flex: 1; padding: 10px 15px; border-radius: 25px; border: 1px solid #ddd; outline: none; }
-        button#send-btn { background: var(--primary-blue); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
-
-        /* FOOTER THEO YÊU CẦU */
-        footer { 
-            background-color: #87CEEB; /* Xanh da trời nhạt */
-            color: #003366; 
-            text-align: center; 
-            padding: 10px; 
-            font-size: 13px;
-            border-top: 1px solid #add8e6;
-        }
-        .designer-name { 
-            font-weight: bold; 
-            color: #d84315; /* Làm nổi bật tên */
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
+        footer { background: var(--sky); padding: 10px; text-align: center; border-top: 1px solid #bae6fd; }
+        .designer { color: var(--blue); font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="main-wrapper">
-    <div id="map"></div>
-
-    <div class="chat-container">
-        <header>
-            <h3 style="margin:0"><i class="fas fa-map-marked-alt"></i> Vietnam Travel AI</h3>
-        </header>
-
-        <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào bạn! Tôi là hướng dẫn viên ảo. Hãy <b>click vào bất kỳ đâu trên bản đồ</b> hoặc hỏi tôi về địa danh bạn muốn khám phá!</div>
-        </div>
-
-        <div id="suggestion-box" class="suggestion-row"></div>
-
-        <div class="input-group">
-            <input type="text" id="user-input" placeholder="Hỏi về địa danh, văn hóa, ẩm thực...">
-            <button id="send-btn" onclick="handleSend()"><i class="fas fa-paper-plane"></i></button>
-        </div>
-
-        <footer>
-            Hotline: 0908.08.3566 — Designer: <span class="designer-name">Lại Nguyễn Minh Trí</span>
-        </footer>
+<div id="map-side">
+    <div class="map-tabs">
+        <button class="tab-btn" onclick="togglePanel('search-panel')"><i class="fa fa-search"></i> Tìm kiếm</button>
+        <button class="tab-btn" onclick="togglePanel('route-panel')"><i class="fa fa-route"></i> Chỉ đường</button>
+        <button class="tab-btn" onclick="resetMap()"><i class="fa fa-sync"></i> Reset</button>
     </div>
+
+    <div id="search-panel" class="panel">
+        <input type="text" id="search-input" placeholder="Nhập địa điểm..." style="width:70%">
+        <button onclick="searchPlace()">Tìm</button>
+    </div>
+
+    <div id="route-panel" class="panel">
+        <input type="text" id="start-node" placeholder="Điểm đi..." style="width:100%; margin-bottom:5px">
+        <input type="text" id="end-node" placeholder="Điểm đến..." style="width:100%; margin-bottom:5px">
+        <button onclick="findRoute()" style="width:100%">Bắt đầu dẫn đường</button>
+    </div>
+
+    <div id="map"></div>
+</div>
+
+<div id="chat-side">
+    <div class="chat-header">
+        <span><i class="fa fa-robot"></i> Travel AI</span>
+        <div>
+            <button onclick="showHistory()" title="Lịch sử"><i class="fa fa-history"></i></button>
+            <button onclick="clearHistory()" title="Xóa"><i class="fa fa-trash"></i></button>
+            <a href="/export_pdf" style="color:white"><i class="fa fa-file-pdf"></i></a>
+        </div>
+    </div>
+    <div id="chat-box" class="chat-box"></div>
+    <div id="suggest-row" style="padding:10px; display:flex; gap:5px; flex-wrap:wrap"></div>
+    <div style="padding:15px; display:flex; gap:10px">
+        <input type="text" id="user-input" style="flex:1; padding:10px; border-radius:20px; border:1px solid #ddd">
+        <button onclick="handleSend()" style="background:var(--blue); color:white; border:none; border-radius:50%; width:40px"><i class="fa fa-paper-plane"></i></button>
+    </div>
+    <footer>Developer: <span class="designer">Lại Nguyễn Minh Trí</span></footer>
+</div>
+
+<div id="img-overlay" class="img-overlay">
+    <span class="close-btn" onclick="document.getElementById('img-overlay').style.display='none'">&times;</span>
+    <img id="full-img" src="">
+    <p id="img-caption" style="color:white; position:absolute; bottom:50px"></p>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
 <script>
-    // Khởi tạo bản đồ Việt Nam
-    var map = L.map('map').setView([14.0583, 108.2772], 6);
+    var map = L.map('map').setView([16.0, 108.0], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    var marker, routingControl;
 
-    var currentMarker;
-
-    // Sự kiện Click lên bản đồ
+    // Click bản đồ lấy địa danh & hỏi AI
     map.on('click', async function(e) {
-        const lat = e.latlng.lat;
-        const lng = e.latlng.lng;
-
-        if (currentMarker) map.removeLayer(currentMarker);
-        currentMarker = L.marker([lat, lng]).addTo(map);
-
-        // Gọi API đảo ngược tọa độ để lấy tên địa danh (Reverse Geocoding)
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-            const data = await res.json();
-            const locationName = data.display_name.split(',')[0];
-            
-            handleSend(`Kể cho tôi về lịch sử, con người, văn hóa và ẩm thực tại địa danh này: ${locationName}`);
-        } catch (err) {
-            handleSend(`Thông tin văn hóa và du lịch tại tọa độ ${lat.toFixed(2)}, ${lng.toFixed(2)}`);
-        }
+        if(marker) map.removeLayer(marker);
+        marker = L.marker(e.latlng).addTo(map);
+        
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
+        const data = await res.json();
+        const place = data.display_name.split(',')[0];
+        handleSend(`Kể cho tôi về ${place}`);
     });
 
-    async function handleSend(text = null) {
+    async function handleSend(msg = null) {
         const input = document.getElementById('user-input');
-        const msg = text || input.value;
-        if (!msg) return;
+        const text = msg || input.value;
+        if(!text) return;
         input.value = "";
 
-        const chatBox = document.getElementById('chat-box');
-        chatBox.innerHTML += `<div class="msg user">${msg}</div>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-
-        try {
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({msg: msg})
-            });
-            const data = await response.json();
-
-            chatBox.innerHTML += `<div class="msg bot">${data.text.replace(/\n/g, '<br>')}</div>`;
-            
-            // Nếu AI gợi ý địa danh mới, ta có thể tìm kiếm và di chuyển bản đồ tới đó (tùy chọn)
-            
-            const sugBox = document.getElementById('suggestion-box');
-            sugBox.innerHTML = data.suggestions.map(s => 
-                `<button class="sug-btn" onclick="handleSend('${s}')">${s}</button>`
-            ).join('');
-
-            chatBox.scrollTop = chatBox.scrollHeight;
-        } catch (e) {
-            chatBox.innerHTML += `<div class="msg bot">Lỗi kết nối server AI.</div>`;
-        }
+        appendMsg('user', text);
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({msg: text})
+        });
+        const data = await response.json();
+        displayBotResponse(data);
     }
 
-    document.getElementById('user-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
+    function displayBotResponse(data) {
+        let html = `
+            <div class="msg bot">
+                <b>📜 Lịch sử:</b> ${data.history}<br><br>
+                <b>👥 Văn hóa:</b> ${data.culture}<br><br>
+                <b>🍜 Ẩm thực:</b> ${data.cuisine}<br><br>
+                <b>✈️ Tư vấn:</b> ${data.travel_tips}<br>
+                <div class="img-container" onclick="openImg('https://source.unsplash.com/800x600/?${data.image_query}', '${data.image_query}')">
+                    <img src="https://source.unsplash.com/400x300/?${data.image_query}">
+                    <small>(Click để xem ảnh ${data.image_query})</small>
+                </div>
+                <iframe width="100%" height="200" src="https://www.youtube.com/embed?listType=search&list=${data.youtube_keyword}" frameborder="0"></iframe>
+            </div>
+        `;
+        appendMsg('bot', html);
+        
+        // Gợi ý
+        const sugRow = document.getElementById('suggest-row');
+        sugRow.innerHTML = data.suggestions.map(s => `<button onclick="handleSend('${s}')" style="font-size:11px; cursor:pointer">${s}</button>`).join('');
+    }
+
+    function openImg(url, caption) {
+        const overlay = document.getElementById('img-overlay');
+        document.getElementById('full-img').src = url;
+        document.getElementById('img-caption').innerText = "Địa danh: " + caption;
+        overlay.style.display = 'flex';
+    }
+
+    function togglePanel(id) {
+        const p = document.getElementById(id);
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function findRoute() {
+        if(routingControl) map.removeControl(routingControl);
+        // Demo đơn giản: Cần Geocoding điểm đi/đến để lấy tọa độ
+        alert("Tính năng chỉ đường đang kết nối Routing Machine...");
+    }
+
+    function resetMap() {
+        map.setView([16.0, 108.0], 6);
+        if(marker) map.removeLayer(marker);
+        if(routingControl) map.removeControl(routingControl);
+    }
+
+    function appendMsg(role, content) {
+        const box = document.getElementById('chat-box');
+        box.innerHTML += `<div class="msg ${role}">${content}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function showHistory() {
+        const res = await fetch('/history');
+        const data = await res.json();
+        alert("Đã tải lịch sử vào console hoặc bạn có thể render ra tab riêng!");
+        console.log(data);
+    }
+
+    async function clearHistory() {
+        if(confirm("Xóa sạch lịch sử?")) {
+            await fetch('/clear_history', {method: 'POST'});
+            document.getElementById('chat-box').innerHTML = "";
+        }
+    }
 </script>
 </body>
 </html>
