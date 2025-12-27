@@ -5,49 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vietnam Travel AI - Map Explorer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary-blue: #0077b6; --bg-gray: #f8f9fa; }
-        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root { --primary-blue: #0077b6; --light-blue: #e0f2f1; --bg-gray: #f8f9fa; }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
 
-        /* Layout Container */
         .main-wrapper { display: flex; height: 100vh; width: 100vw; }
 
-        /* Cột Trái: Bản đồ */
-        .map-container { flex: 1; background: #e5e3df; border-right: 2px solid #ddd; position: relative; }
-        #google-map { width: 100%; height: 100%; border: none; }
+        /* Bản đồ bên trái */
+        #map { flex: 1; height: 100%; border-right: 2px solid #ddd; }
 
-        /* Cột Phải: Chat */
+        /* Khung chat bên phải */
         .chat-container { width: 450px; display: flex; flex-direction: column; background: white; box-shadow: -2px 0 10px rgba(0,0,0,0.1); }
         
         header { background: var(--primary-blue); color: white; padding: 15px; text-align: center; }
         .chat-box { flex: 1; overflow-y: auto; padding: 20px; background: var(--bg-gray); display: flex; flex-direction: column; gap: 15px; }
         
-        /* Bong bóng chat */
-        .msg { padding: 12px 15px; border-radius: 15px; max-width: 85%; line-height: 1.6; font-size: 14.5px; position: relative; }
+        .msg { padding: 12px 15px; border-radius: 15px; max-width: 85%; line-height: 1.6; font-size: 14.5px; }
         .msg.user { align-self: flex-end; background: var(--primary-blue); color: white; border-bottom-right-radius: 2px; }
-        .msg.bot { align-self: flex-start; background: white; color: #333; border: 1px solid #ddd; border-bottom-left-radius: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .msg.bot { align-self: flex-start; background: white; border: 1px solid #ddd; border-bottom-left-radius: 2px; }
 
-        /* Gợi ý */
         .suggestion-row { padding: 10px; display: flex; gap: 8px; flex-wrap: wrap; background: white; border-top: 1px solid #eee; }
-        .sug-btn { border: 1px solid var(--primary-blue); background: white; color: var(--primary-blue); padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; transition: 0.3s; }
-        .sug-btn:hover { background: var(--primary-blue); color: white; }
+        .sug-btn { border: 1px solid var(--primary-blue); background: white; color: var(--primary-blue); padding: 6px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; }
 
-        /* Input */
-        .input-group { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #eee; background: white; }
+        .input-group { padding: 15px; display: flex; gap: 10px; border-top: 1px solid #eee; }
         input { flex: 1; padding: 10px 15px; border-radius: 25px; border: 1px solid #ddd; outline: none; }
         button#send-btn { background: var(--primary-blue); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
 
-        footer { font-size: 11px; text-align: center; padding: 8px; color: #888; border-top: 1px solid #eee; }
+        /* FOOTER THEO YÊU CẦU */
+        footer { 
+            background-color: #87CEEB; /* Xanh da trời nhạt */
+            color: #003366; 
+            text-align: center; 
+            padding: 10px; 
+            font-size: 13px;
+            border-top: 1px solid #add8e6;
+        }
+        .designer-name { 
+            font-weight: bold; 
+            color: #d84315; /* Làm nổi bật tên */
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
 
 <div class="main-wrapper">
-    <div class="map-container">
-        <iframe id="google-map" 
-            src="https://maps.google.com/maps?q=Vietnam&t=&z=6&ie=UTF8&iwloc=&output=embed">
-        </iframe>
-    </div>
+    <div id="map"></div>
 
     <div class="chat-container">
         <header>
@@ -55,26 +60,50 @@
         </header>
 
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào bạn! Tôi là hướng dẫn viên ảo. Bản đồ bên trái sẽ cập nhật theo địa điểm bạn hỏi. Hãy thử hỏi "Tour Đà Lạt 4 ngày" nhé!</div>
+            <div class="msg bot">Chào bạn! Tôi là hướng dẫn viên ảo. Hãy <b>click vào bất kỳ đâu trên bản đồ</b> hoặc hỏi tôi về địa danh bạn muốn khám phá!</div>
         </div>
 
-        <div id="suggestion-box" class="suggestion-row">
-            </div>
+        <div id="suggestion-box" class="suggestion-row"></div>
 
         <div class="input-group">
-            <input type="text" id="user-input" placeholder="Nhập câu hỏi của bạn...">
+            <input type="text" id="user-input" placeholder="Hỏi về địa danh, văn hóa, ẩm thực...">
             <button id="send-btn" onclick="handleSend()"><i class="fas fa-paper-plane"></i></button>
         </div>
 
         <footer>
-            Hotline: 0908.08.3566 — Designer: <b>Minh Trí</b>
+            Hotline: 0908.08.3566 — Designer: <span class="designer-name">Lại Nguyễn Minh Trí</span>
         </footer>
     </div>
 </div>
 
-
-
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // Khởi tạo bản đồ Việt Nam
+    var map = L.map('map').setView([14.0583, 108.2772], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    var currentMarker;
+
+    // Sự kiện Click lên bản đồ
+    map.on('click', async function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+
+        if (currentMarker) map.removeLayer(currentMarker);
+        currentMarker = L.marker([lat, lng]).addTo(map);
+
+        // Gọi API đảo ngược tọa độ để lấy tên địa danh (Reverse Geocoding)
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const data = await res.json();
+            const locationName = data.display_name.split(',')[0];
+            
+            handleSend(`Kể cho tôi về lịch sử, con người, văn hóa và ẩm thực tại địa danh này: ${locationName}`);
+        } catch (err) {
+            handleSend(`Thông tin văn hóa và du lịch tại tọa độ ${lat.toFixed(2)}, ${lng.toFixed(2)}`);
+        }
+    });
+
     async function handleSend(text = null) {
         const input = document.getElementById('user-input');
         const msg = text || input.value;
@@ -82,8 +111,6 @@
         input.value = "";
 
         const chatBox = document.getElementById('chat-box');
-        
-        // Hiển thị tin nhắn người dùng
         chatBox.innerHTML += `<div class="msg user">${msg}</div>`;
         chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -95,13 +122,10 @@
             });
             const data = await response.json();
 
-            // Hiển thị câu trả lời của AI
             chatBox.innerHTML += `<div class="msg bot">${data.text.replace(/\n/g, '<br>')}</div>`;
             
-            // LOGIC CẬP NHẬT BẢN ĐỒ: Tự động lấy từ khóa từ câu hỏi để cập nhật Map
-            updateMap(msg);
-
-            // Hiển thị các nút gợi ý
+            // Nếu AI gợi ý địa danh mới, ta có thể tìm kiếm và di chuyển bản đồ tới đó (tùy chọn)
+            
             const sugBox = document.getElementById('suggestion-box');
             sugBox.innerHTML = data.suggestions.map(s => 
                 `<button class="sug-btn" onclick="handleSend('${s}')">${s}</button>`
@@ -113,18 +137,7 @@
         }
     }
 
-    function updateMap(location) {
-        // Hàm này cập nhật iframe Google Maps dựa trên từ khóa người dùng gõ
-        const mapIframe = document.getElementById('google-map');
-        const encodedLoc = encodeURIComponent(location);
-        mapIframe.src = `https://maps.google.com/maps?q=${encodedLoc}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
-    }
-
-    // Cho phép nhấn Enter để gửi
-    document.getElementById('user-input').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') handleSend();
-    });
+    document.getElementById('user-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSend(); });
 </script>
-
 </body>
 </html>
