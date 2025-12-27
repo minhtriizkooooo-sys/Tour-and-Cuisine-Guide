@@ -32,15 +32,9 @@ def init_db():
         """)
 init_db()
 
-def remove_accents(input_str):
-    if not input_str:
-        return ""
-    nfkd_form = unicodedata.normalize('NFKD', input_str)
-    return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-
 def call_gemini(user_msg):
     if not client:
-        return {"history": "Thiếu API Key!", "culture": "", "cuisine": "", "travel_tips": "", "youtube_keyword": "", "suggestions": []}
+        return {"history": "Thiếu API Key!"}
     
     prompt = (
         f"Bạn là hướng dẫn viên du lịch chuyên nghiệp. Hãy kể về {user_msg}. "
@@ -62,10 +56,10 @@ def call_gemini(user_msg):
         err_str = str(e)
         if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
             return {
-                "history": "Xin lỗi bạn, hôm nay mình đã hết lượt trả lời miễn phí từ Google Gemini (20 lượt/ngày). "
+                "history": "Xin lỗi bạn, hôm nay mình đã hết lượt trả lời miễn phí từ Google Gemini (chỉ 20 lượt/ngày). "
                            "Bạn vui lòng thử lại vào ngày mai nhé! 🌅",
                 "culture": "", "cuisine": "", "travel_tips": "", "youtube_keyword": "", 
-                "suggestions": ["Thử lại vào ngày mai", "Hỏi về Đà Lạt", "Hỏi về Hạ Long"]
+                "suggestions": ["Thử lại ngày mai", "Hỏi về Đà Lạt", "Hỏi về Hạ Long"]
             }
         else:
             return {
@@ -77,8 +71,7 @@ def call_gemini(user_msg):
 
 @app.route("/")
 def index():
-    # Tạo session_id mới mỗi lần load trang (fix lỗi PDF giữ nội dung cũ khi refresh)
-    sid = str(uuid.uuid4())
+    sid = str(uuid.uuid4())  # Session mới mỗi lần load
     resp = make_response(render_template("index.html"))
     resp.set_cookie("session_id", sid, httponly=True)
     return resp
@@ -196,7 +189,6 @@ def clear():
     if sid:
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
-    # Tạo session mới sau khi xóa
     resp = jsonify({"status": "deleted"})
     resp.set_cookie("session_id", str(uuid.uuid4()), httponly=True)
     return resp
