@@ -330,13 +330,16 @@
             markers.push(marker);
             sendMessage(`Kể tôi nghe về ${q}`);
         } else {
-            appendMessage('bot', 'Không tìm thấy địa điểm. Hãy thử tên khác nhé!');
+            appendMessage('bot', 'Không tìm thấy địa điểm. Hãy thử tên khác hoặc chính xác hơn nhé!');
         }
     }
     async function drawRoute() {
         const start = document.getElementById('start-node').value.trim();
         const end = document.getElementById('end-node').value.trim();
-        if (!start || !end) return;
+        if (!start || !end) {
+            appendMessage('bot', 'Vui lòng nhập cả điểm xuất phát và điểm đến!');
+            return;
+        }
         routePendingMsg = appendMessage('bot', '<div class="ai-section">Đang tìm đường từ <b>' + start + '</b> đến <b>' + end + '</b>... <i class="fa fa-spinner fa-spin"></i></div>');
         const getLatLng = async (query) => {
             const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Việt Nam')}&limit=1`);
@@ -347,7 +350,7 @@
         const p2 = await getLatLng(end);
         if (routePendingMsg) routePendingMsg.remove();
         if (!p1 || !p2) {
-            appendMessage('bot', 'Không tìm thấy một trong hai địa điểm. Vui lòng kiểm tra lại tên.');
+            appendMessage('bot', '<div class="ai-section">Không tìm thấy địa điểm "' + (!p1 ? start : end) + '". Vui lòng kiểm tra lại tên (ví dụ: Sài Gòn, Hà Nội, Đà Lạt).</div>');
             return;
         }
         if (routeControl) map.removeControl(routeControl);
@@ -357,18 +360,7 @@
             lineOptions: { styles: [{ color: '#28a745', weight: 7, opacity: 0.8 }] },
             createMarker: function(i, wp) {
                 const name = i === 0 ? start : end;
-                const marker = L.marker(wp.latLng, {
-                    icon: L.icon({
-                        iconUrl: i === 0 ? 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png' : 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-                        iconSize: [25,41],
-                        iconAnchor: [12,41]
-                    })
-                }).bindPopup(`<b>${name}</b>`);
-                marker.on('click', function() {
-                    sendMessage(`Kể tôi nghe về ${name}`);
-                });
-                return marker;
+                return L.marker(wp.latLng).bindPopup(`<b>${name}</b>`).on('click', () => sendMessage(`Kể tôi nghe về ${name}`));
             },
             addWaypoints: false,
             draggableWaypoints: false,
@@ -376,7 +368,7 @@
             showAlternatives: false,
             language: 'vi'
         }).addTo(map);
-        appendMessage('bot', '<div class="ai-section"><b>Đã vẽ lộ trình thành công từ ' + start + ' đến ' + end + '!</b> Click vào marker để hỏi AI về địa điểm.</div>');
+        appendMessage('bot', '<div class="ai-section"><b>Đã vẽ lộ trình thành công!</b> Bạn có thể xem trên bản đồ và click vào marker để hỏi thêm.</div>');
     }
     let pendingMsg = null;
     let timeoutHandle = null;
@@ -415,7 +407,7 @@
         if (data.cuisine) html += `<div class="ai-section"><b>Ẩm thực:</b> ${data.cuisine}</div>`;
         if (data.travel_tips) html += `<div class="ai-section"><b>Mẹo du lịch:</b> ${data.travel_tips}</div>`;
 
-        // HÌNH ẢNH THỰC TẾ – ĐÚNG 100% THEO ĐỊA DANH (Pexels – nhanh, đẹp)
+        // HÌNH ẢNH THỰC TẾ – ĐÚNG ĐỊA DANH
         const place = query.toLowerCase().trim();
         const imageSets = {
             "đà lạt": [
@@ -472,20 +464,23 @@
                      onclick="openLightbox('${large}', '${captions[i]} - ${query}')">`;
         });
 
+        // YouTube ổn định (link search – không bị lỗi iframe)
         if (data.youtube_keyword) {
             const kw = encodeURIComponent(data.youtube_keyword + " du lịch Việt Nam");
-            html += `<div class="ai-section"><b>Video gợi ý:</b></div><ul style="padding-left:20px;">`;
-            html += `<li><a href="https://www.youtube.com/results?search_query=${kw}" target="_blank">1. Tìm kiếm video về "${data.youtube_keyword}"</a></li>`;
+            html += `<div class="ai-section"><b>Video gợi ý trên YouTube:</b></div><ul style="padding-left:20px;">`;
+            html += `<li><a href="https://www.youtube.com/results?search_query=${kw}" target="_blank">1. Tổng hợp video về "${data.youtube_keyword}"</a></li>`;
             html += `<li><a href="https://www.youtube.com/results?search_query=${kw}+review" target="_blank">2. Review chi tiết</a></li>`;
             html += `<li><a href="https://www.youtube.com/results?search_query=${kw}+hành+trình" target="_blank">3. Hành trình khám phá</a></li>`;
             html += `</ul>`;
         }
+
         if (data.suggestions && data.suggestions.length > 0) {
             html += `<div class="ai-section"><b>Gợi ý hỏi tiếp:</b></div>`;
             data.suggestions.forEach(s => {
                 html += `<div style="margin:8px 0; padding:10px; background:#e3f2fd; border-radius:10px; cursor:pointer;" onclick="sendMessage('${s}')">${s}</div>`;
             });
         }
+
         appendMessage('bot', html);
     }
     function appendMessage(role, content) {
