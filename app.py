@@ -130,7 +130,7 @@ def export_pdf():
     if os.path.exists(bold_path):
         pdf.add_font("DejaVu", "B", bold_path, uni=True)
     
-    pdf.set_font("DejaVu", size=14)
+    pdf.set_font("DejaVu", size=16)
     pdf.cell(0, 10, txt="LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
     pdf.ln(15)
     
@@ -138,11 +138,11 @@ def export_pdf():
         label = "BẠN: " if role == "user" else "AI: "
         time_str = created_at
         
-        pdf.set_font("DejaVu", "B" if os.path.exists(bold_path) else "", 11)
-        pdf.multi_cell(0, 8, f"[{time_str}] {label}")
-        pdf.ln(3)
+        pdf.set_font("DejaVu", "B" if os.path.exists(bold_path) else "", 12)
+        pdf.multi_cell(0, 10, f"[{time_str}] {label}")
+        pdf.ln(5)
         
-        pdf.set_font("DejaVu", size=10)
+        pdf.set_font("DejaVu", size=11)
         
         if role == "bot":
             try:
@@ -159,18 +159,19 @@ def export_pdf():
                     if ':' in section:
                         value = section.split(':', 1)[1].strip()
                         if value:
-                            pdf.multi_cell(0, 8, section)
-                            pdf.ln(2)
+                            pdf.multi_cell(0, 9, section)
+                            pdf.ln(3)
                 
                 suggestions = data.get('suggestions', [])
                 if suggestions:
-                    pdf.multi_cell(0, 8, "- " + "\n- ".join(suggestions))
+                    pdf.multi_cell(0, 9, "- " + "\n- ".join(suggestions))
+                    pdf.ln(5)
             except:
-                pdf.multi_cell(0, 8, content[:1000])
+                pdf.multi_cell(0, 9, content[:1500])
         else:
-            pdf.multi_cell(0, 8, content)
+            pdf.multi_cell(0, 9, content)
         
-        pdf.ln(10)
+        pdf.ln(12)
     
     pdf_path = "/tmp/history.pdf"
     pdf.output(pdf_path)
