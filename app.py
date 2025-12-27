@@ -12,7 +12,7 @@ if api_key:
     # Cấu hình Gemini
     genai.configure(api_key=api_key.strip())
     # Sử dụng bản flash để phản hồi nhanh, tránh lỗi Timeout trên Render
-    model = genai.GenerativeModel('gemini-1.5-flash')
+   model = genai.GenerativeModel('gemini-pro')
     print("✅ Đã kết nối thành công với GEMINI-KEY!")
 else:
     print("❌ LỖI: Không tìm thấy biến môi trường 'GEMINI-KEY'. Hãy kiểm tra lại Tab Environment trên Render!")
@@ -54,3 +54,4 @@ if __name__ == '__main__':
     # Render yêu cầu dùng đúng Port từ hệ thống
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
+
