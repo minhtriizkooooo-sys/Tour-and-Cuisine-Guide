@@ -6,18 +6,18 @@ import unicodedata
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
-from google import genai  # SDK mới
+from google import genai
 from google.genai import types
 from fpdf import FPDF
 
 app = Flask(__name__)
 CORS(app)
 
-# --- CONFIG AI (SDK mới) ---
+# --- CONFIG AI ---
 GEMINI_API_KEY = os.environ.get("GEMINI_KEY")
 if GEMINI_API_KEY:
     client = genai.Client(api_key=GEMINI_API_KEY)
-    model_name = "gemini-2.5-flash"  # Model nhanh, mạnh, rẻ nhất hiện tại (thay thế 1.5-flash)
+    model_name = "gemini-2.5-flash"  # Model nhanh, mạnh, rẻ nhất hiện tại
 else:
     client = None
 
@@ -119,7 +119,12 @@ def export_pdf():
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Helvetica", size=12)
+    
+    # Thêm font tiếng Việt DejaVuSans
+    font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
+    pdf.add_font("DejaVu", "", font_path, uni=True)
+    pdf.set_font("DejaVu", size=12)
+    
     pdf.cell(0, 10, txt="LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
     pdf.ln(10)
     
@@ -127,10 +132,10 @@ def export_pdf():
         label = "BẠN: " if role == "user" else "AI: "
         time_str = created_at
         
-        pdf.set_font("Helvetica", style='B', size=10)
+        pdf.set_font("DejaVu", style='B', size=10)
         pdf.multi_cell(0, 6, f"[{time_str}] {label}")
         
-        pdf.set_font("Helvetica", size=10)
+        pdf.set_font("DejaVu", size=10)
         
         if role == "bot":
             try:
@@ -147,16 +152,16 @@ def export_pdf():
                     if ':' in section:
                         value = section.split(':', 1)[1].strip()
                         if value:
-                            pdf.multi_cell(180, 6, remove_accents(section))
+                            pdf.multi_cell(180, 6, section)  # Không cần remove_accents vì font hỗ trợ Unicode
                             pdf.ln(2)
                 
                 suggestions = data.get('suggestions', [])
                 if suggestions:
-                    pdf.multi_cell(180, 6, remove_accents("- " + "\n- ".join(suggestions)))
+                    pdf.multi_cell(180, 6, "- " + "\n- ".join(suggestions))
             except:
-                pdf.multi_cell(180, 6, remove_accents(content[:1000]))
+                pdf.multi_cell(180, 6, content[:1000])
         else:
-            pdf.multi_cell(180, 6, remove_accents(content))
+            pdf.multi_cell(180, 6, content)  # Hiển thị nguyên văn, font DejaVu hỗ trợ tốt
         
         pdf.ln(8)
     
