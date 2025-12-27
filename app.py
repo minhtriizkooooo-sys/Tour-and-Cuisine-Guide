@@ -31,7 +31,7 @@ CORS(app)
 GEMINI_API_KEY = os.environ.get("GEMINI-KEY") or os.environ.get("GEMINI-KEY-1")
 DB_PATH = "chat_history.db"
 HOTLINE = "0908.08.3566"
-BUILDER_NAME = "Vietnam Travel AI – Lại Nguyễn Minh Trí"
+BUILDER_NAME = "Vietnam Travel AI – Tours & Cuisine Guide - Lại Nguyễn Minh Trí"
 
 # Khởi tạo Client Gemini
 client = None
@@ -152,3 +152,4 @@ def export_pdf():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
+
