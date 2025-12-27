@@ -11,95 +11,77 @@
 
     <style>
         :root { --primary: #0077b6; --dark: #023e8a; --accent: #ffd166; }
-        body { margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+        body { margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
 
-        /* HEADER */
         header {
             background: linear-gradient(135deg, var(--dark), var(--primary));
             color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center;
             box-shadow: 0 3px 10px rgba(0,0,0,0.3); z-index: 1100;
         }
-        .logo-area { display: flex; align-items: center; gap: 15px; font-weight: 800; font-size: 1.4rem; letter-spacing: 1px; }
-        .logo-area img { height: 45px; width: 45px; border-radius: 50%; border: 2px solid white; background: white; }
+        .logo-area { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 1.3rem; }
+        .logo-area img { height: 40px; border-radius: 50%; background: white; padding: 2px; }
 
-        /* MAIN CONTENT */
         main { flex: 1; display: flex; overflow: hidden; position: relative; }
-
-        /* MAP AREA */
-        #map { flex: 1; position: relative; }
+        #map { flex: 1; z-index: 1; }
+        
         .map-tools {
             position: absolute; top: 15px; left: 15px; z-index: 1000;
-            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 280px; backdrop-filter: blur(5px);
+            background: white; padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 280px;
         }
-        .map-tools input { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        .btn-action { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 5px; }
+        .map-tools input { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
 
-        /* SIDEBAR CHAT */
-        #sidebar { width: 450px; display: flex; flex-direction: column; background: white; border-left: 1px solid #ddd; box-shadow: -2px 0 10px rgba(0,0,0,0.05); }
-        .tabs { display: flex; border-bottom: 2px solid #eee; }
-        .tab-btn { flex: 1; padding: 15px; border: none; background: #f8f9fa; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; }
-        .tab-btn.active { background: white; color: var(--primary); border-bottom: 3px solid var(--primary); }
+        #sidebar { width: 420px; display: flex; flex-direction: column; background: white; border-left: 1px solid #ddd; }
+        .tabs { display: flex; background: #f8f9fa; }
+        .tab-btn { flex: 1; padding: 15px; border: none; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: white; color: var(--primary); border-top: 3px solid var(--primary); }
 
-        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #f9fbfd; }
-        #history-list { display: none; flex: 1; overflow-y: auto; padding: 20px; }
+        #chat-box { flex: 1; overflow-y: auto; padding: 20px; background: #f9fbfd; display: flex; flex-direction: column; gap: 15px; }
+        .msg { padding: 12px; border-radius: 15px; max-width: 85%; line-height: 1.5; font-size: 14px; }
+        .bot { background: white; align-self: flex-start; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .user { background: var(--primary); color: white; align-self: flex-end; }
 
-        /* FOOTER */
         footer {
-            background: #212529; color: #adb5bd; padding: 8px 25px;
-            display: flex; justify-content: space-between; align-items: center; font-size: 13px; border-top: 3px solid var(--accent);
+            background: #212529; color: #adb5bd; padding: 10px 25px;
+            display: flex; justify-content: space-between; align-items: center; font-size: 13px; border-top: 2px solid var(--accent);
         }
-        .designer-info { display: flex; gap: 20px; }
-        .designer-info span { display: flex; align-items: center; gap: 6px; }
-        .designer-info b { color: white; }
-
-        /* MESSAGES */
-        .msg { padding: 12px 18px; border-radius: 18px; max-width: 85%; line-height: 1.6; font-size: 14.5px; position: relative; animation: fadeIn 0.3s ease; }
-        .bot { background: white; align-self: flex-start; border: 1px solid #e1e4e8; border-bottom-left-radius: 3px; box-shadow: 0 3px 6px rgba(0,0,0,0.05); color: #24292e; }
-        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 3px; box-shadow: 0 3px 6px rgba(0,119,182,0.2); }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .designer-info b { color: #fff; }
 
         .loading-screen { 
             display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.8);
             z-index: 2000; justify-content: center; align-items: center; flex-direction: column;
         }
-
-        .chat-input-container { padding: 20px; background: white; border-top: 1px solid #eee; }
+        .chat-input-container { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; }
     </style>
 </head>
 <body>
 
     <header>
         <div class="logo-area">
-            <img src="/static/images/Logo_Marie_Curie.png">
+            <img src="/static/images/Logo_Marie_Curie.png" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
             <span>TRAVEL AI GUIDE</span>
         </div>
-        <div>
-            <button onclick="clearMap()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid white; padding:6px 15px; border-radius:20px; cursor:pointer;">
-                <i class="fas fa-redo"></i> Reset Map
-            </button>
-        </div>
+        <button onclick="location.reload()" style="background:none; border:1px solid white; color:white; padding:5px 15px; border-radius:20px; cursor:pointer;">
+            <i class="fas fa-sync"></i> Làm mới
+        </button>
     </header>
 
     <main>
         <div id="loading-overlay" class="loading-screen">
-            <i class="fas fa-compass fa-spin fa-4x" style="color: var(--primary); margin-bottom: 15px;"></i>
-            <b style="font-size: 1.2rem;">AI đang tra cứu địa danh...</b>
+            <i class="fas fa-spinner fa-spin fa-3x" style="color:var(--primary);"></i>
+            <p>AI đang tìm kiếm dữ liệu...</p>
         </div>
 
         <div id="map">
             <div class="map-tools">
-                <label><b>📍 Tìm địa danh & Hỏi AI:</b></label>
-                <div style="display:flex; gap:5px;">
-                    <input type="text" id="map-search-input" placeholder="Ví dụ: Hội An, Chùa Một Cột...">
-                    <button onclick="searchLocation()" style="background:var(--primary); color:white; border:none; padding:0 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-search"></i></button>
-                </div>
-                <hr style="margin: 15px 0; opacity: 0.3;">
-                <label><b>🛣️ Chỉ đường chi tiết:</b></label>
-                <input type="text" id="start-node" placeholder="Điểm khởi hành...">
-                <input type="text" id="end-node" placeholder="Điểm kết thúc...">
-                <button class="btn-action" onclick="drawRoute()" style="background:#28a745; color:white;">BẮT ĐẦU HÀNH TRÌNH</button>
+                <b>🔍 Tìm địa điểm:</b>
+                <input type="text" id="map-search-input" placeholder="Nhập tên địa danh...">
+                <button onclick="searchLocation()" style="width:100%; background:var(--primary); color:white; border:none; padding:10px; border-radius:6px; cursor:pointer;">Tìm kiếm</button>
+                <hr>
+                <b>🛣️ Chỉ đường:</b>
+                <input type="text" id="start-node" placeholder="Điểm đi...">
+                <input type="text" id="end-node" placeholder="Điểm đến...">
+                <button onclick="drawRoute()" style="width:100%; background:#28a745; color:white; border:none; padding:10px; border-radius:6px; cursor:pointer;">Xem đường & Hỏi AI</button>
             </div>
         </div>
 
@@ -108,29 +90,23 @@
                 <button id="t-chat" class="tab-btn active" onclick="switchTab('chat')">HỘI THOẠI</button>
                 <button id="t-hist" class="tab-btn" onclick="switchTab('hist')">LỊCH SỬ</button>
             </div>
-
             <div id="chat-box">
-                <div class="msg bot">Xin chào! Tôi là AI hướng dẫn du lịch. Hãy chọn một địa điểm trên bản đồ hoặc nhập lộ trình để bắt đầu khám phá nhé!</div>
+                <div class="msg bot">Chào bạn! Hãy click vào bản đồ để khám phá văn hóa & ẩm thực.</div>
             </div>
-
-            <div id="history-list"></div>
-
+            <div id="history-list" style="display:none; padding:20px; overflow-y:auto;"></div>
             <div class="chat-input-container">
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="user-input" style="flex:1; padding:12px; border-radius:25px; border:1px solid #ddd; outline:none;" placeholder="Hỏi thêm về địa điểm...">
-                    <button onclick="sendChat()" style="background:var(--primary); color:white; border:none; width:45px; height:45px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
-                    <button onclick="exportPDF()" style="background:#e63946; color:white; border:none; width:45px; height:45px; border-radius:50%; cursor:pointer;"><i class="fas fa-file-pdf"></i></button>
-                </div>
+                <input type="text" id="user-input" style="flex:1; padding:12px; border-radius:25px; border:1px solid #ddd;" placeholder="Hỏi AI về địa điểm...">
+                <button onclick="sendChat()" style="background:var(--primary); color:white; border:none; width:45px; height:45px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
             </div>
         </div>
     </main>
 
     <footer>
         <div class="designer-info">
-            <span><i class="fas fa-user-edit"></i> Designer: <b>[lại Nguyễn Minh Trí]</b></span>
-            <span><i class="fas fa-phone-alt"></i> Hotline: <b>+84-908-08-3566</b></span>
+            <span><i class="fas fa-code"></i> Designer: <b>Nguyễn Minh Trí</b></span>
+            <span style="margin-left:20px;"><i class="fas fa-phone"></i> Hotline: <b>+84-908-08-3566</b></span>
         </div>
-        <div>@ 2026 Vietnam Smart Travel Assistant</div>
+        <div>© 2026 Vietnam Smart Travel Assistant</div>
         <div><i class="fas fa-bolt" style="color:var(--accent);"></i> AI Ready</div>
     </footer>
 
@@ -141,29 +117,15 @@
         const map = L.map('map').setView([10.7769, 106.7009], 13);
         L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {subdomains:['mt0','mt1','mt2','mt3']}).addTo(map);
 
-        let markers = [];
         let routing = null;
-        let chatHistory = JSON.parse(localStorage.getItem('travel_logs')) || [];
+        let chatLogs = JSON.parse(localStorage.getItem('travel_logs')) || [];
 
         function switchTab(t) {
             document.getElementById('chat-box').style.display = t === 'chat' ? 'flex' : 'none';
             document.getElementById('history-list').style.display = t === 'hist' ? 'block' : 'none';
-            document.getElementById('t-chat').className = t === 'chat' ? 'tab-btn active' : 'tab-btn';
-            document.getElementById('t-hist').className = t === 'hist' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('t-chat').classList.toggle('active', t === 'chat');
+            document.getElementById('t-hist').classList.toggle('active', t === 'hist');
             if(t === 'hist') renderHistory();
-        }
-
-        async function searchLocation() {
-            const q = document.getElementById('map-search-input').value;
-            if(!q) return;
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
-            const data = await res.json();
-            if(data.length > 0) {
-                const pos = [data[0].lat, data[0].lon];
-                map.setView(pos, 15);
-                L.marker(pos).addTo(map).bindPopup(q).openPopup();
-                await askAIAboutPlace(q);
-            }
         }
 
         map.on('click', async (e) => {
@@ -171,19 +133,25 @@
             const data = await res.json();
             const place = data.display_name.split(',')[0];
             L.marker(e.latlng).addTo(map).bindPopup(place).openPopup();
-            await askAIAboutPlace(place);
+            sendChat(`Hãy kể cho tôi nghe về lịch sử, văn hóa và ẩm thực tại ${place}`);
         });
 
-        async function askAIAboutPlace(name) {
-            const p = `Kể cho tôi chi tiết về lịch sử, nét văn hóa đặc trưng, con người và ẩm thực nổi tiếng tại ${name}. Gợi ý lịch trình tham quan ngắn.`;
-            await sendChat(p);
+        async function searchLocation() {
+            const q = document.getElementById('map-search-input').value;
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+            const data = await res.json();
+            if(data.length > 0) {
+                const pos = [data[0].lat, data[0].lon];
+                map.setView(pos, 15);
+                L.marker(pos).addTo(map).bindPopup(q).openPopup();
+                sendChat(`Kể về lịch sử và ẩm thực của ${q}`);
+            }
         }
 
         async function drawRoute() {
             const s = document.getElementById('start-node').value;
             const e = document.getElementById('end-node').value;
-            if(!s || !e) return alert("Vui lòng nhập cả điểm đi và điểm đến!");
-            
+            if(!s || !e) return;
             if(routing) map.removeControl(routing);
             
             const sRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${s}`)).json();
@@ -191,11 +159,9 @@
 
             routing = L.Routing.control({
                 waypoints: [L.latLng(sRes[0].lat, sRes[0].lon), L.latLng(eRes[0].lat, eRes[0].lon)],
-                routeWhileDragging: true,
-                lineOptions: { styles: [{ color: '#28a745', weight: 7 }] }
+                lineOptions: { styles: [{ color: '#28a745', weight: 6 }] }
             }).addTo(map);
-
-            await askAIAboutPlace(`tuyến đường từ ${s} tới ${e}`);
+            sendChat(`Lộ trình từ ${s} đến ${e} có gì đặc sắc về du lịch không?`);
         }
 
         async function sendChat(customMsg = null) {
@@ -204,11 +170,9 @@
             if(!msg) return;
             if(!customMsg) input.value = "";
 
-            switchTab('chat');
             const box = document.getElementById('chat-box');
             box.innerHTML += `<div class="msg user">${msg}</div>`;
             box.scrollTop = box.scrollHeight;
-            
             document.getElementById('loading-overlay').style.display = 'flex';
 
             try {
@@ -219,56 +183,21 @@
                 });
                 const data = await response.json();
                 
-                chatHistory.unshift({q: msg, a: data.text, time: new Date().toLocaleString()});
-                localStorage.setItem('travel_logs', JSON.stringify(chatHistory.slice(0, 10)));
+                chatLogs.unshift({q: msg, a: data.text});
+                localStorage.setItem('travel_logs', JSON.stringify(chatLogs.slice(0,10)));
 
-                let botHtml = `
-                    <div class="msg bot">
-                        ${data.text}
-                        <hr style="margin:10px 0; border:0; border-top:1px solid #eee;">
-                        <img src="https://source.unsplash.com/featured/?travel,${data.image_tag}" style="width:100%; border-radius:10px; margin-bottom:10px;">
-                        ${data.video_id ? `<iframe width="100%" height="220" src="https://www.youtube.com/embed/${data.video_id}" frameborder="0" allowfullscreen style="border-radius:10px;"></iframe>` : ''}
-                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">
-                            ${data.suggestions.map(s => `<button onclick="sendChat('${s}')" style="font-size:12px; padding:6px 12px; border:1px solid var(--primary); border-radius:15px; background:white; color:var(--primary); cursor:pointer;">${s}</button>`).join('')}
-                        </div>
-                    </div>
-                `;
-                box.innerHTML += botHtml;
-                box.scrollTop = box.scrollHeight;
+                box.innerHTML += `<div class="msg bot">${data.text}</div>`;
             } catch (err) {
-                box.innerHTML += `<div class="msg bot">Xin lỗi, AI đang gặp sự cố kết nối.</div>`;
+                box.innerHTML += `<div class="msg bot">Lỗi kết nối AI.</div>`;
             } finally {
                 document.getElementById('loading-overlay').style.display = 'none';
+                box.scrollTop = box.scrollHeight;
             }
         }
 
         function renderHistory() {
             const list = document.getElementById('history-list');
-            list.innerHTML = chatHistory.length === 0 ? '<center>Chưa có dữ liệu</center>' :
-                chatHistory.map((h, i) => `
-                    <div onclick="restoreHist(${i})" style="padding:15px; border-bottom:1px solid #eee; cursor:pointer; background:white; margin-bottom:5px; border-radius:8px;">
-                        <small style="color:#888;">${h.time}</small><br>
-                        <b>${h.q.substring(0, 50)}...</b>
-                    </div>
-                `).join('');
-        }
-
-        function restoreHist(i) {
-            const item = chatHistory[i];
-            switchTab('chat');
-            const box = document.getElementById('chat-box');
-            box.innerHTML += `<div class="msg user">${item.q}</div>`;
-            box.innerHTML += `<div class="msg bot">${item.a}</div>`;
-            box.scrollTop = box.scrollHeight;
-        }
-
-        function clearMap() {
-            location.reload();
-        }
-
-        function exportPDF() {
-            const element = document.getElementById('chat-box');
-            html2pdf().from(element).save('Travel_AI_Report.pdf');
+            list.innerHTML = chatLogs.map(h => `<div style="padding:10px; border-bottom:1px solid #eee;"><b>${h.q}</b></div>`).join('');
         }
     </script>
 </body>
