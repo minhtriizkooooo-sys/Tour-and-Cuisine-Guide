@@ -306,8 +306,8 @@
     <div class="status"><span class="dot"></span> AI Active & Ready</div>
 </footer>
 
-<!-- <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script> -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 <script>
     const map = L.map('map').setView([16.0, 107.0], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
@@ -396,6 +396,7 @@
     }
 
     let pendingMsg = null;
+    let timeoutHandle = null;
 
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
@@ -406,6 +407,12 @@
 
         pendingMsg = appendMessage('bot', '<div class="ai-section">Đang xử lý... <i class="fa fa-spinner fa-spin"></i></div>');
 
+        timeoutHandle = setTimeout(() => {
+            if (pendingMsg) {
+                pendingMsg.innerHTML = '<div class="ai-section">Đang tải thông tin từ AI... Vui lòng chờ chút nhé! (có thể mất 10-20 giây lần đầu)</div>';
+            }
+        }, 8000);
+
         try {
             const res = await fetch('/chat', {
                 method: 'POST',
@@ -414,12 +421,14 @@
             });
             const data = await res.json();
 
+            clearTimeout(timeoutHandle);
             if (pendingMsg) pendingMsg.remove();
 
             renderBot(data, msg);
         } catch (e) {
+            clearTimeout(timeoutHandle);
             if (pendingMsg) pendingMsg.remove();
-            appendMessage('bot', 'Lỗi kết nối server. Vui lòng thử lại!');
+            appendMessage('bot', 'Lỗi kết nối. Vui lòng thử lại sau ít phút!');
         }
     }
 
