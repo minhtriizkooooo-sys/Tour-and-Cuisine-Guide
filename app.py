@@ -13,18 +13,16 @@ app = Flask(__name__)
 CORS(app)
 
 # ---------------- CONFIG AI ----------------
-# Sử dụng google-generativeai để ổn định hơn trên Render
+# Lấy API Key từ Environment Variable trên Render
 GEMINI_API_KEY = os.environ.get("GEMINI_KEY")
+model = None
+
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    # Khởi tạo model chuẩn
     model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    model = None
 
 DB_PATH = "chat_history.db"
 
-# ---------------- DATABASE ----------------
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
@@ -40,23 +38,22 @@ init_db()
 
 # ---------------- UTILS ----------------
 def remove_accents(input_str):
-    """Xóa dấu tiếng Việt để PDF không bị lỗi trên server Render"""
+    """Xóa dấu để PDF không lỗi font trên Linux/Render"""
     if not input_str: return ""
     nfkd_form = unicodedata.normalize('NFKD', input_str)
     return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
 def call_gemini(user_msg):
     if not model:
-        return {"history": "Chưa cấu hình GEMINI_KEY trên Render!", "suggestions": ["Kiểm tra Env Var"]}
+        return {"history": "Vui lòng cấu hình GEMINI_KEY trên Render.", "suggestions": []}
     
+    # Prompt ép AI trả về JSON chuẩn cho giao diện
     prompt = (
-        f"Bạn là hướng dẫn viên du lịch. Hãy kể về {user_msg}. "
-        "Trả về định dạng JSON thuần (không dùng markdown) có các khóa: "
-        "history, culture, cuisine, travel_tips, image_query, youtube_keyword, suggestions (list 3 câu)."
+        f"Bạn là chuyên gia du lịch Việt Nam. Hãy kể về {user_msg}. "
+        "Trả về JSON thuần (không markdown) gồm: history, culture, cuisine, travel_tips, image_query, youtube_keyword, suggestions (list 3 câu)."
     )
     
     try:
-        # Gọi AI với cấu hình ép kiểu JSON
         response = model.generate_content(
             prompt,
             generation_config={"response_mime_type": "application/json"}
@@ -64,12 +61,7 @@ def call_gemini(user_msg):
         return json.loads(response.text)
     except Exception as e:
         print(f"AI Error: {e}")
-        return {
-            "history": f"AI đang bận (Lỗi: {str(e)})", 
-            "culture": "N/A", "cuisine": "N/A", "travel_tips": "N/A",
-            "image_query": "Vietnam travel", "youtube_keyword": "Vietnam",
-            "suggestions": ["Thử lại", "Hỏi địa danh khác"]
-        }
+        return {"history": "AI đang bận, thử lại sau nhé!", "suggestions": ["Hỏi địa điểm khác"]}
 
 # ---------------- ROUTES ----------------
 @app.route("/")
@@ -118,9 +110,8 @@ def export_pdf():
     
     pdf = FPDF()
     pdf.add_page()
-    # Sử dụng font Courier (mặc định của FPDF hỗ trợ Latin-1 tốt nhất)
-    pdf.set_font("Courier", size=10)
-    pdf.cell(200, 10, txt="LICH SU DU LICH - MINH TRI GUIDE", ln=True, align='C')
+    pdf.set_font("Courier", size=10) # Dùng font chuẩn máy tính để không lỗi
+    pdf.cell(200, 10, txt="LICH SU DU LICH - SMART TRAVEL AI", ln=True, align='C')
     pdf.ln(5)
 
     for role, content in rows:
@@ -132,12 +123,11 @@ def export_pdf():
                 text_body = f"Lich su: {d.get('history','')}\nAm thuc: {d.get('cuisine','')}"
             except: pass
         
-        # Xóa dấu tiếng Việt để tránh lỗi font sập app
-        safe_text = remove_accents(f"{label} {text_body}")
-        pdf.multi_cell(0, 8, txt=safe_text)
+        # Chuyển văn bản về dạng không dấu cho PDF
+        pdf.multi_cell(0, 8, txt=remove_accents(f"{label} {text_body}"))
         pdf.ln(2)
     
-    output_path = "/tmp/history.pdf" # Dùng thư mục tmp trên Render
+    output_path = "/tmp/travel_history.pdf"
     pdf.output(output_path)
     return send_file(output_path, as_attachment=True)
 
@@ -149,5 +139,4 @@ def clear():
     return jsonify({"status": "deleted"})
 
 if __name__ == "__main__":
-    # Port 10000 là mặc định của Render
     app.run(host="0.0.0.0", port=10000)
