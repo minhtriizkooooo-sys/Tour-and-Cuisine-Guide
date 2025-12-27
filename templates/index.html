@@ -2,227 +2,103 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vietnam Travel AI - Bản đồ & Chỉ đường Tiếng Việt</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vietnam Travel AI - Bản đồ & Hướng dẫn</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <style>
-        :root { --blue: #0077b6; --light-blue: #00b4d8; --green: #2d6a4f; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        :root { --blue: #0077b6; --light-blue: #00b4d8; --green: #2d6a4f; --gray: #f4f7f6; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; }
         
-        body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body { display: flex; flex-direction: column; height: 100vh; background: var(--gray); }
         
-        /* Header chuyên nghiệp */
+        /* Header */
         header { 
             background: linear-gradient(90deg, var(--blue), var(--light-blue)); 
-            color: white; padding: 10px 25px; 
+            color: white; padding: 10px 15px; 
             display: flex; align-items: center; justify-content: space-between;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1001;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 1001;
         }
-        .logo-area { display: flex; align-items: center; gap: 15px; }
-        header img { height: 60px; background: white; border-radius: 8px; padding: 3px; }
+        .logo-area { display: flex; align-items: center; gap: 10px; }
+        header img { height: 45px; background: white; border-radius: 5px; padding: 2px; }
 
-        #main-layout { display: flex; flex: 1; overflow: hidden; }
+        /* Layout Main */
+        #main-layout { display: flex; flex: 1; overflow: hidden; flex-direction: row; }
 
-        /* Map Side (2/3) */
-        #map-side { width: 65%; position: relative; border-right: 2px solid #ddd; }
-        #map { height: 100%; width: 100%; z-index: 1; }
+        /* Map Side */
+        #map-side { width: 60%; position: relative; border-right: 2px solid #ddd; }
+        #map { height: 100%; width: 100%; }
 
-        /* Điều khiển trên Map */
         .map-overlay {
-            position: absolute; top: 15px; left: 15px; z-index: 1000;
+            position: absolute; top: 10px; left: 10px; z-index: 1000;
             background: rgba(255, 255, 255, 0.95);
-            padding: 15px; border-radius: 10px; width: 320px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            padding: 12px; border-radius: 10px; width: 280px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         .map-overlay input, .map-overlay select {
-            width: 100%; padding: 10px; margin-bottom: 8px;
-            border: 1px solid #ccc; border-radius: 5px; outline: none;
+            width: 100%; padding: 8px; margin-bottom: 5px;
+            border: 1px solid #ccc; border-radius: 5px; font-size: 14px;
         }
         .map-overlay button {
-            width: 100%; padding: 10px; border: none; border-radius: 5px;
-            cursor: pointer; font-weight: bold; margin-bottom: 5px;
-            transition: 0.3s;
-        }
-        .btn-search { background: var(--blue); color: white; }
-        .btn-route { background: var(--green); color: white; }
-        .btn-clear { background: #6c757d; color: white; }
-
-        /* Bảng chỉ dẫn Navigation của Leaflet Routing */
-        .leaflet-routing-container {
-            background: white !important; opacity: 0.95;
-            max-height: 250px; overflow-y: auto;
-            font-size: 13px; border-radius: 8px;
+            width: 100%; padding: 8px; border: none; border-radius: 5px;
+            cursor: pointer; font-weight: bold; margin-bottom: 5px; color: white;
         }
 
-        /* Chat Side (1/3) */
-        #chat-side { width: 35%; display: flex; flex-direction: column; background: #fdfdfd; }
-        .tabs { display: flex; background: #f1f1f1; border-bottom: 1px solid #ddd; }
-        .tab-btn { 
-            flex: 1; padding: 15px; border: none; cursor: pointer; 
-            font-weight: bold; color: #666; transition: 0.3s;
-        }
-        .tab-btn.active { background: white; color: var(--blue); border-top: 4px solid var(--blue); }
+        /* Chat Side */
+        #chat-side { width: 40%; display: flex; flex-direction: column; background: white; }
+        .tabs { display: flex; background: #eee; }
+        .tab-btn { flex: 1; padding: 12px; border: none; cursor: pointer; font-weight: bold; color: #555; }
+        .tab-btn.active { background: white; color: var(--blue); border-top: 3px solid var(--blue); }
 
-        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .msg { padding: 15px; border-radius: 12px; max-width: 90%; line-height: 1.6; position: relative; }
-        .user-msg { align-self: flex-end; background: var(--light-blue); color: white; box-shadow: 0 2px 5px rgba(0,180,216,0.3); }
-        .bot-msg { align-self: flex-start; background: white; border-left: 6px solid var(--blue); box-shadow: 0 2px 8px rgba(0,0,0,0.05); color: #333; }
+        #chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { padding: 12px; border-radius: 10px; max-width: 90%; line-height: 1.5; font-size: 15px; }
+        .user-msg { align-self: flex-end; background: var(--light-blue); color: white; }
+        .bot-msg { align-self: flex-start; background: #f1f1f1; color: #333; border-left: 5px solid var(--blue); }
         
-        /* Loading row nhỏ gọn */
-        #loading-row { display: none; font-size: 13px; color: #888; font-style: italic; margin-left: 10px; }
+        #loading-row { display: none; text-align: center; padding: 10px; font-size: 13px; color: #666; }
 
-        /* Ảnh và Video */
-        .img-grid { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 5px; }
-        .img-grid img { height: 90px; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-        .img-grid img:hover { transform: scale(1.05); }
-        .yt-link { display: block; margin-top: 10px; color: #d90429; font-weight: bold; text-decoration: none; }
+        /* Input Area */
+        .input-area { padding: 10px; display: flex; gap: 8px; border-top: 1px solid #ddd; }
+        .input-area input { flex: 1; padding: 10px 15px; border-radius: 20px; border: 1px solid #ccc; outline: none; }
+        .input-area button { background: var(--blue); color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer; }
 
-        /* Gợi ý thông minh */
-        .suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-        .suggest-item { 
-            background: #eef9ff; border: 1px solid var(--light-blue); 
-            padding: 6px 15px; border-radius: 20px; font-size: 13px; 
-            cursor: pointer; transition: 0.2s;
+        footer { background: var(--green); color: white; text-align: center; padding: 5px; font-size: 11px; }
+
+        /* RESPONSIVE CHO MOBILE */
+        @media (max-width: 768px) {
+            #main-layout { flex-direction: column; }
+            #map-side { width: 100%; height: 40vh; }
+            #chat-side { width: 100%; height: 60vh; }
+            .map-overlay { width: 200px; padding: 8px; font-size: 12px; }
+            header h2 { font-size: 14px !important; }
         }
-        .suggest-item:hover { background: var(--light-blue); color: white; }
-
-        /* Ô nhập liệu */
-        .input-area { padding: 15px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
-        .input-area input { flex: 1; padding: 12px 20px; border-radius: 30px; border: 1px solid #ddd; outline: none; font-size: 15px; }
-        .input-area button { background: var(--blue); color: white; border: none; padding: 0 25px; border-radius: 30px; cursor: pointer; font-weight: bold; }
-
-        footer { background: var(--green); color: white; text-align: center; padding: 8px; font-size: 12px; z-index: 1001; }
-
-        <style>
-    /* Tổng thể */
-    body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background-color: #f4f7f6;
-        margin: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-    }
-
-    /* Khung Chat */
-    .chat-container {
-        width: 100%;
-        max-width: 600px; /* Máy tính sẽ rộng tối đa 600px */
-        height: 90vh;
-        background: white;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        border-radius: 15px;
-        overflow: hidden;
-    }
-
-    /* Header */
-    .chat-header {
-        background: #007bff;
-        color: white;
-        padding: 15px;
-        text-align: center;
-        font-weight: bold;
-    }
-
-    /* Vùng hiển thị tin nhắn */
-    #chat-box {
-        flex: 1;
-        overflow-y: auto;
-        padding: 15px;
-        background: #f9f9f9;
-    }
-
-    /* Input và nút gửi */
-    .input-group {
-        display: flex;
-        padding: 10px;
-        background: white;
-        border-top: 1px solid #ddd;
-    }
-
-    input#user-input {
-        flex: 1;
-        padding: 12px;
-        border: 1px solid #ccc;
-        border-radius: 25px;
-        outline: none;
-        font-size: 16px; /* Tránh bị zoom trên iPhone */
-    }
-
-    button#send-btn {
-        margin-left: 10px;
-        padding: 10px 20px;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 25px;
-        cursor: pointer;
-        transition: 0.3s;
-    }
-
-    /* Responsive cho Mobile */
-    @media (max-width: 480px) {
-        .chat-container {
-            height: 100vh; /* Full màn hình điện thoại */
-            border-radius: 0;
-        }
-        
-        .chat-header {
-            padding: 10px;
-        }
-
-        input#user-input {
-            font-size: 14px;
-        }
-    }
-
-    /* Style cho bong bóng chat */
-    .msg { margin-bottom: 15px; line-height: 1.5; }
-    .bot-msg { color: #333; background: #e9ecef; padding: 10px; border-radius: 10px; }
-    .user-msg { text-align: right; color: #007bff; font-weight: bold; }
-</style>
-        
     </style>
 </head>
 <body>
 
 <header>
     <div class="logo-area">
-        <img src="/static/images/Logo_Marie_Curie.png" alt="Marie Curie Logo">
+        <img src="/static/images/Logo_Marie_Curie.png" onerror="this.src='https://via.placeholder.com/50'" alt="Logo">
         <div>
-            <h2 style="font-size: 18px;">VIETNAM TRAVEL AI</h2>
-            <p style="font-size: 11px; opacity: 0.8;">Hệ thống hướng dẫn du lịch thông minh</p>
+            <h2 style="font-size: 16px;">VIETNAM TRAVEL AI</h2>
+            <p style="font-size: 10px; opacity: 0.9;">Hướng dẫn viên thông minh 24/7</p>
         </div>
     </div>
-    <div style="font-size: 13px; font-weight: bold;">CHÀO MỪNG BẠN ĐẾN VỚI VIỆT NAM</div>
 </header>
 
 <div id="main-layout">
     <div id="map-side">
         <div class="map-overlay">
-            <input type="text" id="map-search-input" placeholder="🔍 Tìm địa danh (Vd: Hội An)...">
-            <button class="btn-search" onclick="searchPlace()">Tìm kiếm & Hỏi AI</button>
-            <button class="btn-clear" onclick="clearMarkers()">Xóa tất cả Marker</button>
-            <hr style="margin: 10px 0; border: 0.5px solid #eee;">
-            <input type="text" id="start-node" placeholder="🚩 Điểm khởi hành...">
-            <input type="text" id="end-node" placeholder="🏁 Điểm đến...">
-            <select id="travel-mode">
-                <option value="car">🚗 Ô tô / Taxi</option>
-                <option value="bike">🏍️ Xe máy</option>
-                <option value="foot">🚶 Đi bộ</option>
-            </select>
-            <button class="btn-route" onclick="drawRoute()">Tìm đường & Chỉ dẫn</button>
+            <input type="text" id="map-search-input" placeholder="🔍 Tìm địa danh...">
+            <button style="background: var(--blue);" onclick="searchPlace()">Tìm & Hỏi AI</button>
+            <input type="text" id="start-node" placeholder="🚩 Điểm đi">
+            <input type="text" id="end-node" placeholder="🏁 Điểm đến">
+            <button style="background: var(--green);" onclick="drawRoute()">Chỉ đường</button>
+            <button style="background: #6c757d;" onclick="clearMarkers()">Xóa Map</button>
         </div>
         <div id="map"></div>
     </div>
@@ -230,134 +106,80 @@
     <div id="chat-side">
         <div class="tabs">
             <button class="tab-btn active" id="tab-c" onclick="toggleTab('chat')">Hội thoại</button>
-            <button class="tab-btn" id="tab-h" onclick="toggleTab('hist')">Lịch sử chat</button>
-            <button class="tab-btn" onclick="exportToPDF()" style="color: #d90429;">Xuất PDF</button>
+            <button class="tab-btn" id="tab-h" onclick="toggleTab('hist')">Lịch sử</button>
+            <button class="tab-btn" onclick="exportToPDF()" style="color: red;">Xuất PDF</button>
         </div>
         
         <div id="chat-box">
-            <div class="msg bot-msg">
-                <b>Xin chào!</b> 👋 Tôi là trợ lý du lịch AI. Bạn có thể tìm địa điểm trên bản đồ hoặc hỏi tôi về lịch sử, văn hóa và ẩm thực bất kỳ nơi nào.
-            </div>
-            <div id="loading-row">⌛ Hệ thống đang phân tích dữ liệu thực tế...</div>
+            <div class="msg bot-msg">👋 Chào bạn! Tôi là trợ lý du lịch AI. Hãy nhập địa danh bạn muốn khám phá hoặc chọn trên bản đồ nhé!</div>
+            <div id="loading-row">⌛ Đang xử lý dữ liệu...</div>
         </div>
 
-        <div id="history-box" style="display:none; padding: 20px; overflow-y: auto; flex:1;">
-            <h4 style="color: #666; margin-bottom: 10px;">Các tìm kiếm gần đây:</h4>
+        <div id="history-box" style="display:none; padding: 15px; overflow-y: auto; flex:1;">
             <div id="hist-list"></div>
         </div>
 
         <div class="input-area">
-            <input type="text" id="user-msg-input" placeholder="Bạn muốn tìm hiểu gì hôm nay?">
+            <input type="text" id="user-msg-input" placeholder="Hỏi AI về du lịch...">
             <button onclick="sendUserMsg()">Gửi</button>
         </div>
     </div>
 </div>
 
-<footer>
-    Hotline hỗ trợ: +84-908-08-3566 - Lại Nguyễn Minh Trí - © 2025 Vietnam Travel AI
-</footer>
+<footer>Hotline: +84-908-08-3566 - © 2025 Vietnam Travel AI</footer>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
 
 <script>
-    // 1. Cấu hình Marker Icon (Sửa lỗi mất icon của Leaflet)
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-        iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-    });
-
-    // 2. Khởi tạo Bản đồ Tiếng Việt (Google Maps Layer)
-    const map = L.map('map', { zoomControl: false }).setView([16.047, 108.206], 6);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-    // Dùng Layer Google để hiện Tiếng Việt chuẩn
+    // Khởi tạo Map
+    const map = L.map('map').setView([16.047, 108.206], 6);
     L.tileLayer('http://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
-        maxZoom: 20,
-        subdomains:['mt0','mt1','mt2','mt3'],
-        attribution: '© Google Maps'
+        subdomains:['mt0','mt1','mt2','mt3']
     }).addTo(map);
 
     let markers = [];
     let routeControl = null;
 
-    // 3. Xử lý Click bản đồ -> Tạo Marker + Hỏi Bot
-    map.on('click', function(e) {
-        const lat = e.latlng.lat.toFixed(4);
-        const lng = e.latlng.lng.toFixed(4);
-        addMarker(lat, lng, `Vị trí: ${lat}, ${lng}`);
-        sendUserMsg(`Hãy giới thiệu cho tôi về lịch sử, văn hóa và ẩm thực tại tọa độ ${lat}, ${lng}`);
-    });
-
-    function addMarker(lat, lng, label) {
-        const m = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${label}</b>`).openPopup();
-        markers.push(m);
-    }
-
     function clearMarkers() {
         markers.forEach(m => map.removeLayer(m));
         markers = [];
-        if(routeControl) {
-            map.removeControl(routeControl);
-            routeControl = null;
-        }
+        if(routeControl) map.removeControl(routeControl);
     }
 
-    // 4. Tìm kiếm địa danh
     async function searchPlace() {
-        const query = document.getElementById('map-search-input').value;
-        if(!query) return;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`);
+        const q = document.getElementById('map-search-input').value;
+        if(!q) return;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`);
         const data = await res.json();
         if(data[0]) {
-            const lat = data[0].lat;
-            const lon = data[0].lon;
+            const lat = data[0].lat, lon = data[0].lon;
             map.setView([lat, lon], 13);
-            addMarker(lat, lon, query);
-            sendUserMsg(query);
-        } else {
-            alert("Không tìm thấy địa điểm này!");
+            const m = L.marker([lat, lon]).addTo(map).bindPopup(q).openPopup();
+            markers.push(m);
+            sendUserMsg(`Giới thiệu về ${q}`);
         }
     }
 
-    // 5. Chỉ đường & Navigation Tiếng Việt
     async function drawRoute() {
-        const startText = document.getElementById('start-node').value;
-        const endText = document.getElementById('end-node').value;
-        const mode = document.getElementById('travel-mode').value;
+        const s = document.getElementById('start-node').value;
+        const e = document.getElementById('end-node').value;
+        if(!s || !e) return alert("Nhập điểm đi/đến");
+        
+        const resS = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${s}&limit=1`).then(r => r.json());
+        const resE = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${e}&limit=1`).then(r => r.json());
 
-        if(!startText || !endText) return alert("Vui lòng nhập điểm đi và điểm đến!");
-
-        if(routeControl) map.removeControl(routeControl);
-
-        const resS = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${startText}&limit=1`);
-        const resE = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${endText}&limit=1`);
-        const dS = await resS.json();
-        const dE = await resE.json();
-
-        if(dS[0] && dE[0]) {
+        if(resS[0] && resE[0]) {
+            if(routeControl) map.removeControl(routeControl);
             routeControl = L.Routing.control({
-                waypoints: [
-                    L.latLng(dS[0].lat, dS[0].lon),
-                    L.latLng(dE[0].lat, dE[0].lon)
-                ],
-                router: L.Routing.osrmv1({
-                    serviceUrl: 'https://router.project-osrm.org/route/v1',
-                    profile: mode === 'car' ? 'driving' : (mode === 'bike' ? 'bicycle' : 'foot')
-                }),
-                lineOptions: { styles: [{ color: '#0077b6', weight: 6, opacity: 0.7 }] },
-                language: 'vi', // Chỉ dẫn tiếng Việt
-                show: true,    // Hiện bảng hướng dẫn ngay
-                addWaypoints: false
+                waypoints: [L.latLng(resS[0].lat, resS[0].lon), L.latLng(resE[0].lat, resE[0].lon)],
+                language: 'vi',
+                lineOptions: { styles: [{ color: '#0077b6', weight: 5 }] }
             }).addTo(map);
-
-            sendUserMsg(`Tôi định đi từ ${startText} đến ${endText}. Hãy tư vấn hành trình này.`);
+            sendUserMsg(`Tư vấn lộ trình từ ${s} đi ${e}`);
         }
     }
 
-    // 6. Logic Chatbot (Tương tác với app.py)
     async function sendUserMsg(manualMsg = null) {
         const input = document.getElementById('user-msg-input');
         const msg = manualMsg || input.value;
@@ -365,8 +187,6 @@
 
         input.value = "";
         const box = document.getElementById('chat-box');
-        
-        // Hiện tin nhắn người dùng
         box.innerHTML += `<div class="msg user-msg">${msg}</div>`;
         document.getElementById('loading-row').style.display = 'block';
         box.scrollTop = box.scrollHeight;
@@ -378,34 +198,20 @@
                 body: JSON.stringify({ msg: msg })
             });
             const data = await response.json();
-
             document.getElementById('loading-row').style.display = 'none';
 
-            // Xử lý hiển thị Bot
-            let imgHTML = data.images.length > 0 ? `<div class="img-grid">${data.images.map(src => `<img src="${src}" onclick="window.open('${src}')">`).join('')}</div>` : '';
-            let ytHTML = data.youtube ? `<a href="${data.youtube}" target="_blank" class="yt-link">📺 Xem Video Thực tế về nơi này</a>` : '';
-            let sugHTML = `<div class="suggestions">${data.suggestions.map(s => `<span class="suggest-item" onclick="sendUserMsg('${s}')">${s}</span>`).join('')}</div>`;
-
-            box.innerHTML += `
-                <div class="msg bot-msg">
-                    ${data.text}
-                    ${imgHTML}
-                    ${ytHTML}
-                    ${sugHTML}
-                </div>
-            `;
+            // Hiển thị nội dung từ AI (Hỗ trợ HTML)
+            box.innerHTML += `<div class="msg bot-msg">${data.text}</div>`;
             
-            // Lưu lịch sử
-            document.getElementById('hist-list').innerHTML = `<p style="padding:8px; border-bottom:1px solid #eee; cursor:pointer;" onclick="sendUserMsg('${msg}')">📍 ${msg}</p>` + document.getElementById('hist-list').innerHTML;
-            
+            // Thêm vào lịch sử
+            document.getElementById('hist-list').innerHTML = `<p style="cursor:pointer; border-bottom:1px solid #eee; padding:5px;" onclick="sendUserMsg('${msg}')">📍 ${msg}</p>` + document.getElementById('hist-list').innerHTML;
         } catch (e) {
             document.getElementById('loading-row').style.display = 'none';
-            box.innerHTML += `<div class="msg bot-msg">⚠️ Lỗi kết nối máy chủ. Hãy thử lại!</div>`;
+            box.innerHTML += `<div class="msg bot-msg">⚠️ Lỗi kết nối AI. Thử lại sau!</div>`;
         }
         box.scrollTop = box.scrollHeight;
     }
 
-    // 7. Chuyển đổi Tab & Xuất PDF
     function toggleTab(type) {
         document.getElementById('chat-box').style.display = type === 'chat' ? 'flex' : 'none';
         document.getElementById('history-box').style.display = type === 'hist' ? 'block' : 'none';
@@ -415,16 +221,8 @@
 
     function exportToPDF() {
         const element = document.getElementById('chat-box');
-        const opt = {
-            margin: 10,
-            filename: 'Lich_su_du_lich_Vietnam.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().set(opt).from(element).save();
+        html2pdf().from(element).save('Lich_su_du_lich.pdf');
     }
 </script>
-
 </body>
 </html>
