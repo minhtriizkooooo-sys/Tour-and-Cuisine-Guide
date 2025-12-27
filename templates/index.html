@@ -3,137 +3,273 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Travel Pro 2025</title>
+    <title>Travel Pro AI 2025</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; overflow: hidden; }
-        #map { flex: 1; position: relative; }
-        
-        /* Panel điều khiển trên Map */
-        .map-panel {
-            position: absolute; top: 10px; left: 50px; z-index: 1000;
-            background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); width: 280px;
-        }
-        .map-panel input { width: 100%; padding: 8px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .map-panel button { width: 100%; padding: 10px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; margin-bottom: 5px; }
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-        /* Sidebar Chat */
-        #sidebar { width: 400px; display: flex; flex-direction: column; border-left: 1px solid #ddd; background: white; }
-        #chat-box { flex: 1; overflow-y: auto; padding: 15px; background: #f9f9f9; }
-        .footer { padding: 15px; border-top: 1px solid #eee; background: white; }
-        .msg { margin-bottom: 10px; padding: 10px; border-radius: 8px; font-size: 14px; }
-        .bot { background: #eef; border-left: 4px solid blue; }
-        .user { background: #007bff; color: white; align-self: flex-end; margin-left: 20px; }
+    <style>
+        :root { --primary: #0077b6; --dark: #023e8a; --accent: #ffd166; }
+        body { margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+
+        /* HEADER */
+        header {
+            background: linear-gradient(135deg, var(--dark), var(--primary));
+            color: white; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3); z-index: 1100;
+        }
+        .logo-area { display: flex; align-items: center; gap: 15px; font-weight: 800; font-size: 1.4rem; letter-spacing: 1px; }
+        .logo-area img { height: 45px; width: 45px; border-radius: 50%; border: 2px solid white; background: white; }
+
+        /* MAIN CONTENT */
+        main { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+        /* MAP AREA */
+        #map { flex: 1; position: relative; }
+        .map-tools {
+            position: absolute; top: 15px; left: 15px; z-index: 1000;
+            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 280px; backdrop-filter: blur(5px);
+        }
+        .map-tools input { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .btn-action { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 5px; }
+
+        /* SIDEBAR CHAT */
+        #sidebar { width: 450px; display: flex; flex-direction: column; background: white; border-left: 1px solid #ddd; box-shadow: -2px 0 10px rgba(0,0,0,0.05); }
+        .tabs { display: flex; border-bottom: 2px solid #eee; }
+        .tab-btn { flex: 1; padding: 15px; border: none; background: #f8f9fa; cursor: pointer; font-weight: bold; color: #666; transition: 0.3s; }
+        .tab-btn.active { background: white; color: var(--primary); border-bottom: 3px solid var(--primary); }
+
+        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #f9fbfd; }
+        #history-list { display: none; flex: 1; overflow-y: auto; padding: 20px; }
+
+        /* FOOTER */
+        footer {
+            background: #212529; color: #adb5bd; padding: 8px 25px;
+            display: flex; justify-content: space-between; align-items: center; font-size: 13px; border-top: 3px solid var(--accent);
+        }
+        .designer-info { display: flex; gap: 20px; }
+        .designer-info span { display: flex; align-items: center; gap: 6px; }
+        .designer-info b { color: white; }
+
+        /* MESSAGES */
+        .msg { padding: 12px 18px; border-radius: 18px; max-width: 85%; line-height: 1.6; font-size: 14.5px; position: relative; animation: fadeIn 0.3s ease; }
+        .bot { background: white; align-self: flex-start; border: 1px solid #e1e4e8; border-bottom-left-radius: 3px; box-shadow: 0 3px 6px rgba(0,0,0,0.05); color: #24292e; }
+        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 3px; box-shadow: 0 3px 6px rgba(0,119,182,0.2); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .loading-screen { 
+            display: none; position: absolute; inset: 0; background: rgba(255,255,255,0.8);
+            z-index: 2000; justify-content: center; align-items: center; flex-direction: column;
+        }
+
+        .chat-input-container { padding: 20px; background: white; border-top: 1px solid #eee; }
     </style>
 </head>
 <body>
 
-<div id="map">
-    <div class="map-panel">
-        <label><b>🔍 Tìm địa điểm:</b></label>
-        <input type="text" id="search-input" placeholder="Nhập tên địa danh..." onkeypress="if(event.key==='Enter') searchPlace()">
-        <hr>
-        <label><b>🛣️ Chỉ đường:</b></label>
-        <input type="text" id="start" placeholder="Điểm đi...">
-        <input type="text" id="end" placeholder="Điểm đến...">
-        <button onclick="drawRoute()" style="background: #28a745; color: white;">Bắt đầu chỉ đường</button>
-        <button onclick="clearMap()" style="background: #dc3545; color: white;">Xóa Marker/Đường</button>
-    </div>
-</div>
-
-<div id="sidebar">
-    <div id="chat-box">
-        <div class="msg bot">Chào bạn! Nhập lộ trình bên trái để xem đường đi, hoặc hỏi tôi ở dưới nhé.</div>
-    </div>
-    <div class="footer">
-        <div style="display: flex; gap: 5px;">
-            <input type="text" id="user-msg" style="flex:1; padding:10px; border-radius:20px; border:1px solid #ddd;" placeholder="Hỏi AI về du lịch...">
-            <button onclick="sendAI()" style="background:blue; color:white; border:none; width:40px; border-radius:50%; cursor:pointer;"><i class="fa fa-paper-plane"></i></button>
+    <header>
+        <div class="logo-area">
+            <img src="/static/images/Logo_Marie_Curie.png">
+            <span>TRAVEL AI GUIDE</span>
         </div>
-    </div>
-</div>
+        <div>
+            <button onclick="clearMap()" style="background:rgba(255,255,255,0.2); color:white; border:1px solid white; padding:6px 15px; border-radius:20px; cursor:pointer;">
+                <i class="fas fa-redo"></i> Reset Map
+            </button>
+        </div>
+    </header>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <main>
+        <div id="loading-overlay" class="loading-screen">
+            <i class="fas fa-compass fa-spin fa-4x" style="color: var(--primary); margin-bottom: 15px;"></i>
+            <b style="font-size: 1.2rem;">AI đang tra cứu địa danh...</b>
+        </div>
 
-<script>
-    const map = L.map('map').setView([10.7769, 106.7009], 13);
-    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {subdomains:['mt0','mt1','mt2','mt3']}).addTo(map);
+        <div id="map">
+            <div class="map-tools">
+                <label><b>📍 Tìm địa danh & Hỏi AI:</b></label>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="map-search-input" placeholder="Ví dụ: Hội An, Chùa Một Cột...">
+                    <button onclick="searchLocation()" style="background:var(--primary); color:white; border:none; padding:0 12px; border-radius:6px; cursor:pointer;"><i class="fas fa-search"></i></button>
+                </div>
+                <hr style="margin: 15px 0; opacity: 0.3;">
+                <label><b>🛣️ Chỉ đường chi tiết:</b></label>
+                <input type="text" id="start-node" placeholder="Điểm khởi hành...">
+                <input type="text" id="end-node" placeholder="Điểm kết thúc...">
+                <button class="btn-action" onclick="drawRoute()" style="background:#28a745; color:white;">BẮT ĐẦU HÀNH TRÌNH</button>
+            </div>
+        </div>
 
-    let markers = [];
-    let routing = null;
+        <div id="sidebar">
+            <div class="tabs">
+                <button id="t-chat" class="tab-btn active" onclick="switchTab('chat')">HỘI THOẠI</button>
+                <button id="t-hist" class="tab-btn" onclick="switchTab('hist')">LỊCH SỬ</button>
+            </div>
 
-    // 1. Tìm kiếm và thả Marker
-    async function searchPlace() {
-        const q = document.getElementById('search-input').value;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
-        const data = await res.json();
-        if(data.length > 0) {
-            const pos = [data[0].lat, data[0].lon];
-            map.setView(pos, 15);
-            const m = L.marker(pos).addTo(map).bindPopup(q).openPopup();
-            markers.push(m);
+            <div id="chat-box">
+                <div class="msg bot">Xin chào! Tôi là AI hướng dẫn du lịch. Hãy chọn một địa điểm trên bản đồ hoặc nhập lộ trình để bắt đầu khám phá nhé!</div>
+            </div>
+
+            <div id="history-list"></div>
+
+            <div class="chat-input-container">
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="user-input" style="flex:1; padding:12px; border-radius:25px; border:1px solid #ddd; outline:none;" placeholder="Hỏi thêm về địa điểm...">
+                    <button onclick="sendChat()" style="background:var(--primary); color:white; border:none; width:45px; height:45px; border-radius:50%; cursor:pointer;"><i class="fas fa-paper-plane"></i></button>
+                    <button onclick="exportPDF()" style="background:#e63946; color:white; border:none; width:45px; height:45px; border-radius:50%; cursor:pointer;"><i class="fas fa-file-pdf"></i></button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="designer-info">
+            <span><i class="fas fa-user-edit"></i> Designer: <b>[lại Nguyễn Minh Trí]</b></span>
+            <span><i class="fas fa-phone-alt"></i> Hotline: <b>+84-908-08-3566</b></span>
+        </div>
+        <div>@ 2026 Vietnam Smart Travel Assistant</div>
+        <div><i class="fas fa-bolt" style="color:var(--accent);"></i> AI Ready</div>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        const map = L.map('map').setView([10.7769, 106.7009], 13);
+        L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {subdomains:['mt0','mt1','mt2','mt3']}).addTo(map);
+
+        let markers = [];
+        let routing = null;
+        let chatHistory = JSON.parse(localStorage.getItem('travel_logs')) || [];
+
+        function switchTab(t) {
+            document.getElementById('chat-box').style.display = t === 'chat' ? 'flex' : 'none';
+            document.getElementById('history-list').style.display = t === 'hist' ? 'block' : 'none';
+            document.getElementById('t-chat').className = t === 'chat' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('t-hist').className = t === 'hist' ? 'tab-btn active' : 'tab-btn';
+            if(t === 'hist') renderHistory();
         }
-    }
 
-    // 2. Click Map thả Marker
-    map.on('click', async (e) => {
-        const m = L.marker(e.latlng).addTo(map);
-        markers.push(m);
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
-        const data = await res.json();
-        m.bindPopup(data.display_name).openPopup();
-    });
+        async function searchLocation() {
+            const q = document.getElementById('map-search-input').value;
+            if(!q) return;
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+            const data = await res.json();
+            if(data.length > 0) {
+                const pos = [data[0].lat, data[0].lon];
+                map.setView(pos, 15);
+                L.marker(pos).addTo(map).bindPopup(q).openPopup();
+                await askAIAboutPlace(q);
+            }
+        }
 
-    // 3. Chỉ đường (CHỈ VẼ ĐƯỜNG, KHÔNG GỌI AI)
-    async function drawRoute() {
-        const s = document.getElementById('start').value;
-        const e = document.getElementById('end').value;
-        if(!s || !e) return alert("Nhập đủ 2 điểm!");
-
-        const sRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${s}`);
-        const sData = await sRes.json();
-        const eRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${e}`);
-        const eData = await eRes.json();
-
-        if(routing) map.removeControl(routing);
-        
-        routing = L.Routing.control({
-            waypoints: [
-                L.latLng(sData[0].lat, sData[0].lon),
-                L.latLng(eData[0].lat, eData[0].lon)
-            ],
-            lineOptions: { styles: [{ color: 'blue', weight: 5 }] }
-        }).addTo(map);
-    }
-
-    // 4. Chat AI (Chỉ chạy khi người dùng bấm gửi tin nhắn)
-    async function sendAI() {
-        const input = document.getElementById('user-msg');
-        const msg = input.value;
-        if(!msg) return;
-        input.value = "";
-        
-        const box = document.getElementById('chat-box');
-        box.innerHTML += `<div class="msg user">${msg}</div>`;
-
-        const res = await fetch('/chat', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({msg: msg})
+        map.on('click', async (e) => {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
+            const data = await res.json();
+            const place = data.display_name.split(',')[0];
+            L.marker(e.latlng).addTo(map).bindPopup(place).openPopup();
+            await askAIAboutPlace(place);
         });
-        const data = await res.json();
-        box.innerHTML += `<div class="msg bot">${data.text}</div>`;
-        box.scrollTop = box.scrollHeight;
-    }
 
-    function clearMap() {
-        markers.forEach(m => map.removeLayer(m));
-        if(routing) map.removeControl(routing);
-        markers = [];
-    }
-</script>
+        async function askAIAboutPlace(name) {
+            const p = `Kể cho tôi chi tiết về lịch sử, nét văn hóa đặc trưng, con người và ẩm thực nổi tiếng tại ${name}. Gợi ý lịch trình tham quan ngắn.`;
+            await sendChat(p);
+        }
+
+        async function drawRoute() {
+            const s = document.getElementById('start-node').value;
+            const e = document.getElementById('end-node').value;
+            if(!s || !e) return alert("Vui lòng nhập cả điểm đi và điểm đến!");
+            
+            if(routing) map.removeControl(routing);
+            
+            const sRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${s}`)).json();
+            const eRes = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${e}`)).json();
+
+            routing = L.Routing.control({
+                waypoints: [L.latLng(sRes[0].lat, sRes[0].lon), L.latLng(eRes[0].lat, eRes[0].lon)],
+                routeWhileDragging: true,
+                lineOptions: { styles: [{ color: '#28a745', weight: 7 }] }
+            }).addTo(map);
+
+            await askAIAboutPlace(`tuyến đường từ ${s} tới ${e}`);
+        }
+
+        async function sendChat(customMsg = null) {
+            const input = document.getElementById('user-input');
+            const msg = customMsg || input.value;
+            if(!msg) return;
+            if(!customMsg) input.value = "";
+
+            switchTab('chat');
+            const box = document.getElementById('chat-box');
+            box.innerHTML += `<div class="msg user">${msg}</div>`;
+            box.scrollTop = box.scrollHeight;
+            
+            document.getElementById('loading-overlay').style.display = 'flex';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({msg: msg})
+                });
+                const data = await response.json();
+                
+                chatHistory.unshift({q: msg, a: data.text, time: new Date().toLocaleString()});
+                localStorage.setItem('travel_logs', JSON.stringify(chatHistory.slice(0, 10)));
+
+                let botHtml = `
+                    <div class="msg bot">
+                        ${data.text}
+                        <hr style="margin:10px 0; border:0; border-top:1px solid #eee;">
+                        <img src="https://source.unsplash.com/featured/?travel,${data.image_tag}" style="width:100%; border-radius:10px; margin-bottom:10px;">
+                        ${data.video_id ? `<iframe width="100%" height="220" src="https://www.youtube.com/embed/${data.video_id}" frameborder="0" allowfullscreen style="border-radius:10px;"></iframe>` : ''}
+                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">
+                            ${data.suggestions.map(s => `<button onclick="sendChat('${s}')" style="font-size:12px; padding:6px 12px; border:1px solid var(--primary); border-radius:15px; background:white; color:var(--primary); cursor:pointer;">${s}</button>`).join('')}
+                        </div>
+                    </div>
+                `;
+                box.innerHTML += botHtml;
+                box.scrollTop = box.scrollHeight;
+            } catch (err) {
+                box.innerHTML += `<div class="msg bot">Xin lỗi, AI đang gặp sự cố kết nối.</div>`;
+            } finally {
+                document.getElementById('loading-overlay').style.display = 'none';
+            }
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = chatHistory.length === 0 ? '<center>Chưa có dữ liệu</center>' :
+                chatHistory.map((h, i) => `
+                    <div onclick="restoreHist(${i})" style="padding:15px; border-bottom:1px solid #eee; cursor:pointer; background:white; margin-bottom:5px; border-radius:8px;">
+                        <small style="color:#888;">${h.time}</small><br>
+                        <b>${h.q.substring(0, 50)}...</b>
+                    </div>
+                `).join('');
+        }
+
+        function restoreHist(i) {
+            const item = chatHistory[i];
+            switchTab('chat');
+            const box = document.getElementById('chat-box');
+            box.innerHTML += `<div class="msg user">${item.q}</div>`;
+            box.innerHTML += `<div class="msg bot">${item.a}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function clearMap() {
+            location.reload();
+        }
+
+        function exportPDF() {
+            const element = document.getElementById('chat-box');
+            html2pdf().from(element).save('Travel_AI_Report.pdf');
+        }
+    </script>
 </body>
 </html>
