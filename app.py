@@ -13,7 +13,6 @@ from fpdf import FPDF
 app = Flask(__name__)
 CORS(app)
 
-# --- CONFIG AI ---
 GEMINI_API_KEY = os.environ.get("GEMINI_KEY")
 if GEMINI_API_KEY:
     client = genai.Client(api_key=GEMINI_API_KEY)
@@ -41,7 +40,7 @@ def remove_accents(input_str):
 
 def call_gemini(user_msg):
     if not client:
-        return {"history": "Thiếu API Key!"}
+        return {"history": "Thiếu API Key!", "culture": "", "cuisine": "", "travel_tips": "", "youtube_keyword": "", "suggestions": []}
     
     prompt = (
         f"Bạn là hướng dẫn viên du lịch chuyên nghiệp. Hãy kể về {user_msg}. "
@@ -60,11 +59,26 @@ def call_gemini(user_msg):
         )
         return json.loads(response.text)
     except Exception as e:
-        return {"history": f"Lỗi: {str(e)}", "suggestions": ["Thử lại sau vài giây"]}
+        err_str = str(e)
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+            return {
+                "history": "Xin lỗi bạn, hôm nay mình đã hết lượt trả lời miễn phí từ Google Gemini (20 lượt/ngày). "
+                           "Bạn vui lòng thử lại vào ngày mai nhé! 🌅",
+                "culture": "", "cuisine": "", "travel_tips": "", "youtube_keyword": "", 
+                "suggestions": ["Thử lại vào ngày mai", "Hỏi về Đà Lạt", "Hỏi về Hạ Long"]
+            }
+        else:
+            return {
+                "history": "Xin lỗi, hiện tại mình chưa có thông tin chi tiết về địa điểm này. "
+                           "Bạn thử hỏi các địa danh nổi tiếng như Đà Lạt, Hạ Long, Sapa, Phú Quốc nhé! 😊",
+                "culture": "", "cuisine": "", "travel_tips": "", "youtube_keyword": "", 
+                "suggestions": ["Đà Lạt", "Hạ Long", "Sapa", "Phú Quốc"]
+            }
 
 @app.route("/")
 def index():
-    sid = request.cookies.get("session_id") or str(uuid.uuid4())
+    # Tạo session_id mới mỗi lần load trang (fix lỗi PDF giữ nội dung cũ khi refresh)
+    sid = str(uuid.uuid4())
     resp = make_response(render_template("index.html"))
     resp.set_cookie("session_id", sid, httponly=True)
     return resp
@@ -118,7 +132,7 @@ def export_pdf():
     
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_auto_page_break(auto=True, margin=20)
     
     font_dir = app.static_folder
     regular_path = os.path.join(font_dir, "DejaVuSans.ttf")
@@ -126,13 +140,12 @@ def export_pdf():
     
     if os.path.exists(regular_path):
         pdf.add_font("DejaVu", "", regular_path, uni=True)
-    
     if os.path.exists(bold_path):
         pdf.add_font("DejaVu", "B", bold_path, uni=True)
     
     pdf.set_font("DejaVu", size=16)
-    pdf.cell(0, 10, txt="LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
-    pdf.ln(15)
+    pdf.cell(0, 15, txt="LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
+    pdf.ln(10)
     
     for role, content, created_at in rows:
         label = "BẠN: " if role == "user" else "AI: "
@@ -183,7 +196,10 @@ def clear():
     if sid:
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
-    return jsonify({"status": "deleted"})
+    # Tạo session mới sau khi xóa
+    resp = jsonify({"status": "deleted"})
+    resp.set_cookie("session_id", str(uuid.uuid4()), httponly=True)
+    return resp
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
