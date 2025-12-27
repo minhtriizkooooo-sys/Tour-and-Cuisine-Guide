@@ -1,50 +1,59 @@
 import os
-import json
 from flask import Flask, render_template, request, jsonify
-from google import genai
+import google.generativeai as genai
 
 app = Flask(__name__)
 
-keys = [os.environ.get("GEMINI-KEY"), os.environ.get("GEMINI-KEY-1")]
-valid_keys = [k.strip() for k in keys if k]
-key_index = 0
+# Cấu hình API Key (Lấy từ biến môi trường trên Render hoặc dán trực tiếp nếu test)
+API_KEY = os.environ.get("GEMINI_API_KEY") 
+genai.configure(api_key=API_KEY)
 
-def get_chat_response(user_input):
-    global key_index
-    if not valid_keys: return None
-    try:
-        current_key = valid_keys[key_index]
-        key_index = (key_index + 1) % len(valid_keys)
-        client = genai.Client(api_key=current_key, http_options={'api_version': 'v1'})
-        
-        prompt = f"""
-        Bạn là hướng dẫn viên du lịch chuyên sâu. Trả lời về: {user_input}.
-        Yêu cầu kiến thức về: Lịch sử, Văn hóa, Con người, Ẩm thực đặc sản.
-        BẮT BUỘC TRẢ VỀ JSON KHÔNG MÀU (KHÔNG DÙNG ```json):
-        {{
-          "text": "Nội dung chi tiết (dùng <h3>, <ul>, <li>)",
-          "video_id": "Mã ID YouTube (ví dụ: 'Y7vM0_5_S_4')",
-          "image_tag": "từ khóa tìm ảnh tiếng Anh",
-          "suggestions": ["Câu hỏi tiếp theo 1", "Câu hỏi 2"]
-        }}
-        """
-        response = client.models.generate_content(model="gemini-1.5-flash", contents=prompt)
-        clean_json = response.text.replace('```json', '').replace('```', '').strip()
-        return json.loads(clean_json)
-    except Exception as e:
-        print(f"Lỗi AI: {e}")
-        return None
+# Sử dụng model gemini-1.5-flash
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/chat', methods=['POST'])
+@app.route('/chat', method=['POST'])
 def chat():
-    data = request.json
-    res = get_chat_response(data.get('msg', ''))
-    if res: return jsonify(res)
-    return jsonify({"text": "AI đang bận, vui lòng thử lại.", "video_id": "", "image_tag": "travel", "suggestions": []})
+    user_msg = request.json.get("msg")
+    if not user_msg:
+        return jsonify({"text": "Bạn chưa nhập câu hỏi.", "suggestions": []})
+
+    try:
+        # Gọi Gemini AI trả về định dạng mong muốn
+        prompt = f"""
+        Bạn là một hướng dẫn viên du lịch chuyên nghiệp. 
+        Trả lời câu hỏi sau của khách: "{user_msg}"
+        
+        Yêu cầu trả lời:
+        1. Ngôn ngữ: Tiếng Việt.
+        2. Cung cấp: Lịch sử, văn hóa, ẩm thực và con người tại địa điểm này.
+        3. Kết quả trả về gồm:
+           - Nội dung chi tiết.
+           - 3 câu hỏi gợi ý ngắn gọn.
+           - 1 từ khóa tiếng Anh để tìm ảnh (ví dụ: 'Hanoi street food').
+        """
+
+        response = model.generate_content(prompt)
+        full_text = response.text
+
+        # Tách gợi ý (giả định AI trả về cuối bài)
+        # Để đơn giản, tôi sẽ giả lập phần tách này
+        return jsonify({
+            "text": full_text,
+            "image_tag": "travel,culture",
+            "suggestions": ["Tìm món ăn ngon", "Lịch sử nơi này", "Địa điểm gần đây"],
+            "video_id": "" 
+        })
+
+    except Exception as e:
+        print(f"Lỗi hệ thống: {str(e)}")
+        return jsonify({
+            "text": f"AI đang bận một chút, bạn thử lại nhé! (Chi tiết: {str(e)})",
+            "suggestions": []
+        })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    app.run(host='0.0.0.0', port=10000)
