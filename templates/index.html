@@ -218,6 +218,26 @@
         overlay.style.display = 'flex';
     }
 
+
+    function renderBotResponse(data) {
+    // Thêm kiểm tra dữ liệu để tránh 'undefined'
+    const history = data.history || "Không có dữ liệu lịch sử";
+    const culture = data.culture || "Không có dữ liệu văn hóa";
+    const cuisine = data.cuisine || "Không có dữ liệu ẩm thực";
+    const travel = data.travel_tips || "Không có tư vấn";
+    
+    const html = `
+        <div class="msg bot">
+            <p><b>📜 Lịch sử:</b> ${history}</p>
+            <p><b>👥 Văn hóa:</b> ${culture}</p>
+            <p><b>🍜 Ẩm thực:</b> ${cuisine}</p>
+            <p><b>✈️ Tư vấn:</b> ${travel}</p>
+            ${data.image_query ? `<img src="https://source.unsplash.com/400x300/?${data.image_query}" class="ai-img">` : ''}
+        </div>
+    `;
+    appendMessage('bot', html);
+}
+
     async function clearHistory() {
         if(confirm("Xóa toàn bộ lịch sử chat?")) {
             await fetch('/clear_history', {method: 'POST'});
