@@ -4,56 +4,54 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Cấu hình API Key (Lấy từ biến môi trường trên Render hoặc dán trực tiếp nếu test)
-API_KEY = os.environ.get("GEMINI_API_KEY") 
-genai.configure(api_key=API_KEY)
+# Thử lấy Key 1, nếu không có thì lấy Key 2
+API_KEY = os.environ.get("GEMINI-KEY") or os.environ.get("GEMINI-KEY-1")
 
-# Sử dụng model gemini-1.5-flash
-model = genai.GenerativeModel('gemini-1.5-flash')
+if API_KEY:
+    genai.configure(api_key=API_KEY)
+    # Khởi tạo model chuẩn cho năm 2025
+    model = genai.GenerativeModel('gemini-1.5-flash')
+else:
+    print("CẢNH BÁO: Chưa tìm thấy API Key trên Render!")
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/chat', method=['POST'])
+@app.route('/chat', methods=['POST'])
 def chat():
     user_msg = request.json.get("msg")
     if not user_msg:
-        return jsonify({"text": "Bạn chưa nhập câu hỏi.", "suggestions": []})
+        return jsonify({"text": "Bạn chưa nhập tin nhắn.", "suggestions": []})
 
     try:
-        # Gọi Gemini AI trả về định dạng mong muốn
+        # Prompt tối ưu để AI trả về thông tin du lịch chi tiết
         prompt = f"""
-        Bạn là một hướng dẫn viên du lịch chuyên nghiệp. 
-        Trả lời câu hỏi sau của khách: "{user_msg}"
-        
-        Yêu cầu trả lời:
-        1. Ngôn ngữ: Tiếng Việt.
-        2. Cung cấp: Lịch sử, văn hóa, ẩm thực và con người tại địa điểm này.
-        3. Kết quả trả về gồm:
-           - Nội dung chi tiết.
-           - 3 câu hỏi gợi ý ngắn gọn.
-           - 1 từ khóa tiếng Anh để tìm ảnh (ví dụ: 'Hanoi street food').
+        Bạn là hướng dẫn viên du lịch ảo thông minh. 
+        Người dùng hỏi: "{user_msg}"
+        Hãy trả lời bằng tiếng Việt:
+        1. Thông tin lịch sử, văn hóa, con người và ẩm thực.
+        2. Gợi ý 3 hành động tiếp theo cho khách (viết ngắn gọn).
+        3. Cuối cùng cho tôi 1 từ khóa tiếng Anh để tìm ảnh liên quan.
         """
-
+        
         response = model.generate_content(prompt)
-        full_text = response.text
+        content = response.text
 
-        # Tách gợi ý (giả định AI trả về cuối bài)
-        # Để đơn giản, tôi sẽ giả lập phần tách này
         return jsonify({
-            "text": full_text,
-            "image_tag": "travel,culture",
-            "suggestions": ["Tìm món ăn ngon", "Lịch sử nơi này", "Địa điểm gần đây"],
+            "text": content,
+            "image_tag": "travel,vietnam", # Có thể xử lý logic tách tag từ content nếu muốn
+            "suggestions": ["Khám phá lịch sử", "Tìm món ăn đặc sản", "Chỉ đường đi"],
             "video_id": "" 
         })
 
     except Exception as e:
-        print(f"Lỗi hệ thống: {str(e)}")
+        print(f"Lỗi AI: {str(e)}")
         return jsonify({
-            "text": f"AI đang bận một chút, bạn thử lại nhé! (Chi tiết: {str(e)})",
+            "text": "Hiện tại AI đang bảo trì hoặc Key hết hạn mức. Vui lòng thử lại sau!",
             "suggestions": []
         })
 
 if __name__ == '__main__':
+    # Render yêu cầu port 10000
     app.run(host='0.0.0.0', port=10000)
