@@ -4,15 +4,18 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Lấy API Key từ Environment Variable tên là 'gemini-key' mà bạn đã tạo trên Render
-api_key = os.environ.get("gemini-key")
+# LẤY API KEY TỪ RENDER (Khớp chính xác tên GEMINI-KEY)
+# Sử dụng .strip() để loại bỏ khoảng trắng dư thừa nếu có
+api_key = os.environ.get("GEMINI-KEY")
 
 if api_key:
+    # Cấu hình Gemini
     genai.configure(api_key=api_key.strip())
-    # Sử dụng bản flash để tốc độ phản hồi nhanh nhất, tránh bị timeout trên Render
+    # Sử dụng bản flash để phản hồi nhanh, tránh lỗi Timeout trên Render
     model = genai.GenerativeModel('gemini-1.5-flash')
+    print("✅ Đã kết nối thành công với GEMINI-KEY!")
 else:
-    print("⚠️ CẢNH BÁO: Chưa tìm thấy biến môi trường 'gemini-key'!")
+    print("❌ LỖI: Không tìm thấy biến môi trường 'GEMINI-KEY'. Hãy kiểm tra lại Tab Environment trên Render!")
 
 @app.route('/')
 def index():
@@ -22,43 +25,32 @@ def index():
 def chat():
     user_input = request.json.get('msg', '')
     if not user_input:
-        return jsonify({"text": "Bạn muốn hỏi về địa danh nào?"})
+        return jsonify({"text": "Bạn muốn hỏi về địa điểm nào?"})
 
+    # Kiểm tra lại Key trước khi gọi AI
     if not api_key:
-        return jsonify({"text": "⚠️ Hệ thống chưa cấu hình API Key. Vui lòng kiểm tra lại Render Environment."})
+        return jsonify({"text": "🤖 Bot chưa có API Key. Hãy kiểm tra lại tên biến 'GEMINI-KEY' trên Render."})
 
     try:
-        # Prompt tối ưu để nhận phản hồi nhanh và đẹp
+        # Prompt tối ưu cho gia đình và ẩm thực
         prompt = f"""
-        Bạn là hướng dẫn viên du lịch chuyên nghiệp. Hãy giới thiệu về {user_input}.
-        Yêu cầu:
-        1. Trình bày bằng HTML (dùng <h3>, 📍, <br>).
-        2. Thông tin ngắn gọn về lịch sử, điểm đến và món ăn đặc sản.
-        3. Cuối cùng, gợi ý 3 câu hỏi liên quan.
+        Bạn là hướng dẫn viên du lịch thân thiện. 
+        Yêu cầu: Thiết kế tour chi tiết và gợi ý món ăn cho: {user_input}.
+        Định dạng trả về: Sử dụng HTML (<h3>, 📍, 🍴, <br>) để nội dung dễ đọc trên ứng dụng.
         """
         
         response = model.generate_content(prompt)
-        ai_text = response.text
-
-        # Cung cấp link tìm kiếm hình ảnh vì Render chặn cào ảnh trực tiếp
-        search_links = f"""
-        <div style='margin-top:15px; border-top:1px solid #eee; padding-top:10px;'>
-            <p>🔍 <b>Xem thêm:</b> 
-            <a href='https://www.google.com/search?tbm=isch&q={user_input}+du+lich' target='_blank' style='color:#007bff'>Ảnh thực tế</a> | 
-            <a href='https://www.youtube.com/results?search_query=review+du+lich+{user_input}' target='_blank' style='color:#007bff'>Video Review</a>
-            </p>
-        </div>
-        """
         
+        # Trả kết quả về giao diện
         return jsonify({
-            "text": ai_text + search_links
+            "text": response.text
         })
 
     except Exception as e:
-        print(f"Lỗi khi gọi Gemini: {e}")
-        return jsonify({"text": "⚠️ Xin lỗi, robot đang bận xử lý hoặc API Key gặp lỗi. Bạn thử lại sau nhé!"})
+        print(f"Lỗi AI: {e}")
+        return jsonify({"text": "⚠️ Hiện tại AI đang bận hoặc API Key chưa kích hoạt. Vui lòng thử lại sau vài giây!"})
 
 if __name__ == '__main__':
-    # Render yêu cầu chạy đúng Port được cấp
+    # Render yêu cầu dùng đúng Port từ hệ thống
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
