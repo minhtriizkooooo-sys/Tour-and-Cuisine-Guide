@@ -17,7 +17,7 @@ CORS(app)
 GEMINI_API_KEY = os.environ.get("GEMINI_KEY")
 if GEMINI_API_KEY:
     client = genai.Client(api_key=GEMINI_API_KEY)
-    model_name = "gemini-2.5-flash"  # Model nhanh, mạnh, rẻ nhất hiện tại
+    model_name = "gemini-2.5-flash"
 else:
     client = None
 
@@ -120,7 +120,7 @@ def export_pdf():
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Thêm font tiếng Việt DejaVuSans
+    # Dùng font DejaVuSans hỗ trợ tiếng Việt
     font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
     pdf.add_font("DejaVu", "", font_path, uni=True)
     pdf.set_font("DejaVu", size=12)
@@ -152,7 +152,7 @@ def export_pdf():
                     if ':' in section:
                         value = section.split(':', 1)[1].strip()
                         if value:
-                            pdf.multi_cell(180, 6, section)  # Không cần remove_accents vì font hỗ trợ Unicode
+                            pdf.multi_cell(180, 6, section)
                             pdf.ln(2)
                 
                 suggestions = data.get('suggestions', [])
@@ -161,7 +161,7 @@ def export_pdf():
             except:
                 pdf.multi_cell(180, 6, content[:1000])
         else:
-            pdf.multi_cell(180, 6, content)  # Hiển thị nguyên văn, font DejaVu hỗ trợ tốt
+            pdf.multi_cell(180, 6, content)
         
         pdf.ln(8)
     
