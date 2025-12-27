@@ -120,30 +120,27 @@ def export_pdf():
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
     
-    # Font path
     font_dir = app.static_folder
     regular_path = os.path.join(font_dir, "DejaVuSans.ttf")
+    bold_path = os.path.join(font_dir, "DejaVuSans-Bold.ttf")
     
-    # Thêm font regular
     if os.path.exists(regular_path):
         pdf.add_font("DejaVu", "", regular_path, uni=True)
     
-    # Thêm font bold nếu có (nếu không có thì dùng regular thay thế)
-    bold_path = os.path.join(font_dir, "DejaVuSans-Bold.ttf")
     if os.path.exists(bold_path):
         pdf.add_font("DejaVu", "B", bold_path, uni=True)
     
-    pdf.set_font("DejaVu", size=12)
+    pdf.set_font("DejaVu", size=14)
     pdf.cell(0, 10, txt="LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
-    pdf.ln(10)
+    pdf.ln(15)
     
     for role, content, created_at in rows:
         label = "BẠN: " if role == "user" else "AI: "
         time_str = created_at
         
-        # Dùng bold nếu có, không thì regular
-        pdf.set_font("DejaVu", "B" if os.path.exists(bold_path) else "", 10)
-        pdf.multi_cell(0, 6, f"[{time_str}] {label}")
+        pdf.set_font("DejaVu", "B" if os.path.exists(bold_path) else "", 11)
+        pdf.multi_cell(0, 8, f"[{time_str}] {label}")
+        pdf.ln(3)
         
         pdf.set_font("DejaVu", size=10)
         
@@ -162,18 +159,18 @@ def export_pdf():
                     if ':' in section:
                         value = section.split(':', 1)[1].strip()
                         if value:
-                            pdf.multi_cell(180, 6, section)
+                            pdf.multi_cell(0, 8, section)
                             pdf.ln(2)
                 
                 suggestions = data.get('suggestions', [])
                 if suggestions:
-                    pdf.multi_cell(180, 6, "- " + "\n- ".join(suggestions))
+                    pdf.multi_cell(0, 8, "- " + "\n- ".join(suggestions))
             except:
-                pdf.multi_cell(180, 6, content[:1000])
+                pdf.multi_cell(0, 8, content[:1000])
         else:
-            pdf.multi_cell(180, 6, content)
+            pdf.multi_cell(0, 8, content)
         
-        pdf.ln(8)
+        pdf.ln(10)
     
     pdf_path = "/tmp/history.pdf"
     pdf.output(pdf_path)
