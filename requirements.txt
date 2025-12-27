@@ -1,8 +1,7 @@
 flask==3.0.3
 gunicorn==22.0.0
-google-genai
-flask-cors
-requests
-reportlab
-fpdf2
-
+google-genai==0.3.0
+flask-cors==4.0.1
+requests==2.31.0
+reportlab==4.2.0
+fpdf2==2.7.9
