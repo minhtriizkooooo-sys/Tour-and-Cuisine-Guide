@@ -2,7 +2,6 @@ import os
 import uuid
 import sqlite3
 import json
-import unicodedata
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
@@ -13,23 +12,23 @@ from fpdf import FPDF
 app = Flask(__name__)
 CORS(app)
 
-# Lấy 3 API key từ environment
-API_KEYS = [
-    os.environ.get("GEMINI_KEY"),
-    os.environ.get("GEMINI-KEY"),
-    os.environ.get("GEMINI-KEY-1")
-]
-API_KEYS = [key for key in API_KEYS if key]  # Loại bỏ None
+# ------------------- TỰ ĐỘNG LẤY TẤT CẢ KEY CÓ TÊN GEMINI-KEY-... -------------------
+# Ví dụ: GEMINI-KEY-0, GEMINI-KEY-1, ..., GEMINI-KEY-10
+API_KEYS = []
+for key_name, value in os.environ.items():
+    if key_name.startswith("GEMINI-KEY-") and value:
+        API_KEYS.append(value.strip())
 
+# Tạo client cho từng key hợp lệ
 clients = []
-model_name = "gemini-1.5-flash"  # Dùng 1.5-flash mới nhất (nhanh + ổn định hơn)
+model_name = "gemini-1.5-flash"  # Model nhanh, rẻ, phù hợp nhất cho app du lịch
 
 for key in API_KEYS:
     try:
         client = genai.Client(api_key=key)
         clients.append(client)
-    except Exception:
-        pass  # Nếu key invalid thì bỏ qua
+    except Exception as e:
+        print(f"Key không hợp lệ (bị bỏ qua): {e}")  # Log để debug trên Render
 
 DB_PATH = "chat_history.db"
 
@@ -46,14 +45,16 @@ init_db()
 def call_gemini(user_msg):
     if not clients:
         return {
-            "history": "Xin lỗi, hiện tại hệ thống chưa cấu hình API key Gemini. Vui lòng thử lại sau! 😔",
+            "history": "Xin lỗi bạn, hiện tại hệ thống chưa có API key Gemini nào khả dụng. "
+                       "Mình sẽ sớm bổ sung thêm để phục vụ tốt hơn! 😊",
             "culture": "", "cuisine": "", "travel_tips": "", "youtube_keyword": "",
-            "suggestions": ["Đà Lạt", "Hạ Long", "Sapa", "Phú Quốc"]
+            "suggestions": ["Thử lại sau", "Khám phá bản đồ", "Vẽ lộ trình du lịch"]
         }
 
     prompt = (
-        f"Bạn là hướng dẫn viên du lịch chuyên nghiệp, nhiệt tình và am hiểu Việt Nam. Hãy kể chi tiết về {user_msg}. "
-        "Trả về JSON thuần túy (không có markdown, không giải thích): "
+        f"Bạn là hướng dẫn viên du lịch chuyên nghiệp, nhiệt tình và am hiểu sâu về Việt Nam. "
+        f"Hãy kể chi tiết về địa điểm: {user_msg}. "
+        "Trả về JSON thuần túy (không markdown, không giải thích): "
         "{\"history\": \"...\", \"culture\": \"...\", \"cuisine\": \"...\", "
         "\"travel_tips\": \"...\", \"image_query\": \"...\", \"youtube_keyword\": \"...\", "
         "\"suggestions\": [\"câu hỏi 1\", \"câu hỏi 2\", \"câu hỏi 3\"]}"
@@ -74,26 +75,26 @@ def call_gemini(user_msg):
             return json.loads(response.text)
         except Exception as e:
             err_str = str(e).lower()
-            # Nếu lỗi do key này (quota, invalid, rate limit...) → bỏ qua và thử key khác
-            if any(x in err_str for x in ["quota", "resource_exhausted", "429", "invalid", "unauthorized", "billing"]):
+            # Nếu lỗi do quota hết, key invalid, rate limit → bỏ qua và thử key tiếp
+            if any(keyword in err_str for keyword in ["quota", "resource_exhausted", "429", "invalid", "unauthorized", "billing"]):
                 continue
             else:
-                # Lỗi khác (mạng, server Google, v.v.) → thử key tiếp theo luôn
+                # Lỗi mạng hoặc server Google → vẫn thử key khác
                 continue
 
-    # Nếu tất cả key đều lỗi
+    # Nếu hết sạch tất cả key
     return {
-        "history": "Xin lỗi bạn nhé! 🌅 Hôm nay mình đã hết lượt trả lời miễn phí từ Google Gemini "
-                   "(mỗi key chỉ khoảng 500-1000 lượt/ngày). Bạn vui lòng thử lại vào ngày mai hoặc vài giờ nữa nha! "
-                   "Hoặc thử hỏi về các địa danh nổi tiếng như Đà Lạt, Hạ Long, Sapa, Phú Quốc... mình vẫn có thể gợi ý bằng dữ liệu sẵn có!",
-        "culture": "Trong lúc chờ, bạn có thể khám phá bản đồ và hình ảnh sẵn có bên mình nhé! 🗺️",
+        "history": "Ôi không! 😅 Hôm nay tất cả các API key miễn phí của mình đã hết lượt trả lời rồi "
+                   "(Google chỉ cho khoảng 20 lượt/key/ngày). "
+                   "Mình đang cố gắng thêm key mới để phục vụ mọi người lâu hơn! ❤️",
+        "culture": "Trong lúc chờ, bạn có thể thoải mái dùng bản đồ, tìm địa điểm, vẽ lộ trình nhé – những tính năng này không cần AI vẫn hoạt động mượt mà!",
         "cuisine": "",
-        "travel_tips": "Mẹo: Gemini miễn phí có giới hạn lượt, nhưng mình đã chuẩn bị nhiều key để phục vụ bạn tốt nhất có thể! ❤️",
+        "travel_tips": "Mẹo nhỏ: Quota sẽ reset vào khoảng trưa ngày mai (giờ Việt Nam). Bạn quay lại thử nhé! 🌅",
         "youtube_keyword": "",
-        "suggestions": ["Thử lại sau 1-2 giờ", "Hỏi về Đà Lạt", "Hỏi về Hạ Long", "Khám phá bản đồ"]
+        "suggestions": ["Thử lại vào ngày mai", "Tìm địa điểm trên bản đồ", "Vẽ lộ trình du lịch", "Hỏi về Đà Lạt"]
     }
 
-# ================== Các route giữ nguyên hoàn toàn ==================
+# ====================== CÁC ROUTE GIỮ NGUYÊN HOÀN TOÀN ======================
 
 @app.route("/")
 def index():
