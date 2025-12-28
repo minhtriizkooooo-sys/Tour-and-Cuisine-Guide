@@ -1,7 +1,4 @@
-import os
-import uuid
-import sqlite3
-import json
+import os, uuid, sqlite3, json, time, random
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
@@ -12,15 +9,13 @@ from fpdf import FPDF
 app = Flask(__name__)
 CORS(app)
 
-# --- CẤU HÌNH API KEYS (Hỗ trợ từ GEMINI-KEY-0 đến GEMINI-KEY-10) ---
+# --- CẤU HÌNH API KEYS ---
 API_KEYS = []
 for key_name, value in os.environ.items():
     if key_name.startswith("GEMINI-KEY-") and value:
         API_KEYS.append(value.strip())
 
 clients = []
-model_name = "gemini-1.5-flash"
-
 for key in API_KEYS:
     try:
         clients.append(genai.Client(api_key=key))
@@ -31,49 +26,38 @@ DB_PATH = "chat_history.db"
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                session_id TEXT, role TEXT, content TEXT, created_at TEXT
-            )
-        """)
+        conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, created_at TEXT)")
 init_db()
 
 def call_gemini(user_msg):
     if not clients:
-        return {"history": "Hệ thống chưa có API Key khả dụng.", "suggestions": ["Thử lại sau"]}
+        return {"history": "Hệ thống chưa có API Key."}
 
     prompt = (
-        f"Bạn là hướng dẫn viên du lịch chuyên nghiệp Việt Nam. "
-        f"Kể chi tiết về: {user_msg}. Trả về JSON thuần (không markdown): "
-        "{\"history\": \"...\", \"culture\": \"...\", \"cuisine\": \"...\", "
-        "\"travel_tips\": \"...\", \"image_query\": \"...\", \"youtube_keyword\": \"...\", "
-        "\"suggestions\": [\"câu 1\", \"câu 2\"]}"
+        f"Bạn là hướng dẫn viên du lịch VN. Review địa danh hoặc lộ trình: {user_msg}. "
+        "Trả về JSON: {\"history\": \"...\", \"culture\": \"...\", \"cuisine\": \"...\", "
+        "\"travel_tips\": \"...\", \"youtube_keyword\": \"...\", \"suggestions\": [\"...\", \"...\"]}"
     )
 
-    # Thử lần lượt qua danh sách các key
-    for client in clients:
+    # Trộn ngẫu nhiên Key để tránh tập trung vào 1 Key gây lỗi 429 nhanh
+    pool = list(clients)
+    random.shuffle(pool)
+
+    for client in pool:
         try:
             response = client.models.generate_content(
-                model=model_name,
+                model="gemini-1.5-flash",
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0.7
-                )
+                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.7)
             )
             return json.loads(response.text)
         except Exception as e:
-            err = str(e).lower()
-            if any(k in err for k in ["quota", "429", "limit", "exhausted"]):
+            if "429" in str(e):
+                time.sleep(1) # Nghỉ 1s rồi thử key tiếp theo
                 continue
-            continue
+            return {"history": f"Lỗi: {str(e)}"}
 
-    return {
-        "history": "Hôm nay các API Key đã hết lượt dùng (Quota). Vui lòng quay lại sau!",
-        "culture": "Bạn vẫn có thể dùng bản đồ và chỉ đường bình thường.",
-        "suggestions": ["Tìm địa điểm trên bản đồ", "Hỏi về Đà Lạt"]
-    }
+    return {"history": "Các API Key hiện đang bận (Quota). Trí hãy thử lại sau vài phút nhé!"}
 
 @app.route("/")
 def index():
@@ -84,86 +68,55 @@ def index():
 
 @app.route("/chat", methods=["POST"])
 def chat():
-    sid = request.cookies.get("session_id") or str(uuid.uuid4())
+    sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
     ai_data = call_gemini(msg)
-    
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "user", msg, datetime.now().strftime("%H:%M")))
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
-    
     return jsonify(ai_data)
 
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
-    if not sid: return jsonify([])
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-    res = []
-    for r in rows:
-        content = r['content']
-        if r['role'] == 'bot':
-            try: content = json.loads(content)
-            except: pass
-        res.append({"role": r['role'], "content": content})
-    return jsonify(res)
+    return jsonify([{"role": r['role'], "content": json.loads(r['content']) if r['role']=='bot' else r['content']} for r in rows])
 
 @app.route("/export_pdf")
 def export_pdf():
     sid = request.cookies.get("session_id")
-    if not sid: return "Không có dữ liệu", 400
-    
     with sqlite3.connect(DB_PATH) as conn:
         rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
     
     pdf = FPDF()
     pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, "LICH SU DU LICH - SMART TRAVEL AI", ln=True, align='C')
     
-    # Cài đặt font tiếng Việt (Đảm bảo có file trong static)
-    font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
-    if os.path.exists(font_path):
-        pdf.add_font("DejaVu", "", font_path)
-        pdf.set_font("DejaVu", size=12)
-    else:
-        pdf.set_font("Arial", size=12)
-
-    pdf.cell(0, 10, "LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
-    pdf.ln(5)
-
     for role, content, time in rows:
-        label = "BẠN: " if role == "user" else "AI: "
-        pdf.set_font("DejaVu", size=10) if os.path.exists(font_path) else pdf.set_font("Arial", size=10)
-        
         if role == "bot":
             try:
-                data = json.loads(content)
-                text = f"[{time}] AI:\n- Lịch sử: {data.get('history')}\n- Văn hóa: {data.get('culture')}"
-            except: text = f"[{time}] AI: {content}"
+                d = json.loads(content)
+                text = f"[{time}] AI: {d.get('history')[:100]}..."
+            except: text = f"[{time}] AI: {content[:100]}"
         else:
-            text = f"[{time}] BẠN: {content}"
-            
-        pdf.multi_cell(0, 8, text)
-        pdf.ln(4)
-
-    pdf_output = "/tmp/history.pdf"
-    pdf.output(pdf_output)
-    return send_file(pdf_output, as_attachment=True, download_name="lich_su_du_lich.pdf")
+            text = f"[{time}] BAN: {content}"
+        pdf.multi_cell(0, 10, text.encode('latin-1', 'ignore').decode('latin-1'))
+    
+    path = "/tmp/history.pdf"
+    pdf.output(path)
+    return send_file(path, as_attachment=True)
 
 @app.route("/clear_history", methods=["POST"])
 def clear():
     sid = request.cookies.get("session_id")
-    if sid:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
-    resp = jsonify({"status": "deleted"})
-    resp.set_cookie("session_id", str(uuid.uuid4()), httponly=True)
-    return resp
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
-    # Render yêu cầu lấy PORT từ biến môi trường
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
