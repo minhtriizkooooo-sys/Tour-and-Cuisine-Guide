@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
     <title>VIETNAM TRAVEL AI GUIDE 2026</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
@@ -18,6 +19,12 @@
             --red: #dc3545;
             --bg-light: #f4f7f9;
             --shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Khóa màu cho số điện thoại, không cho trình duyệt tự đổi màu */
+        a[href^="tel"] {
+        color: inherit !important;
+        text-decoration: none !important;
         }
 
         /* THIẾT LẬP CƠ BẢN - TỐI ƯU DVH CHO MOBILE */
@@ -65,6 +72,18 @@
             background: white; 
             padding: 3px; 
             box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .logo-container img {
+        border: none !important;        /* Bỏ mọi viền vuông */
+        border-radius: 0 !important;    /* Nếu ảnh gốc đã tròn thì không cần bo nữa */
+        outline: none !important;
+        box-shadow: none !important;    /* Bỏ đổ bóng nếu nó tạo cảm giác viền vuông */
+        background: transparent !important;
+        display: block;
+        width: 60px;  /* Chỉnh lại kích thước tùy ý */
+        height: 60px;
+        object-fit: contain; /* Đảm bảo ảnh không bị bóp méo */
         }
 
         .refresh-btn { 
@@ -293,6 +312,26 @@
             header .logo span { font-size: 1rem; }
             footer { flex-direction: column; gap: 5px; text-align: center; padding: 12px; font-size: 11px; }
         }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                width: 95% !important;
+                margin: 10px auto !important;
+                height: 85vh !important; /* Tăng chiều cao để tận dụng màn hình */
+            }
+    
+            .message {
+                max-width: 85% !important; /* Cho tin nhắn rộng ra một chút */
+                font-size: 14px !important; /* Chữ nhỏ lại xíu cho tinh tế */
+                }
+
+                .developer-info {
+                font-size: 12px;
+                color: #ffffff; /* Ép màu trắng cho thông tin dev */
+                opacity: 0.8;
+            }
+        }
+        
     </style>
 </head>
 <body>
