@@ -35,7 +35,7 @@
             gap: 12px;
         }
         .logo img {
-            height: 80px;
+            height: 40px; /* Sửa lại kích thước logo cho cân đối */
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
@@ -83,6 +83,7 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             font-size: 0.95rem;
+            box-sizing: border-box;
         }
         .btn-blue, .btn-green {
             width: 100%;
@@ -137,11 +138,13 @@
             max-width: 85%;
             line-height: 1.5;
             font-size: 0.95rem;
+            word-wrap: break-word;
         }
         .user {
             background: var(--primary);
             color: white;
             align-self: flex-end;
+            margin-left: auto;
             border-bottom-right-radius: 4px;
         }
         .bot {
@@ -150,12 +153,8 @@
             align-self: flex-start;
             border-bottom-left-radius: 4px;
         }
-        .ai-section {
-            margin-bottom: 12px;
-        }
-        .ai-section b {
-            color: var(--primary);
-        }
+        .ai-section { margin-bottom: 12px; }
+        .ai-section b { color: var(--primary); }
         .input-area {
             padding: 16px;
             border-top: 1px solid #eee;
@@ -180,6 +179,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
+            border: none;
             box-shadow: 0 4px 10px rgba(0,102,204,0.3);
             transition: 0.3s;
         }
@@ -193,16 +193,9 @@
             justify-content: space-between;
             align-items: center;
         }
-        .status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .status { display: flex; align-items: center; gap: 8px; }
         .dot {
-            width: 10px;
-            height: 10px;
-            background: #4ade80;
-            border-radius: 50%;
+            width: 10px; height: 10px; background: #4ade80; border-radius: 50%;
             animation: pulse 2s infinite;
         }
         @keyframes pulse {
@@ -210,80 +203,22 @@
             70% { box-shadow: 0 0 0 10px rgba(74,222,128,0); }
             100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
         }
-        /* Lightbox */
         #lightbox {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            flex-direction: column;
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); justify-content: center; align-items: center;
+            z-index: 9999; flex-direction: column;
         }
-        #lightbox img {
-            max-width: 90%;
-            max-height: 75vh;
-            border-radius: 10px;
-            box-shadow: 0 0 30px rgba(255,255,255,0.4);
-        }
-        #lightbox-caption {
-            color: white;
-            font-size: 1.2rem;
-            margin-top: 20px;
-            text-align: center;
-            max-width: 90%;
-        }
-        #lightbox-close {
-            position: absolute;
-            top: 30px;
-            right: 40px;
-            color: white;
-            font-size: 50px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        /* Responsive */
-        @media (max-width: 1024px) {
-            main { flex-direction: column; }
-            #map-container { height: 50%; }
-            #chat-side { width: 100%; height: 50%; }
-            .left-controls { width: 90%; left: 5%; top: 10px; }
-            .logo img { height: 60px; }
-            .logo { font-size: 1.2rem; }
-            .refresh-btn { padding: 6px 14px; font-size: 0.8rem; }
-        }
-        @media (max-width: 768px) {
-            #map-container { height: 40%; }
-            #chat-side { height: 60%; }
-            .left-controls { width: 95%; padding: 10px; }
-            .control-box { padding: 12px; }
-            input { font-size: 0.9rem; padding: 8px 10px; }
-            .btn-blue, .btn-green { padding: 10px; font-size: 0.9rem; }
-            #chat-side { font-size: 0.9rem; }
-            .msg { font-size: 0.85rem; padding: 10px 14px; }
-            .input-area { padding: 12px; }
-            #user-input { padding: 10px 16px; font-size: 0.9rem; }
-            .send-circle { width: 42px; height: 42px; }
-            footer { font-size: 0.75rem; padding: 8px 16px; }
-            #lightbox-close { top: 20px; right: 20px; font-size: 40px; }
-        }
-        /* Minimize/Maximize */
-        .minimize-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            cursor: pointer;
-            font-size: 1.2rem;
-            color: var(--primary);
-        }
+        #lightbox img { max-width: 90%; max-height: 75vh; border-radius: 10px; }
+        #lightbox-caption { color: white; margin-top: 20px; text-align: center; }
+        #lightbox-close { position: absolute; top: 30px; right: 40px; color: white; font-size: 50px; cursor: pointer; }
         .hidden { display: none; }
+        .minimize-btn { float: right; cursor: pointer; color: var(--primary); }
     </style>
 </head>
 <body>
 <header>
     <div class="logo">
-        <img src="/static/images/Logo_Marie_Curie.png" alt="Logo">
+        <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.style.display='none'">
         VIETNAM TRAVEL AI GUIDE 2026
     </div>
     <button class="refresh-btn" onclick="location.reload()">
@@ -305,19 +240,19 @@
                 <input type="text" id="start-node" placeholder="Điểm xuất phát (ví dụ: Sài Gòn)">
                 <input type="text" id="end-node" placeholder="Điểm đến (ví dụ: Đà Lạt)">
                 <button class="btn-green" onclick="drawRoute()">Vẽ lộ trình</button>
-                <button class="btn-blue" onclick="clearMap()" style="margin-top:12px;">Xóa Markers & Route</button>
+                <button class="btn-blue" onclick="clearMap()" style="margin-top:12px; background:#6c757d;">Xóa Markers & Route</button>
             </div>
         </div>
         <div id="map"></div>
     </div>
     <div id="chat-side">
         <div class="chat-tabs">
-            <div class="tab active" onclick="showChat()"><i class="fa fa-comments"></i> CHAT</div>
-            <div class="tab" onclick="loadHistory()"><i class="fa fa-history"></i> LỊCH SỬ</div>
+            <div class="tab active" id="tab-chat" onclick="showChat()"><i class="fa fa-comments"></i> CHAT</div>
+            <div class="tab" id="tab-history" onclick="loadHistory()"><i class="fa fa-history"></i> LỊCH SỬ</div>
             <div class="tab"><a href="/export_pdf" style="text-decoration:none; color:inherit; display:block;"><i class="fa fa-file-pdf"></i> PDF</a></div>
             <div class="tab" onclick="clearHistory()"><i class="fa fa-trash"></i> XÓA</div>
         </div>
-        <div id="chat-box" class="chat-box">
+        <div id="chat-box" class="chat-box" style="display: flex; flex-direction: column;">
             <div class="msg bot">
                 <div class="ai-section">Chào bạn! 👋</div>
                 <div class="ai-section">Mình là trợ lý du lịch AI chuyên về Việt Nam. Hãy nhập tên địa danh để khám phá nhé!</div>
@@ -329,102 +264,89 @@
         </div>
     </div>
 </main>
-<!-- Lightbox -->
+
 <div id="lightbox" onclick="closeLightbox(event)">
     <span id="lightbox-close" onclick="closeLightbox()">&times;</span>
     <img id="lightbox-img" src="">
     <div id="lightbox-caption"></div>
 </div>
+
 <footer>
     <div><i class="fa fa-user"></i> Developer: <b>Lại Nguyễn Minh Trí</b> | <i class="fa fa-phone"></i> +84-908-08-3566</div>
     <div class="status"><span class="dot"></span> AI Active & Ready</div>
 </footer>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
 <script>
     const map = L.map('map').setView([16.0, 107.0], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-        attribution: ''
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
+    
     let routeControl = null;
     let markers = [];
-    let routePendingMsg = null;
+
     function clearMap() {
         if (routeControl) { map.removeControl(routeControl); routeControl = null; }
         markers.forEach(m => map.removeLayer(m));
         markers = [];
     }
+
     async function searchLocation() {
         const q = document.getElementById('search-input').value.trim();
         if (!q) return;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Việt Nam')}&limit=1`, {
-            headers: { 'User-Agent': 'VietnamTravelAIGuide/1.0' }
-        });
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Việt Nam')}&limit=1`);
         const data = await res.json();
         if (data[0]) {
-            const lat = data[0].lat;
-            const lon = data[0].lon;
+            const lat = data[0].lat; const lon = data[0].lon;
             map.setView([lat, lon], 14);
             const marker = L.marker([lat, lon]).addTo(map).bindPopup(`<b>${q}</b>`).openPopup();
             markers.push(marker);
             sendMessage(`Kể tôi nghe về ${q}`);
         } else {
-            appendMessage('bot', 'Không tìm thấy địa điểm. Hãy thử tên khác hoặc chính xác hơn nhé!');
+            appendMessage('bot', 'Không tìm thấy địa điểm này.');
         }
     }
+
     async function drawRoute() {
         const start = document.getElementById('start-node').value.trim();
         const end = document.getElementById('end-node').value.trim();
-        if (!start || !end) {
-            appendMessage('bot', 'Vui lòng nhập cả điểm xuất phát và điểm đến!');
-            return;
-        }
-        routePendingMsg = appendMessage('bot', '<div class="ai-section">Đang tìm đường từ <b>' + start + '</b> đến <b>' + end + '</b>... <i class="fa fa-spinner fa-spin"></i></div>');
+        if (!start || !end) return;
+
         const getLatLng = async (query) => {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Việt Nam')}&limit=1`, {
-                headers: { 'User-Agent': 'VietnamTravelAIGuide/1.0' }
-            });
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query + ', Việt Nam')}&limit=1`);
             const data = await res.json();
             return data[0] ? L.latLng(data[0].lat, data[0].lon) : null;
         };
+
         const p1 = await getLatLng(start);
         const p2 = await getLatLng(end);
-        if (routePendingMsg) routePendingMsg.remove();
-        if (!p1 || !p2) {
-            appendMessage('bot', '<div class="ai-section">Không tìm thấy địa điểm "' + (!p1 ? start : end) + '". Vui lòng kiểm tra lại tên (ví dụ: Sài Gòn, Hà Nội, Đà Lạt).</div>');
-            return;
+
+        if (p1 && p2) {
+            if (routeControl) map.removeControl(routeControl);
+            routeControl = L.Routing.control({
+                waypoints: [p1, p2],
+                router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+                lineOptions: { styles: [{ color: '#28a745', weight: 7 }] },
+                createMarker: function(i, wp) {
+                    return L.marker(wp.latLng).bindPopup(i === 0 ? `Bắt đầu: ${start}` : `Đến: ${end}`);
+                }
+            }).addTo(map);
+            sendMessage(`Tư vấn lịch trình từ ${start} đến ${end}`);
+        } else {
+            alert("Lỗi tìm vị trí!");
         }
-        if (routeControl) map.removeControl(routeControl);
-        routeControl = L.Routing.control({
-            waypoints: [p1, p2],
-            router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
-            lineOptions: { styles: [{ color: '#28a745', weight: 7, opacity: 0.8 }] },
-            createMarker: function(i, wp) {
-                const name = i === 0 ? start : end;
-                return L.marker(wp.latLng).bindPopup(`<b>${name}</b>`).on('click', () => sendMessage(`Kể tôi nghe về ${name}`));
-            },
-            addWaypoints: false,
-            draggableWaypoints: false,
-            routeWhileDragging: false,
-            showAlternatives: false,
-            language: 'vi'
-        }).addTo(map);
-        appendMessage('bot', '<div class="ai-section"><b>Đã vẽ lộ trình thành công!</b> Bạn có thể xem trên bản đồ và click vào marker để hỏi thêm.</div>');
     }
-    let pendingMsg = null;
-    let timeoutHandle = null;
+
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
         const msg = text || input.value.trim();
         if (!msg) return;
         input.value = "";
         appendMessage('user', msg);
-        pendingMsg = appendMessage('bot', '<div class="ai-section">Đang xử lý... <i class="fa fa-spinner fa-spin"></i></div>');
-        timeoutHandle = setTimeout(() => {
-            if (pendingMsg) {
-                pendingMsg.innerHTML = '<div class="ai-section">Đang tải thông tin từ AI... Vui lòng chờ chút nhé! (có thể mất 10-20 giây lần đầu)</div>';
-            }
-        }, 8000);
+
+        const loading = appendMessage('bot', 'Đang suy nghĩ... <i class="fa fa-spinner fa-spin"></i>');
+
         try {
             const res = await fetch('/chat', {
                 method: 'POST',
@@ -432,160 +354,91 @@
                 body: JSON.stringify({msg: msg})
             });
             const data = await res.json();
-            clearTimeout(timeoutHandle);
-            if (pendingMsg) pendingMsg.remove();
+            loading.remove();
             renderBot(data, msg);
         } catch (e) {
-            clearTimeout(timeoutHandle);
-            if (pendingMsg) pendingMsg.remove();
-            appendMessage('bot', 'Lỗi kết nối. Vui lòng thử lại sau ít phút!');
+            loading.innerHTML = "Lỗi kết nối server!";
         }
     }
-    function normalize(str) {
-        return unicodedata.normalize('NFKD', str).toLowerCase().replace(/[\u0300-\u036f]/g, '');
-    }
+
     function renderBot(data, query) {
         let html = '';
         if (data.history) html += `<div class="ai-section"><b>Lịch sử:</b> ${data.history}</div>`;
         if (data.culture) html += `<div class="ai-section"><b>Văn hóa:</b> ${data.culture}</div>`;
         if (data.cuisine) html += `<div class="ai-section"><b>Ẩm thực:</b> ${data.cuisine}</div>`;
         if (data.travel_tips) html += `<div class="ai-section"><b>Mẹo du lịch:</b> ${data.travel_tips}</div>`;
-        // HÌNH ẢNH THỰC TẾ – ĐÚNG ĐỊA DANH
-        const place = normalize(query.trim());
+
+        // Bộ ảnh mẫu ImageSets
+        const normalized = query.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, "");
         const imageSets = {
-            "da lat": [
-                "https://images.pexels.com/photos/13669196/pexels-photo-13669196.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/14840208/pexels-photo-14840208.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/13739266/pexels-photo-13739266.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/2161443/pexels-photo-2161443.jpeg?auto=compress&cs=tinysrgb&w=800"
-            ],
-            "ha long": [
-                "https://images.pexels.com/photos/1470510/pexels-photo-1470510.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/3581363/pexels-photo-3581363.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1470508/pexels-photo-1470508.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1470515/pexels-photo-1470515.jpeg?auto=compress&cs=tinysrgb&w=800"
-            ],
-            "sapa": [
-                "https://images.pexels.com/photos/1659438/pexels-photo-1659438.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1659437/pexels-photo-1659437.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1659440/pexels-photo-1659440.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1659439/pexels-photo-1659439.jpeg?auto=compress&cs=tinysrgb&w=800"
-            ],
-            "phu quoc": [
-                "https://images.pexels.com/photos/2161467/pexels-photo-2161467.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/2161468/pexels-photo-2161468.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/2161470/pexels-photo-2161470.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/2161469/pexels-photo-2161469.jpeg?auto=compress&cs=tinysrgb&w=800"
-            ],
-            "hoi an": [
-                "https://images.pexels.com/photos/1346165/pexels-photo-1346165.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1346166/pexels-photo-1346166.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1346167/pexels-photo-1346167.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1346168/pexels-photo-1346168.jpeg?auto=compress&cs=tinysrgb&w=800"
-            ],
-            "ha noi": [
-                "https://images.pexels.com/photos/1632773/pexels-photo-1632773.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1632774/pexels-photo-1632774.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1632775/pexels-photo-1632775.jpeg?auto=compress&cs=tinysrgb&w=800",
-                "https://images.pexels.com/photos/1632776/pexels-photo-1632776.jpeg?auto=compress&cs=tinysrgb&w=800"
-            ]
+            "da lat": ["https://images.pexels.com/photos/13669196/pexels-photo-13669196.jpeg?auto=compress&cs=tinysrgb&w=800", "https://images.pexels.com/photos/14840208/pexels-photo-14840208.jpeg?auto=compress&cs=tinysrgb&w=800"],
+            "ha long": ["https://images.pexels.com/photos/1470510/pexels-photo-1470510.jpeg?auto=compress&cs=tinysrgb&w=800", "https://images.pexels.com/photos/3581363/pexels-photo-3581363.jpeg?auto=compress&cs=tinysrgb&w=800"],
+            "hoi an": ["https://images.pexels.com/photos/1346165/pexels-photo-1346165.jpeg?auto=compress&cs=tinysrgb&w=800", "https://images.pexels.com/photos/1346166/pexels-photo-1346166.jpeg?auto=compress&cs=tinysrgb&w=800"]
         };
-        let images = imageSets[place] || [];
-        const captions = ["Cảnh quan thiên nhiên tuyệt đẹp", "Điểm tham quan nổi bật", "Ẩm thực đặc sắc", "Trải nghiệm văn hóa độc đáo"];
-        if (images.length > 0) {
-            html += `<div class="ai-section"><b>Hình ảnh thực tế về "${query}":</b></div>`;
-            images.forEach((src, i) => {
-                const large = src.replace('w=800', 'w=1200');
-                html += `<img src="${src}" alt="${captions[i]}" style="width:100%; border-radius:10px; margin:10px 0; cursor:pointer;"
-                         onclick="openLightbox('${large}', '${captions[i]} - ${query}')">`;
-            });
-        } else if (data.image_query) {
-            const imgQuery = encodeURIComponent(data.image_query + " Việt Nam");
-            html += `<div class="ai-section"><b>Hình ảnh gợi ý cho "${query}":</b> <a href="https://www.pexels.com/search/${imgQuery}" target="_blank">Tìm ảnh trên Pexels</a></div>`;
+
+        let imgs = imageSets[Object.keys(imageSets).find(k => normalized.includes(k))] || [];
+        if (imgs.length > 0) {
+            html += `<div class="ai-section"><b>Hình ảnh thực tế:</b></div>`;
+            imgs.forEach(s => html += `<img src="${s}" style="width:100%; border-radius:10px; margin-top:5px; cursor:pointer;" onclick="openLightbox('${s}', '${query}')">`);
         }
-        // YouTube ổn định (link search – không bị lỗi iframe)
+
         if (data.youtube_keyword) {
-            const kw = encodeURIComponent(data.youtube_keyword + " " + query + " du lịch Việt Nam");
-            html += `<div class="ai-section"><b>Video gợi ý trên YouTube:</b></div><ul style="padding-left:20px;">`;
-            html += `<li><a href="https://www.youtube.com/results?search_query=${kw}" target="_blank">1. Tổng hợp video về "${data.youtube_keyword}"</a></li>`;
-            html += `<li><a href="https://www.youtube.com/results?search_query=${kw}+review" target="_blank">2. Review chi tiết</a></li>`;
-            html += `<li><a href="https://www.youtube.com/results?search_query=${kw}+hành+trình" target="_blank">3. Hành trình khám phá</a></li>`;
-            html += `</ul>`;
+            const kw = encodeURIComponent(data.youtube_keyword);
+            html += `<div class="ai-section"><b>Video:</b> <a href="https://www.youtube.com/results?search_query=${kw}" target="_blank">Xem trên YouTube</a></div>`;
         }
-        if (data.suggestions && data.suggestions.length > 0) {
-            html += `<div class="ai-section"><b>Gợi ý hỏi tiếp:</b></div>`;
-            data.suggestions.forEach(s => {
-                html += `<div style="margin:8px 0; padding:10px; background:#e3f2fd; border-radius:10px; cursor:pointer;" onclick="sendMessage('${s}')">${s}</div>`;
-            });
+
+        if (data.suggestions) {
+            html += `<div class="ai-section"><b>Gợi ý:</b></div>`;
+            data.suggestions.forEach(s => html += `<button onclick="sendMessage('${s}')" style="display:block; margin:5px 0; background:#e3f2fd; border:none; padding:8px; border-radius:5px; width:100%; text-align:left; cursor:pointer;">${s}</button>`);
         }
+
         appendMessage('bot', html);
     }
+
     function appendMessage(role, content) {
         const div = document.createElement('div');
         div.className = `msg ${role}`;
         div.innerHTML = content;
-        document.getElementById('chat-box').appendChild(div);
-        document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+        const box = document.getElementById('chat-box');
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
         return div;
     }
-    function openLightbox(src, caption) {
+
+    function openLightbox(src, cap) {
         document.getElementById('lightbox-img').src = src;
-        document.getElementById('lightbox-caption').innerText = caption;
+        document.getElementById('lightbox-caption').innerText = cap;
         document.getElementById('lightbox').style.display = 'flex';
     }
-    function closeLightbox(e) {
-        if (e.target.id === 'lightbox' || e.target.id === 'lightbox-close') {
-            document.getElementById('lightbox').style.display = 'none';
-        }
+    function closeLightbox() { document.getElementById('lightbox').style.display = 'none'; }
+
+    async function loadHistory() {
+        document.getElementById('tab-chat').classList.remove('active');
+        document.getElementById('tab-history').classList.add('active');
+        const box = document.getElementById('chat-box');
+        box.innerHTML = 'Đang tải...';
+        const res = await fetch('/history');
+        const data = await res.json();
+        box.innerHTML = '';
+        data.forEach(i => appendMessage(i.role, typeof i.content === 'string' ? i.content : i.content.history));
     }
+
+    function showChat() { location.reload(); }
+
     async function clearHistory() {
-        if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử chat?')) {
-            await fetch('/clear_history', {method: 'POST'});
+        if(confirm("Xóa hết?")) {
+            await fetch('/clear_history', {method:'POST'});
             location.reload();
         }
     }
-    async function loadHistory() {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
-        const chatBox = document.getElementById('chat-box');
-        chatBox.innerHTML = '<div class="msg bot"><div class="ai-section">Đang tải lịch sử... <i class="fa fa-spinner fa-spin"></i></div></div>';
-        try {
-            const res = await fetch('/history');
-            const data = await res.json();
-            chatBox.innerHTML = '';
-            data.forEach(item => {
-                if (item.role === 'user') {
-                    appendMessage('user', item.content);
-                } else {
-                    if (typeof item.content === 'object') {
-                        renderBot(item.content, ''); // Render bot data without images/youtube to avoid duplication
-                    } else {
-                        appendMessage('bot', item.content);
-                    }
-                }
-            });
-        } catch (e) {
-            chatBox.innerHTML = '<div class="msg bot"><div class="ai-section">Lỗi tải lịch sử. Vui lòng thử lại!</div></div>';
-        }
-    }
-    function showChat() {
-        location.reload(); // Reload to show current chat
-    }
+
     function toggleControl(id) {
-        const box = document.getElementById(id);
-        const icon = box.querySelector('.minimize-btn i');
-        if (box.classList.contains('hidden')) {
-            box.classList.remove('hidden');
-            icon.classList.replace('fa-plus', 'fa-minus');
-        } else {
-            box.classList.add('hidden');
-            icon.classList.replace('fa-minus', 'fa-plus');
-        }
+        const el = document.getElementById(id);
+        const input = el.querySelectorAll('input, button');
+        input.forEach(i => i.classList.toggle('hidden'));
+        const icon = el.querySelector('.minimize-btn i');
+        icon.classList.toggle('fa-minus'); icon.classList.toggle('fa-plus');
     }
-    // Initialize minimize icons
-    document.querySelectorAll('.minimize-btn i').forEach(i => {
-        i.classList.add('fa-minus');
-    });
 </script>
 </body>
 </html>
