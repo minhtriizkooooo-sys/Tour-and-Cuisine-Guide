@@ -12,23 +12,20 @@ from fpdf import FPDF
 app = Flask(__name__)
 CORS(app)
 
-# ------------------- TỰ ĐỘNG LẤY TẤT CẢ KEY CÓ TÊN GEMINI-KEY-... -------------------
-# Ví dụ: GEMINI-KEY-0, GEMINI-KEY-1, ..., GEMINI-KEY-10
+# --- CẤU HÌNH API KEYS (Hỗ trợ từ GEMINI-KEY-0 đến GEMINI-KEY-10) ---
 API_KEYS = []
 for key_name, value in os.environ.items():
     if key_name.startswith("GEMINI-KEY-") and value:
         API_KEYS.append(value.strip())
 
-# Tạo client cho từng key hợp lệ
 clients = []
-model_name = "gemini-1.5-flash"  # Model nhanh, rẻ, phù hợp nhất cho app du lịch
+model_name = "gemini-1.5-flash"
 
 for key in API_KEYS:
     try:
-        client = genai.Client(api_key=key)
-        clients.append(client)
+        clients.append(genai.Client(api_key=key))
     except Exception as e:
-        print(f"Key không hợp lệ (bị bỏ qua): {e}")  # Log để debug trên Render
+        print(f"Bỏ qua key lỗi: {e}")
 
 DB_PATH = "chat_history.db"
 
@@ -44,23 +41,17 @@ init_db()
 
 def call_gemini(user_msg):
     if not clients:
-        return {
-            "history": "Xin lỗi bạn, hiện tại hệ thống chưa có API key Gemini nào khả dụng. "
-                       "Mình sẽ sớm bổ sung thêm để phục vụ tốt hơn! 😊",
-            "culture": "", "cuisine": "", "travel_tips": "", "youtube_keyword": "",
-            "suggestions": ["Thử lại sau", "Khám phá bản đồ", "Vẽ lộ trình du lịch"]
-        }
+        return {"history": "Hệ thống chưa có API Key khả dụng.", "suggestions": ["Thử lại sau"]}
 
     prompt = (
-        f"Bạn là hướng dẫn viên du lịch chuyên nghiệp, nhiệt tình và am hiểu sâu về Việt Nam. "
-        f"Hãy kể chi tiết về địa điểm: {user_msg}. "
-        "Trả về JSON thuần túy (không markdown, không giải thích): "
+        f"Bạn là hướng dẫn viên du lịch chuyên nghiệp Việt Nam. "
+        f"Kể chi tiết về: {user_msg}. Trả về JSON thuần (không markdown): "
         "{\"history\": \"...\", \"culture\": \"...\", \"cuisine\": \"...\", "
         "\"travel_tips\": \"...\", \"image_query\": \"...\", \"youtube_keyword\": \"...\", "
-        "\"suggestions\": [\"câu hỏi 1\", \"câu hỏi 2\", \"câu hỏi 3\"]}"
+        "\"suggestions\": [\"câu 1\", \"câu 2\"]}"
     )
 
-    # Thử từng client (tức từng key) một
+    # Thử lần lượt qua danh sách các key
     for client in clients:
         try:
             response = client.models.generate_content(
@@ -68,37 +59,25 @@ def call_gemini(user_msg):
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    temperature=0.7,
-                    top_p=0.9
+                    temperature=0.7
                 )
             )
             return json.loads(response.text)
         except Exception as e:
-            err_str = str(e).lower()
-            # Nếu lỗi do quota hết, key invalid, rate limit → bỏ qua và thử key tiếp
-            if any(keyword in err_str for keyword in ["quota", "resource_exhausted", "429", "invalid", "unauthorized", "billing"]):
+            err = str(e).lower()
+            if any(k in err for k in ["quota", "429", "limit", "exhausted"]):
                 continue
-            else:
-                # Lỗi mạng hoặc server Google → vẫn thử key khác
-                continue
+            continue
 
-    # Nếu hết sạch tất cả key
     return {
-        "history": "Ôi không! 😅 Hôm nay tất cả các API key miễn phí của mình đã hết lượt trả lời rồi "
-                   "(Google chỉ cho khoảng 20 lượt/key/ngày). "
-                   "Mình đang cố gắng thêm key mới để phục vụ mọi người lâu hơn! ❤️",
-        "culture": "Trong lúc chờ, bạn có thể thoải mái dùng bản đồ, tìm địa điểm, vẽ lộ trình nhé – những tính năng này không cần AI vẫn hoạt động mượt mà!",
-        "cuisine": "",
-        "travel_tips": "Mẹo nhỏ: Quota sẽ reset vào khoảng trưa ngày mai (giờ Việt Nam). Bạn quay lại thử nhé! 🌅",
-        "youtube_keyword": "",
-        "suggestions": ["Thử lại vào ngày mai", "Tìm địa điểm trên bản đồ", "Vẽ lộ trình du lịch", "Hỏi về Đà Lạt"]
+        "history": "Hôm nay các API Key đã hết lượt dùng (Quota). Vui lòng quay lại sau!",
+        "culture": "Bạn vẫn có thể dùng bản đồ và chỉ đường bình thường.",
+        "suggestions": ["Tìm địa điểm trên bản đồ", "Hỏi về Đà Lạt"]
     }
-
-# ====================== CÁC ROUTE GIỮ NGUYÊN HOÀN TOÀN ======================
 
 @app.route("/")
 def index():
-    sid = str(uuid.uuid4())
+    sid = request.cookies.get("session_id") or str(uuid.uuid4())
     resp = make_response(render_template("index.html"))
     resp.set_cookie("session_id", sid, httponly=True)
     return resp
@@ -108,107 +87,71 @@ def chat():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
     msg = request.json.get("msg", "").strip()
     ai_data = call_gemini(msg)
-   
+    
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "user", msg, datetime.now().strftime("%H:%M")))
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
-   
+    
     return jsonify(ai_data)
 
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
-    if not sid:
-        return jsonify([])
-   
+    if not sid: return jsonify([])
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-   
     res = []
     for r in rows:
         content = r['content']
         if r['role'] == 'bot':
-            try:
-                content = json.loads(content)
-            except:
-                pass
+            try: content = json.loads(content)
+            except: pass
         res.append({"role": r['role'], "content": content})
     return jsonify(res)
 
 @app.route("/export_pdf")
 def export_pdf():
     sid = request.cookies.get("session_id")
-    if not sid:
-        return "Không có phiên chat", 400
-   
+    if not sid: return "Không có dữ liệu", 400
+    
     with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute(
-            "SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id",
-            (sid,)
-        ).fetchall()
-   
+        rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
+    
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=20)
-   
-    font_dir = app.static_folder
-    regular_path = os.path.join(font_dir, "DejaVuSans.ttf")
-    bold_path = os.path.join(font_dir, "DejaVuSans-Bold.ttf")
-   
-    if os.path.exists(regular_path):
-        pdf.add_font("DejaVu", "", regular_path, uni=True)
-    if os.path.exists(bold_path):
-        pdf.add_font("DejaVu", "B", bold_path, uni=True)
-   
-    pdf.set_font("DejaVu", size=16)
-    pdf.cell(0, 15, txt="LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
-    pdf.ln(10)
-   
-    for role, content, created_at in rows:
+    
+    # Cài đặt font tiếng Việt (Đảm bảo có file trong static)
+    font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
+    if os.path.exists(font_path):
+        pdf.add_font("DejaVu", "", font_path)
+        pdf.set_font("DejaVu", size=12)
+    else:
+        pdf.set_font("Arial", size=12)
+
+    pdf.cell(0, 10, "LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
+    pdf.ln(5)
+
+    for role, content, time in rows:
         label = "BẠN: " if role == "user" else "AI: "
-        time_str = created_at
-       
-        pdf.set_font("DejaVu", "B" if os.path.exists(bold_path) else "", 12)
-        pdf.multi_cell(0, 10, f"[{time_str}] {label}")
-        pdf.ln(5)
-       
-        pdf.set_font("DejaVu", size=11)
-       
+        pdf.set_font("DejaVu", size=10) if os.path.exists(font_path) else pdf.set_font("Arial", size=10)
+        
         if role == "bot":
             try:
                 data = json.loads(content)
-                sections = [
-                    f"Lịch sử: {data.get('history', '')}",
-                    f"Văn hóa: {data.get('culture', '')}",
-                    f"Ẩm thực: {data.get('cuisine', '')}",
-                    f"Mẹo du lịch: {data.get('travel_tips', '')}",
-                    f"YouTube tìm kiếm: {data.get('youtube_keyword', '')}",
-                    "Gợi ý địa điểm tiếp theo:",
-                ]
-                for section in sections:
-                    if ':' in section:
-                        value = section.split(':', 1)[1].strip()
-                        if value:
-                            pdf.multi_cell(0, 9, section)
-                            pdf.ln(3)
-               
-                suggestions = data.get('suggestions', [])
-                if suggestions:
-                    pdf.multi_cell(0, 9, "- " + "\n- ".join(suggestions))
-                    pdf.ln(5)
-            except:
-                pdf.multi_cell(0, 9, content[:1500])
+                text = f"[{time}] AI:\n- Lịch sử: {data.get('history')}\n- Văn hóa: {data.get('culture')}"
+            except: text = f"[{time}] AI: {content}"
         else:
-            pdf.multi_cell(0, 9, content)
-       
-        pdf.ln(12)
-   
-    pdf_path = "/tmp/history.pdf"
-    pdf.output(pdf_path)
-    return send_file(pdf_path, as_attachment=True, download_name="lich_su_du_lich.pdf")
+            text = f"[{time}] BẠN: {content}"
+            
+        pdf.multi_cell(0, 8, text)
+        pdf.ln(4)
+
+    pdf_output = "/tmp/history.pdf"
+    pdf.output(pdf_output)
+    return send_file(pdf_output, as_attachment=True, download_name="lich_su_du_lich.pdf")
 
 @app.route("/clear_history", methods=["POST"])
 def clear():
@@ -221,4 +164,6 @@ def clear():
     return resp
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    # Render yêu cầu lấy PORT từ biến môi trường
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
