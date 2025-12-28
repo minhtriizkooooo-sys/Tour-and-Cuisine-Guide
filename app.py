@@ -12,18 +12,17 @@ from google.genai import types
 from fpdf import FPDF
 
 app = Flask(__name__)
-app.secret_key = "trip_secret_key_123" # Cần secret_key để dùng session nếu cần
+app.secret_key = "trip_secret_key_2026"
 CORS(app)
 
 # --- CẤU HÌNH API KEYS ---
 API_KEYS = [v.strip() for k, v in os.environ.items() if k.startswith("GEMINI-KEY-") and v]
-
 clients = []
 for key in API_KEYS:
     try:
         clients.append(genai.Client(api_key=key))
     except Exception as e:
-        print(f"Bỏ qua key lỗi lúc khởi tạo: {e}")
+        print(f"Lỗi khởi tạo key: {e}")
 
 DB_PATH = "chat_history.db"
 
@@ -42,12 +41,14 @@ init_db()
 
 def call_gemini(user_msg):
     if not clients:
-        return {"history": "Hệ thống chưa có API Key. Bạn hãy kiểm tra Environment Variables."}
+        return {"history": "Hệ thống chưa có API Key."}
 
+    # Prompt gom dữ liệu: AI tự phân tích nếu là địa danh thì review, nếu là lộ trình thì tư vấn đường đi
     prompt = (
-        f"Bạn là hướng dẫn viên du lịch VN. Review địa danh hoặc lộ trình: {user_msg}. "
-        "Trả về JSON: {\"history\": \"...\", \"culture\": \"...\", \"cuisine\": \"...\", "
-        "\"travel_tips\": \"...\", \"youtube_keyword\": \"...\", \"suggestions\": [\"...\", \"...\"]}"
+        f"Bạn là chuyên gia du lịch Việt Nam. Hãy phân tích yêu cầu: '{user_msg}'. "
+        "Nếu là 1 địa danh: Review lịch sử, văn hóa và món ăn. "
+        "Nếu là lộ trình (từ A đến B): Tư vấn đường đi, phương tiện và các điểm dừng chân dọc đường. "
+        "Trả về JSON: {\"history\": \"...\", \"cuisine\": \"...\", \"travel_tips\": \"...\", \"suggestions\": [\"...\", \"...\"]}"
     )
 
     pool = list(clients)
@@ -65,15 +66,11 @@ def call_gemini(user_msg):
             )
             return json.loads(response.text)
         except Exception as e:
-            print(f"Lỗi Key đang thử: {str(e)}")
-            if "429" in str(e):
-                time.sleep(1)
+            print(f"Lỗi Key: {str(e)}")
+            if "429" in str(e): time.sleep(1)
             continue 
 
-    return {
-        "history": "Hiện tại AI đang bận xử lý nhiều yêu cầu. Bạn vui lòng đợi vài giây rồi thử lại nhé! 🌿",
-        "suggestions": ["Thử lại", "Tìm địa điểm khác"]
-    }
+    return {"history": "AI đang bận, Trí vui lòng thử lại sau vài giây! 🌿"}
 
 @app.route("/")
 def index():
@@ -101,7 +98,6 @@ def get_history():
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-    
     result = []
     for r in rows:
         try:
@@ -119,42 +115,29 @@ def export_pdf():
     
     pdf = FPDF()
     pdf.add_page()
-    
-    # Cấu hình Font tiếng Việt
     font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
     if os.path.exists(font_path):
         pdf.add_font('DejaVu', '', font_path)
-        pdf.set_font('DejaVu', '', 14)
+        pdf.set_font('DejaVu', '', 12)
     else:
-        pdf.set_font("Arial", 'B', 14)
+        pdf.set_font("Arial", size=12)
 
-    pdf.cell(0, 10, "LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
-    pdf.ln(10)
-    
-    if os.path.exists(font_path): pdf.set_font('DejaVu', '', 10)
-    else: pdf.set_font("Arial", size=10)
+    pdf.cell(0, 10, "LỊCH TRÌNH DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
+    pdf.ln(5)
 
     for role, content, timestamp in rows:
+        prefix = "BẠN: " if role == "user" else "AI: "
         if role == "bot":
             try:
                 data = json.loads(content)
-                history_text = data.get('history', '')
-                cuisine_text = data.get('cuisine', '')
-                text = f"[{timestamp}] AI:\n- Di tích: {history_text}\n- Đặc sản: {cuisine_text}"
-            except:
-                text = f"[{timestamp}] AI: {content}"
-        else:
-            text = f"[{timestamp}] BẠN: {content}"
-        
-        # In nội dung ra PDF (Hỗ trợ Unicode nếu có font)
+                text = f"{prefix}\n- Thông tin: {data.get('history','')}\n- Ẩm thực: {data.get('cuisine','')}"
+            except: text = f"{prefix} {content}"
+        else: text = f"{prefix} {content}"
         pdf.multi_cell(0, 8, txt=text)
         pdf.ln(2)
     
-    # Trả về file PDF trực tiếp cho trình duyệt
-    response = make_response(pdf.output(dest='S'))
-    response.headers.set('Content-Disposition', 'attachment', filename='lich_trinh_du_lich.pdf')
-    response.headers.set('Content-Type', 'application/pdf')
-    return response
+    return Response(pdf.output(dest='S'), mimetype='application/pdf', 
+                    headers={"Content-Disposition": "attachment;filename=LichTrinh_SmartTravel.pdf"})
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
