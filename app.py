@@ -5,7 +5,7 @@ import json
 import time
 import random
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template, make_response, send_file, session, Response
+from flask import Flask, request, jsonify, render_template, make_response, session, Response
 from flask_cors import CORS
 from google import genai
 from google.genai import types
@@ -43,11 +43,9 @@ def call_gemini(user_msg):
     if not clients:
         return {"history": "Hệ thống chưa có API Key."}
 
-    # Prompt gom dữ liệu: AI tự phân tích nếu là địa danh thì review, nếu là lộ trình thì tư vấn đường đi
     prompt = (
-        f"Bạn là chuyên gia du lịch Việt Nam. Hãy phân tích yêu cầu: '{user_msg}'. "
-        "Nếu là 1 địa danh: Review lịch sử, văn hóa và món ăn. "
-        "Nếu là lộ trình (từ A đến B): Tư vấn đường đi, phương tiện và các điểm dừng chân dọc đường. "
+        f"Bạn là chuyên gia du lịch Việt Nam. Yêu cầu: '{user_msg}'. "
+        "Nếu là địa danh: Review lịch sử và ẩm thực. Nếu là lộ trình: Tư vấn đường đi. "
         "Trả về JSON: {\"history\": \"...\", \"cuisine\": \"...\", \"travel_tips\": \"...\", \"suggestions\": [\"...\", \"...\"]}"
     )
 
@@ -59,18 +57,14 @@ def call_gemini(user_msg):
             response = client.models.generate_content(
                 model="gemini-1.5-flash",
                 contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json", 
-                    temperature=0.7
-                )
+                config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.7)
             )
             return json.loads(response.text)
         except Exception as e:
-            print(f"Lỗi Key: {str(e)}")
-            if "429" in str(e): time.sleep(1)
+            print(f"Lỗi: {e}")
             continue 
 
-    return {"history": "AI đang bận, Trí vui lòng thử lại sau vài giây! 🌿"}
+    return {"history": "AI đang bận, vui lòng thử lại!"}
 
 @app.route("/")
 def index():
@@ -102,42 +96,49 @@ def get_history():
     for r in rows:
         try:
             content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
-        except:
-            content = r['content']
+        except: content = r['content']
         result.append({"role": r['role'], "content": content})
     return jsonify(result)
 
 @app.route("/export_pdf")
 def export_pdf():
-    sid = request.cookies.get("session_id")
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
-    
-    pdf = FPDF()
-    pdf.add_page()
-    font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
-    if os.path.exists(font_path):
-        pdf.add_font('DejaVu', '', font_path)
-        pdf.set_font('DejaVu', '', 12)
-    else:
-        pdf.set_font("Arial", size=12)
+    try:
+        sid = request.cookies.get("session_id")
+        with sqlite3.connect(DB_PATH) as conn:
+            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
+        
+        pdf = FPDF()
+        pdf.add_page()
+        
+        font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
+        if os.path.exists(font_path):
+            pdf.add_font('DejaVu', '', font_path)
+            pdf.set_font('DejaVu', '', 11)
+        else:
+            pdf.set_font("Arial", size=11)
 
-    pdf.cell(0, 10, "LỊCH TRÌNH DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
-    pdf.ln(5)
+        pdf.cell(0, 10, "SMART TRAVEL AI GUIDE - 2026", ln=True, align='C')
+        pdf.ln(5)
 
-    for role, content, timestamp in rows:
-        prefix = "BẠN: " if role == "user" else "AI: "
-        if role == "bot":
-            try:
-                data = json.loads(content)
-                text = f"{prefix}\n- Thông tin: {data.get('history','')}\n- Ẩm thực: {data.get('cuisine','')}"
-            except: text = f"{prefix} {content}"
-        else: text = f"{prefix} {content}"
-        pdf.multi_cell(0, 8, txt=text)
-        pdf.ln(2)
-    
-    return Response(pdf.output(dest='S'), mimetype='application/pdf', 
-                    headers={"Content-Disposition": "attachment;filename=LichTrinh_SmartTravel.pdf"})
+        for role, content in rows:
+            prefix = "BẠN: " if role == "user" else "AI: "
+            text = ""
+            if role == "bot":
+                try:
+                    data = json.loads(content)
+                    text = f"{data.get('history','')}\n{data.get('cuisine','')}"
+                except: text = str(content)
+            else: text = str(content)
+            
+            pdf.multi_cell(0, 7, txt=f"{prefix} {text}")
+            pdf.ln(3)
+        
+        response = make_response(pdf.output(dest='S'))
+        response.headers.set('Content-Disposition', 'attachment', filename='LichTrinh.pdf')
+        response.headers.set('Content-Type', 'application/pdf')
+        return response
+    except Exception as e:
+        return f"Lỗi PDF: {str(e)}", 500
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
@@ -147,5 +148,4 @@ def clear_history():
     return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
