@@ -1,16 +1,21 @@
-import os, uuid, sqlite3, json, time, random
+import os
+import uuid
+import sqlite3
+import json
+import time
+import random
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template, make_response, send_file
+from flask import Flask, request, jsonify, render_template, make_response, send_file, session, Response
 from flask_cors import CORS
 from google import genai
 from google.genai import types
 from fpdf import FPDF
 
 app = Flask(__name__)
+app.secret_key = "trip_secret_key_123" # Cần secret_key để dùng session nếu cần
 CORS(app)
 
 # --- CẤU HÌNH API KEYS ---
-# Lấy danh sách Key từ Environment của Render
 API_KEYS = [v.strip() for k, v in os.environ.items() if k.startswith("GEMINI-KEY-") and v]
 
 clients = []
@@ -45,7 +50,6 @@ def call_gemini(user_msg):
         "\"travel_tips\": \"...\", \"youtube_keyword\": \"...\", \"suggestions\": [\"...\", \"...\"]}"
     )
 
-    # Trộn ngẫu nhiên danh sách Key để tránh bị giới hạn (Rate Limit)
     pool = list(clients)
     random.shuffle(pool)
 
@@ -61,11 +65,10 @@ def call_gemini(user_msg):
             )
             return json.loads(response.text)
         except Exception as e:
-            # Ghi log lỗi ra server để Trí theo dõi, không gửi mã lỗi 404 về cho người dùng
             print(f"Lỗi Key đang thử: {str(e)}")
             if "429" in str(e):
                 time.sleep(1)
-            continue # Thử chìa khóa tiếp theo
+            continue 
 
     return {
         "history": "Hiện tại AI đang bận xử lý nhiều yêu cầu. Bạn vui lòng đợi vài giây rồi thử lại nhé! 🌿",
@@ -86,10 +89,8 @@ def chat():
     ai_data = call_gemini(msg)
     
     with sqlite3.connect(DB_PATH) as conn:
-        # Lưu tin nhắn của người dùng
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "user", msg, datetime.now().strftime("%H:%M")))
-        # Lưu phản hồi của AI (dưới dạng chuỗi JSON)
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
     return jsonify(ai_data)
@@ -104,7 +105,6 @@ def get_history():
     result = []
     for r in rows:
         try:
-            # Nếu là tin của bot thì giải mã JSON để hiển thị
             content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
         except:
             content = r['content']
@@ -119,28 +119,42 @@ def export_pdf():
     
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "LICH SU DU LICH - SMART TRAVEL AI", ln=True, align='C')
+    
+    # Cấu hình Font tiếng Việt
+    font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
+    if os.path.exists(font_path):
+        pdf.add_font('DejaVu', '', font_path)
+        pdf.set_font('DejaVu', '', 14)
+    else:
+        pdf.set_font("Arial", 'B', 14)
+
+    pdf.cell(0, 10, "LỊCH SỬ DU LỊCH - SMART TRAVEL AI", ln=True, align='C')
     pdf.ln(10)
     
-    pdf.set_font("Arial", size=10)
+    if os.path.exists(font_path): pdf.set_font('DejaVu', '', 10)
+    else: pdf.set_font("Arial", size=10)
+
     for role, content, timestamp in rows:
         if role == "bot":
             try:
                 data = json.loads(content)
-                text = f"[{timestamp}] AI: {data.get('history', '')[:200]}..."
+                history_text = data.get('history', '')
+                cuisine_text = data.get('cuisine', '')
+                text = f"[{timestamp}] AI:\n- Di tích: {history_text}\n- Đặc sản: {cuisine_text}"
             except:
-                text = f"[{timestamp}] AI: {content[:200]}"
+                text = f"[{timestamp}] AI: {content}"
         else:
-            text = f"[{timestamp}] BAN: {content}"
+            text = f"[{timestamp}] BẠN: {content}"
         
-        # Xử lý để PDF không bị lỗi ký tự lạ khi chưa có font tiếng Việt
-        pdf.multi_cell(0, 10, text.encode('latin-1', 'ignore').decode('latin-1'))
+        # In nội dung ra PDF (Hỗ trợ Unicode nếu có font)
+        pdf.multi_cell(0, 8, txt=text)
         pdf.ln(2)
     
-    path = "/tmp/history.pdf"
-    pdf.output(path)
-    return send_file(path, as_attachment=True)
+    # Trả về file PDF trực tiếp cho trình duyệt
+    response = make_response(pdf.output(dest='S'))
+    response.headers.set('Content-Disposition', 'attachment', filename='lich_trinh_du_lich.pdf')
+    response.headers.set('Content-Type', 'application/pdf')
+    return response
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
@@ -149,50 +163,6 @@ def clear_history():
         conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
     return jsonify({"status": "ok"})
 
-from fpdf import FPDF
-import os
-
-@app.route('/export_pdf')
-def export_pdf():
-    # Khởi tạo PDF
-    pdf = FPDF()
-    pdf.add_page()
-    
-    # ĐƯỜNG DẪN FONT: Đảm bảo file DejaVuSans.ttf nằm trong thư mục static
-    font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
-    
-    # Đăng ký font hỗ trợ Unicode (Tiếng Việt)
-    pdf.add_font('DejaVu', '', font_path, uni=True)
-    pdf.set_font('DejaVu', '', 12)
-    
-    # Tiêu đề
-    pdf.set_font('DejaVu', '', 16)
-    pdf.cell(200, 10, txt="LỊCH TRÌNH DU LỊCH VIỆT NAM 2026", ln=True, align='C')
-    pdf.ln(10)
-    
-    # Nội dung (Lấy từ session/database history của bạn)
-    pdf.set_font('DejaVu', '', 11)
-    # Giả sử bạn lấy history từ session
-    chat_history = session.get('history', [])
-    
-    for item in chat_history:
-        role = "BẠN: " if item['role'] == 'user' else "AI: "
-        content = item['content']
-        # Nếu content là dict (như cấu trúc của Trí), ta lấy phần history/cuisine
-        if isinstance(content, dict):
-            text = f"{role}\n- Di tích: {content.get('history','')}\n- Đặc sản: {content.get('cuisine','')}"
-        else:
-            text = f"{role} {content}"
-            
-        pdf.multi_cell(0, 10, txt=text)
-        pdf.ln(2)
-
-    return Response(pdf.output(dest='S'), mimetype='application/pdf', 
-                    headers={"Content-Disposition": "attachment;filename=Lich_Trinh_VietNam.pdf"})
-
-
 if __name__ == "__main__":
-    # Render yêu cầu dùng port từ environment variable
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
