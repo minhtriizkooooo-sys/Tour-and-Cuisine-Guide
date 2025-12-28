@@ -42,7 +42,6 @@
         #user-input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
         .send-btn { background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        /* FOOTER THEO YÊU CẦU */
         footer { 
             background: var(--sky-blue); 
             padding: 15px 25px; 
@@ -69,14 +68,12 @@
             footer { flex-direction: column; gap: 8px; text-align: center; }
         }
 
-        .leaflet-control-attribution {
-            display: none !important;
-        }
+        /* Ẩn triệt để logo Leaflet */
+        .leaflet-control-attribution { display: none !important; }
 
         .hidden { display: none !important; }
         .suggest-item { background: #eef7ff; color: var(--primary); padding: 10px; border-radius: 10px; margin-top: 8px; cursor: pointer; font-size: 13px; border: 1px solid #d0e7ff; font-weight: 500; text-align: center; }
         
-        /* Nút PDF trong Tab Lịch sử */
         .pdf-btn-container { padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: center; }
         .btn-pdf { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; }
     </style>
@@ -127,12 +124,12 @@
         </div>
         
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào Bạn! Hãy chọn địa danh trên bản đồ hoặc cắm mốc để bắt đầu. 🇻🇳</div>
+            <div class="msg bot">Chào Trí! Hãy chọn địa danh trên bản đồ để bắt đầu hành trình. 🇻🇳</div>
         </div>
 
         <div id="pdf-area" class="pdf-btn-container hidden">
             <button class="btn-pdf" onclick="window.location.href='/export_pdf'">
-                <i class="fa fa-file-pdf"></i> Tải Lịch Sử Chat (.pdf)
+                <i class="fa fa-file-pdf"></i> Tải Lịch Trình PDF (Tiếng Việt)
             </button>
         </div>
 
@@ -161,8 +158,18 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', {zoomControl: false}).setView([16.0, 107.5], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
+    // Khởi tạo bản đồ và ẩn attribution (logo Leaflet)
+    const map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false 
+    }).setView([10.762, 106.660], 13);
+
+    // Dùng Google Maps Tile có hl=vi để ép bản đồ hiện Tiếng Việt địa phương chuẩn
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
+        maxZoom: 20,
+        subdomains:['mt0','mt1','mt2','mt3']
+    }).addTo(map);
+
     let markers = [];
 
     function toggleMinimize(contentId, iconId) {
@@ -177,11 +184,12 @@
     async function findLoc() {
         const q = document.getElementById('s-input').value;
         if(!q) return;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+        // Sử dụng tiếng Việt trong tìm kiếm
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&accept-language=vi`);
         const data = await res.json();
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
-            map.setView(pos, 13);
+            map.setView(pos, 14);
             addTravelMarker(pos, q);
         }
     }
@@ -191,14 +199,14 @@
     function addTravelMarker(pos, label) {
         const m = L.marker(pos).addTo(map).bindPopup(`
             <div style="text-align:center">
-                <b>${label}</b><br>
-                <button onclick="askAI('${label}')" style="background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:5px; margin-top:5px; cursor:pointer">Hỏi AI</button>
+                <b style="color:var(--primary)">${label}</b><br>
+                <button onclick="askAI('${label}')" style="background:var(--primary); color:white; border:none; padding:5px 10px; border-radius:5px; margin-top:5px; cursor:pointer">Hỏi AI Review</button>
             </div>
         `).openPopup();
         markers.push(m);
     }
 
-    function askAI(loc) { sendMessage(`Review du lịch tại ${loc}`); }
+    function askAI(loc) { sendMessage(`Review du lịch chi tiết tại ${loc}`); }
 
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
@@ -207,7 +215,7 @@
         input.value = "";
         setTab('chat');
         appendMsg('user', msg);
-        const loading = appendMsg('bot', 'AI đang xử lý...');
+        const loading = appendMsg('bot', '<i class="fa fa-spinner fa-spin"></i> AI Trí đang suy nghĩ...');
         
         try {
             const res = await fetch('/chat', {
@@ -219,12 +227,13 @@
             
             let html = `<div>${data.text}</div>`;
             if(data.image_url) html += `<img src="${data.image_url}" onclick="openImg('${data.image_url}')">`;
-            if(data.youtube_link) html += `<br><a href="${data.youtube_link}" target="_blank" style="color:red; font-weight:bold;">Video YouTube</a>`;
-            if(data.suggestions) {
-                data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')">👉 ${s}</div>`);
+            if(data.youtube_link) html += `<br><a href="${data.youtube_link}" target="_blank" style="color:#FF0000; font-weight:bold; text-decoration:none;"><i class="fab fa-youtube"></i> Xem Video Review</a>`;
+            if(data.suggestions && data.suggestions.length > 0) {
+                html += `<div style="margin-top:10px; border-top:1px dashed #ccc; padding-top:5px"><b>Gợi ý thêm:</b></div>`;
+                data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')">📍 ${s}</div>`);
             }
             appendMsg('bot', html);
-        } catch { loading.innerHTML = "Lỗi kết nối!"; }
+        } catch { loading.innerHTML = "Lỗi kết nối server!"; }
     }
 
     function appendMsg(role, content) {
@@ -239,30 +248,35 @@
 
     function setTab(t) {
         document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-        document.getElementById('inp-wrap').classList.remove('hidden');
-        document.getElementById('pdf-area').classList.add('hidden'); // Ẩn nút PDF khi chat
-        if(t==='chat') document.getElementById('t-chat').classList.add('active');
+        if(t==='chat') {
+            document.getElementById('t-chat').classList.add('active');
+            document.getElementById('inp-wrap').classList.remove('hidden');
+            document.getElementById('pdf-area').classList.add('hidden');
+        }
     }
 
     async function loadHistory() {
         document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
         document.getElementById('t-hist').classList.add('active');
         document.getElementById('inp-wrap').classList.add('hidden');
-        document.getElementById('pdf-area').classList.remove('hidden'); // Hiện nút PDF khi xem lịch sử
+        document.getElementById('pdf-area').classList.remove('hidden');
         
         const box = document.getElementById('chat-box');
-        box.innerHTML = "Đang tải lịch sử...";
+        box.innerHTML = "Đang tải lịch trình...";
         try {
             const res = await fetch('/history');
             const data = await res.json();
             box.innerHTML = "";
-            if(data.length === 0) box.innerHTML = "<div class='msg bot'>Chưa có lịch sử chat nào.</div>";
-            data.forEach(m => appendMsg(m.role, typeof m.content === 'object' ? m.content.text : m.content));
+            if(data.length === 0) box.innerHTML = "<div class='msg bot'>Bạn chưa có lịch sử tư vấn nào.</div>";
+            data.forEach(m => {
+                const contentText = typeof m.content === 'object' ? m.content.text : m.content;
+                appendMsg(m.role, contentText);
+            });
         } catch { box.innerHTML = "Lỗi tải lịch sử."; }
     }
 
     async function clearHistory() { 
-        if(confirm("Xóa toàn bộ lịch sử chat của phiên này?")) { 
+        if(confirm("Xóa toàn bộ lịch trình và làm mới phiên chat?")) { 
             await fetch('/clear_history', {method:'POST'}); 
             location.reload(); 
         } 
