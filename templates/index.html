@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
-        /* ĐỊNH NGHĨA BIẾN MÀU SẮC - GIỮ NGUYÊN */
         :root {
             --primary: #0066cc;
             --primary-dark: #004a7c;
@@ -21,331 +20,117 @@
             --shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
 
-        /* Khóa màu cho số điện thoại, không cho trình duyệt tự đổi màu */
-        a[href^="tel"] {
-        color: inherit !important;
-        text-decoration: none !important;
+        /* KHÓA MÀU SỐ ĐIỆN THOẠI & LIÊN HỆ CHO MOBILE */
+        a[href^="tel"], .dev-link {
+            color: #ffffff !important; 
+            text-decoration: none !important;
         }
 
-        /* THIẾT LẬP CƠ BẢN - TỐI ƯU DVH CHO MOBILE */
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         body { 
-            margin: 0; 
-            padding: 0;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            height: 100dvh; 
-            display: flex; 
-            flex-direction: column; 
-            background: var(--bg-light); 
-            overflow: hidden;
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif; 
+            height: 100dvh; display: flex; flex-direction: column; 
+            background: var(--bg-light); overflow: hidden;
         }
 
-        /* --- THANH HEADER --- */
+        /* --- HEADER --- */
         header {
             background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-            color: white; 
-            padding: 0 20px;
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            z-index: 2000; 
-            height: 65px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            flex-shrink: 0;
+            color: white; padding: 0 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            height: 65px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2000;
         }
 
-        .logo { 
-            font-weight: bold; 
-            font-size: 1.2rem; 
-            display: flex; 
-            align-items: center; 
-            gap: 15px; 
-        }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; }
 
+        /* SỬA LỖI LOGO VUÔNG/TRÒN */
         .logo img { 
-            height: 45px; 
-            border-radius: 10px; 
-            background: white; 
-            padding: 3px; 
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-        }
-
-        .logo-container img {
-        border: none !important;        /* Bỏ mọi viền vuông */
-        border-radius: 0 !important;    /* Nếu ảnh gốc đã tròn thì không cần bo nữa */
-        outline: none !important;
-        box-shadow: none !important;    /* Bỏ đổ bóng nếu nó tạo cảm giác viền vuông */
-        background: transparent !important;
-        display: block;
-        width: 60px;  /* Chỉnh lại kích thước tùy ý */
-        height: 60px;
-        object-fit: contain; /* Đảm bảo ảnh không bị bóp méo */
+            height: 50px; width: auto;
+            border: none !important;
+            background: transparent !important; /* Xóa nền trắng */
+            padding: 0 !important;             /* Xóa khoảng cách thừa */
+            box-shadow: none !important;        /* Xóa bóng viền vuông */
+            object-fit: contain;
         }
 
         .refresh-btn { 
-            background: rgba(255,255,255,0.15); 
-            border: 1px solid rgba(255,255,255,0.3); 
-            color: white;
-            padding: 8px 15px; 
-            border-radius: 25px; 
-            font-size: 0.8rem; 
-            cursor: pointer; 
-            transition: 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); 
+            color: white; padding: 8px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer;
         }
 
-        /* --- VÙNG NỘI DUNG CHÍNH --- */
-        main { 
-            flex: 1; 
-            display: flex; 
-            position: relative; 
-            overflow: hidden; 
-        }
+        /* --- MAIN --- */
+        main { flex: 1; display: flex; position: relative; overflow: hidden; }
 
-        /* --- BẢN ĐỒ --- */
-        #map-container { 
-            flex: 1; 
-            position: relative; 
-            z-index: 1; 
-        }
+        #map-container { flex: 1; position: relative; z-index: 1; }
+        #map { height: 100%; width: 100%; }
 
-        #map { 
-            height: 100%; 
-            width: 100%; 
-        }
-
-        /* --- BẢNG ĐIỀU KHIỂN BÊN TRÁI --- */
+        /* CONTROLS */
         .left-controls {
-            position: absolute; 
-            top: 15px; 
-            left: 15px; 
-            z-index: 1001;
-            width: 280px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px;
+            position: absolute; top: 10px; left: 10px; z-index: 1001;
+            width: 260px; display: flex; flex-direction: column; gap: 10px;
         }
-
         .control-box {
-            background: rgba(255, 255, 255, 0.95); 
-            padding: 15px; 
-            border-radius: 15px; 
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(8px); 
-            border: 1px solid rgba(255,255,255,0.5);
+            background: rgba(255, 255, 255, 0.95); padding: 12px; border-radius: 12px;
+            box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.5);
         }
+        .control-box b { color: var(--primary); font-size: 0.85rem; display: flex; justify-content: space-between; cursor: pointer; }
+        .control-box input { width: 100%; padding: 8px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
 
-        .control-box b { 
-            color: var(--primary); 
-            font-size: 0.9rem; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            cursor: pointer;
-        }
+        .btn-blue { background: var(--primary); color: white; width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-green { background: var(--green); color: white; width: 100%; padding: 10px; border: none; border-radius: 6px; margin-top: 5px; cursor: pointer; font-weight: bold;}
+        .btn-gray { background: #7f8c8d; color: white; width: 100%; padding: 5px; border: none; border-radius: 6px; margin-top: 5px; font-size: 11px; cursor: pointer; }
 
-        .control-box input { 
-            width: 100%; 
-            padding: 10px; 
-            margin: 8px 0; 
-            border: 1px solid #ddd; 
-            border-radius: 8px; 
-            font-size: 13px; 
-            outline: none;
-        }
-
-        .btn-blue, .btn-green, .btn-gray { 
-            width: 100%; 
-            padding: 10px; 
-            border: none; 
-            border-radius: 8px; 
-            color: white; 
-            font-weight: bold; 
-            cursor: pointer; 
-            font-size: 13px; 
-            margin-top: 5px;
-        }
-
-        .btn-blue { background: var(--primary); }
-        .btn-green { background: var(--green); }
-        .btn-gray { background: #7f8c8d; }
-
-        /* --- KHUNG CHAT AI BÊN PHẢI --- */
-        #chat-side {
-            width: 380px; 
-            background: white; 
-            display: flex; 
-            flex-direction: column;
-            border-left: 1px solid #ddd; 
-            z-index: 1002; 
-            flex-shrink: 0;
-        }
-
-        .chat-tabs { 
-            display: flex; 
-            background: #f1f4f7; 
-            border-bottom: 1px solid #ddd; 
-        }
-
-        .tab { 
-            flex: 1; 
-            padding: 15px 5px; 
-            text-align: center; 
-            cursor: pointer; 
-            font-weight: bold; 
-            font-size: 0.75rem; 
-            color: #7f8c8d; 
-        }
-
-        .tab i { 
-            display: block; 
-            font-size: 1.1rem; 
-            margin-bottom: 5px; 
-        }
-
-        .tab.active { 
-            color: var(--primary); 
-            border-bottom: 4px solid var(--primary); 
-            background: white; 
-        }
-
+        /* --- CHAT SIDE --- */
+        #chat-side { width: 380px; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; z-index: 1002; }
+        .chat-tabs { display: flex; background: #f8f9fa; border-bottom: 1px solid #ddd; }
+        .tab { flex: 1; padding: 12px 5px; text-align: center; cursor: pointer; font-weight: bold; font-size: 0.7rem; color: #7f8c8d; }
+        .tab i { display: block; font-size: 1rem; margin-bottom: 3px; }
+        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); background: white; }
         .tab-red { color: var(--red) !important; }
 
-        .chat-box { 
-            flex: 1; 
-            overflow-y: auto; 
-            padding: 15px; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-        }
-
-        .msg { 
-            padding: 12px 16px; 
-            border-radius: 18px; 
-            max-width: 88%; 
-            line-height: 1.5; 
-            font-size: 14px; 
-        }
-
+        .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 10px 14px; border-radius: 15px; max-width: 85%; font-size: 14px; line-height: 1.4; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .bot { background: #f0f3f6; color: #2c3e50; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #e1e8ed; }
+        .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
 
-        .input-area { 
-            padding: 12px; 
-            border-top: 1px solid #eee; 
-            display: flex; 
-            gap: 8px; 
-            background: white; 
-        }
+        .input-area { padding: 10px; border-top: 1px solid #eee; display: flex; gap: 8px; }
+        #user-input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
+        .send-btn { background: var(--primary); color: white; width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; }
 
-        #user-input { 
-            flex: 1; 
-            padding: 12px 18px; 
-            border: 1px solid #ddd; 
-            border-radius: 25px; 
-            outline: none; 
-            font-size: 14px;
-        }
-
-        .send-btn { 
-            background: var(--primary); 
-            color: white; 
-            width: 45px; 
-            height: 45px; 
-            border-radius: 50%; 
-            border: none; 
-            cursor: pointer;
-        }
-
-        /* --- FOOTER FULL WIDTH CHUẨN XANH --- */
+        /* --- FOOTER --- */
         footer {
-            background: var(--primary); 
-            color: white; 
-            padding: 10px 20px; 
-            font-size: 13px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            z-index: 2005; 
-            width: 100%;
-            flex-shrink: 0;
+            background: var(--primary-dark); color: white; padding: 8px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 12px; z-index: 2005;
         }
 
-        footer b { color: #f1c40f; }
+        .status-dot { height: 8px; width: 8px; background: #2ecc71; border-radius: 50%; display: inline-block; margin-right: 5px; box-shadow: 0 0 5px #2ecc71; }
 
-        .status-container { display: flex; align-items: center; gap: 8px; }
-
-        .status-dot {
-            height: 9px; width: 9px;
-            background-color: #2ecc71;
-            border-radius: 50%;
-            box-shadow: 0 0 8px #2ecc71;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.3); opacity: 0.6; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        /* --- HÌNH ẢNH & GỢI Ý --- */
-        .img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .img-grid img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; cursor: pointer; }
-        .suggest-item { background: #eef7ff; color: var(--primary); padding: 10px; border-radius: 10px; margin-top: 8px; font-size: 13px; cursor: pointer; border: 1px solid #d0e7ff; }
-        
-        .hidden { display: none !important; }
-
-        /* --- MOBILE RESPONSIVE --- */
+        /* --- RESPONSIVE MOBILE --- */
         @media (max-width: 768px) {
             main { flex-direction: column; }
-            #map-container { height: 55%; flex: none; }
-            #chat-side { width: 100%; height: 45%; border-left: none; border-top: 1px solid #ddd; }
-            .left-controls { width: 220px; top: 10px; left: 10px; }
-            header .logo span { font-size: 1rem; }
-            footer { flex-direction: column; gap: 5px; text-align: center; padding: 12px; font-size: 11px; }
+            #map-container { height: 50%; flex: none; }
+            #chat-side { width: 100%; height: 50%; border-left: none; }
+            .left-controls { width: 200px; }
+            .logo span { font-size: 1rem !important; }
+            footer { flex-direction: column; gap: 5px; text-align: center; padding: 10px; }
+            .msg { max-width: 90%; font-size: 13px; }
         }
 
-        @media (max-width: 600px) {
-            .chat-container {
-                width: 95% !important;
-                margin: 10px auto !important;
-                height: 85vh !important; /* Tăng chiều cao để tận dụng màn hình */
-            }
-    
-            .message {
-                max-width: 85% !important; /* Cho tin nhắn rộng ra một chút */
-                font-size: 14px !important; /* Chữ nhỏ lại xíu cho tinh tế */
-                }
-
-                .developer-info {
-                font-size: 12px;
-                color: #ffffff; /* Ép màu trắng cho thông tin dev */
-                opacity: 0.8;
-            }
-        }
-        
+        .hidden { display: none !important; }
+        .suggest-item { background: #f0f7ff; color: var(--primary); padding: 8px; border-radius: 8px; margin-top: 5px; font-size: 12px; cursor: pointer; border: 1px solid #cce5ff; }
     </style>
 </head>
 <body>
 
 <header>
     <div class="logo">
-        <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" 
-             style="height: 55px; width: auto;" 
-             onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
-        <span style="font-size: 1.4rem; letter-spacing: 1px;">VIETNAM TRAVEL AI GUIDE <small>2026</small></span>
+        <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
+        <span style="font-size: 1.2rem;">VIETNAM TRAVEL AI GUIDE</span>
     </div>
-    <button class="refresh-btn" onclick="location.reload()">
-        <i class="fa fa-sync-alt"></i> Làm mới
-    </button>
+    <button class="refresh-btn" onclick="location.reload()"><i class="fa fa-sync-alt"></i></button>
 </header>
 
 <main>
@@ -354,12 +139,11 @@
             <div class="control-box">
                 <b onclick="toggleFold('search-area')">TÌM ĐỊA DANH <i class="fa fa-chevron-down"></i></b>
                 <div id="search-area">
-                    <input type="text" id="search-input" placeholder="Nhập: Đà Lạt, Hội An...">
+                    <input type="text" id="search-input" placeholder="Đà Lạt, Hội An...">
                     <button class="btn-blue" onclick="searchLocation()">Khám phá</button>
                     <button class="btn-gray" onclick="clearMarkers()">Xóa Marker</button>
                 </div>
             </div>
-
             <div class="control-box">
                 <b onclick="toggleFold('route-area')">DẪN ĐƯỜNG <i class="fa fa-chevron-down"></i></b>
                 <div id="route-area" class="hidden">
@@ -375,24 +159,16 @@
 
     <div id="chat-side">
         <div class="chat-tabs">
-            <div class="tab active" id="tab-chat" onclick="switchTab('chat')">
-                <i class="fa fa-robot"></i> TRỢ LÝ AI
-            </div>
-            <div class="tab" id="tab-hist" onclick="loadHistory()">
-                <i class="fa fa-clock-rotate-left"></i> LỊCH SỬ
-            </div>
-            <div class="tab" onclick="window.location.href='/export_pdf'">
-                <i class="fa fa-file-pdf"></i> PDF
-            </div>
-            <div class="tab tab-red" onclick="clearHistory()">
-                <i class="fa fa-trash-can"></i> DỌN DẸP
-            </div>
+            <div class="tab active" id="tab-chat" onclick="switchTab('chat')"><i class="fa fa-robot"></i> AI</div>
+            <div class="tab" id="tab-hist" onclick="loadHistory()"><i class="fa fa-history"></i> LỊCH SỬ</div>
+            <div class="tab" onclick="window.location.href='/export_pdf'"><i class="fa fa-file-pdf"></i> XUẤT PDF</div>
+            <div class="tab tab-red" onclick="clearHistory()"><i class="fa fa-trash"></i> XÓA</div>
         </div>
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào Bạn! AI đã sẵn sàng hỗ trợ bạn trên mọi thiết bị. 🇻🇳</div>
+            <div class="msg bot">Chào Bạn! Mình là trợ lý du lịch AI. Bạn muốn khám phá nơi nào tại Việt Nam? 🇻🇳</div>
         </div>
         <div class="input-area" id="input-container">
-            <input type="text" id="user-input" placeholder="Hỏi AI..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="user-input" placeholder="Nhập câu hỏi..." onkeypress="if(event.key==='Enter') sendMessage()">
             <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
@@ -400,25 +176,18 @@
 
 <footer>
     <div>
-        <i class="fa fa-user-tie"></i> Developer: <b>Lại Nguyễn Minh Trí</b> | 
-        <i class="fa fa-phone"></i> +84-908-08-3566
+        <i class="fa fa-code"></i> Developer: <span class="dev-link">Lại Nguyễn Minh Trí</span> | 
+        <i class="fa fa-phone"></i> <a href="tel:0908083566" class="dev-link">0908.08.3566</a>
     </div>
-    <div class="status-container">
-        <div class="status-dot"></div>
-        <span>AI Active & Ready</span>
+    <div>
+        <span class="status-dot"></span> AI Online
     </div>
 </footer>
-
-<div id="lightbox" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:9999; justify-content:center; align-items:center; flex-direction:column;" onclick="this.style.display='none'">
-    <img id="lb-img" src="" style="max-width:90%; max-height:80vh; border:3px solid white; border-radius:10px;">
-    <p id="lb-cap" style="color:white; margin-top:20px; font-weight:bold; font-size:18px;"></p>
-</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
 <script>
-    // --- LOGIC MAP & UI - GIỮ NGUYÊN TỪ BẢN CỦA TRÍ ---
     const map = L.map('map', { zoomControl: false }).setView([16.0, 107.0], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -463,21 +232,20 @@
             clearRoute();
             routeControl = L.Routing.control({
                 waypoints: [p1, p2],
-                lineOptions: { styles: [{ color: '#28a745', weight: 7 }] },
+                lineOptions: { styles: [{ color: '#28a745', weight: 6 }] },
                 createMarker: () => null
             }).addTo(map);
-            sendMessage(`Tư vấn hành trình đi từ ${s} đến ${e}`);
+            sendMessage(`Tư vấn lộ trình từ ${s} đi ${e}`);
         }
     }
 
-    // --- LOGIC AI - GIỮ NGUYÊN TOÀN BỘ PHẦN TRÍ VIẾT ---
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
         const msg = text || input.value.trim();
         if (!msg) return;
         input.value = "";
         appendMsg('user', msg);
-        const loading = appendMsg('bot', '<i class="fa fa-spinner fa-spin"></i> Trí đợi xíu, AI đang phân tích...');
+        const loading = appendMsg('bot', '<i class="fa fa-spinner fa-spin"></i> Đang suy nghĩ...');
         try {
             const res = await fetch('/chat', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -485,29 +253,16 @@
             });
             const data = await res.json();
             loading.remove();
-            
-            const errorQuotes = [
-                "Server đang bận ngắm cảnh, Bạn gửi lại nhé! 🌸",
-                "Hệ thống đang nạp năng lượng, Bạn vui lòng thử lại! 🚀",
-                "Ối, vệ tinh đang mất tín hiệu, Bạn bấm gửi lại giúp AI nhé! 🛠️"
-            ];
-
-            if (data.history && (data.history.includes("404") || data.history.includes("error"))) {
-                appendMsg('bot', errorQuotes[Math.floor(Math.random() * errorQuotes.length)]);
-            } else {
-                renderBotResponse(data, msg);
-            }
-        } catch { loading.innerHTML = "Lỗi server rồi Bạn ơi!"; }
+            renderBotResponse(data, msg);
+        } catch { loading.innerHTML = "Lỗi kết nối server!"; }
     }
 
     function renderBotResponse(data, query) {
-        let html = `<div style="font-weight:800; color:var(--primary); margin-bottom:10px; text-decoration:underline;">THÔNG TIN: ${query.toUpperCase()}</div>`;
-        if (data.history) html += `<div style="margin-bottom:12px;">🏛 <b>Di tích & Lịch sử:</b><br>${data.history}</div>`;
-        if (data.cuisine) html += `<div style="margin-bottom:12px;">🍲 <b>Đặc sản:</b><br>${data.cuisine}</div>`;
+        let html = `<b style="color:var(--primary)">${query.toUpperCase()}</b><br><br>`;
+        if (data.history) html += `🏛 <b>Lịch sử:</b> ${data.history}<br><br>`;
+        if (data.cuisine) html += `🍲 <b>Đặc sản:</b> ${data.cuisine}<br><br>`;
         if (data.suggestions) {
-            html += `<div style="border-top: 1px dashed #ccc; padding-top: 8px;">`;
-            data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')"><i class="fa fa-lightbulb"></i> ${s}</div>`);
-            html += `</div>`;
+            data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')">💡 ${s}</div>`);
         }
         appendMsg('bot', html);
     }
@@ -527,18 +282,18 @@
         document.getElementById('tab-hist').classList.add('active');
         document.getElementById('input-container').classList.add('hidden');
         const box = document.getElementById('chat-box');
-        box.innerHTML = '<div class="msg bot">Đang tải lịch sử...</div>';
+        box.innerHTML = '<div class="msg bot">Đang tải...</div>';
         const res = await fetch('/history');
         const data = await res.json();
         box.innerHTML = '';
         data.forEach(item => {
-            let t = typeof item.content === 'object' ? item.content.history : item.content;
-            appendMsg(item.role, t);
+            let content = typeof item.content === 'object' ? item.content.history : item.content;
+            appendMsg(item.role, content);
         });
     }
 
     async function clearHistory() {
-        if(confirm("Xóa hết dữ liệu chat?")) { await fetch('/clear_history', {method: 'POST'}); location.reload(); }
+        if(confirm("Xóa lịch sử chat?")) { await fetch('/clear_history', {method: 'POST'}); location.reload(); }
     }
 </script>
 </body>
