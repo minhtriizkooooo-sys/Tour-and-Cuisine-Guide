@@ -3,50 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VITENAM TRAVEL AI GUIDE</title>
+    <title>VIETNAM TRAVEL AI GUIDE</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f4f7f9; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; font-family: 'Segoe UI', Arial; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); overflow: hidden; }
+        body { margin: 0; font-family: 'Segoe UI', Arial; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 
-        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 0 15px; height: 60px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; }
-        .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; }
-        .logo img { height: 45px; background: transparent !important; border: none !important; }
+        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 0 15px; height: 70px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 20px; }
+        .logo img { height: 60px; width: auto; background: transparent; }
 
         main { flex: 1; display: flex; position: relative; overflow: hidden; }
         #map { flex: 1; z-index: 1; }
 
-        /* CHAT SIDEBAR */
+        /* Bảng điều khiển Map */
+        .map-tools { position: absolute; top: 10px; left: 10px; z-index: 1001; width: 280px; display: flex; flex-direction: column; gap: 10px; }
+        .tool-box { background: white; padding: 12px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .tool-box b { color: var(--primary); cursor: pointer; display: flex; justify-content: space-between; }
+        .tool-box input { width: 100%; padding: 8px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .btn { border: none; padding: 8px; border-radius: 5px; cursor: pointer; width: 100%; font-weight: bold; color: white; }
+
+        /* Chat Sidebar */
         #chat-side { width: 400px; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; z-index: 1002; }
-        .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; background: #fff; }
+        .tab-bar { display: flex; background: #f8f9fa; border-bottom: 1px solid #ddd; }
+        .tab { flex: 1; padding: 12px 5px; text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; color: #666; }
+        .tab.active { color: var(--primary); border-bottom: 3px solid var(--primary); background: white; }
+        
+        .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
         .msg { padding: 12px; border-radius: 12px; max-width: 85%; font-size: 15px; }
         .user { background: var(--primary); color: white; align-self: flex-end; }
         .bot { background: #f0f2f5; color: #333; align-self: flex-start; }
+        .bot img { width: 100%; border-radius: 8px; margin-top: 10px; cursor: pointer; }
 
-        /* Ô NHẬP LIỆU TRÀN NGANG */
-        .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; width: 100%; }
-        #user-input { flex: 1; padding: 12px 15px; border: 2px solid #eee; border-radius: 8px; outline: none; font-size: 16px; transition: 0.3s; }
-        #user-input:focus { border-color: var(--primary); }
-        .send-btn { background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; cursor: pointer; font-size: 18px; }
+        .input-area { padding: 10px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
+        #user-input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; }
 
-        /* FOOTER TO & RÕ */
-        footer {
-            background: #222; color: white; padding: 15px;
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 14px; font-weight: 500; z-index: 2005;
-        }
-        .dev-link { color: #f1c40f !important; text-decoration: none; font-weight: bold; }
+        footer { background: #1a1a1a; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+        .dev-link { color: #f1c40f; text-decoration: none; font-weight: bold; }
 
         @media (max-width: 768px) {
             main { flex-direction: column; }
-            #chat-side { width: 100%; height: 50%; border-left: none; }
-            #map { height: 50%; flex: none; }
-            footer { font-size: 13px; flex-direction: column; gap: 8px; }
+            #chat-side { width: 100%; height: 55%; }
+            #map { height: 45%; flex: none; }
+            .map-tools { width: 200px; }
         }
         .hidden { display: none; }
-        .suggest-item { background: #eef7ff; color: var(--primary); padding: 10px; border-radius: 8px; margin-top: 8px; cursor: pointer; border: 1px solid #d0e7ff; font-size: 14px; }
+        .suggest-item { background: #eef7ff; color: var(--primary); padding: 8px; border-radius: 8px; margin-top: 5px; cursor: pointer; font-size: 13px; border: 1px solid #d0e7ff; }
     </style>
 </head>
 <body>
@@ -54,49 +58,100 @@
 <header>
     <div class="logo">
         <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
-        <span>VIETNAM TRAVEL AI 2026</span>
+        <span>VIETNAM TRAVEL AI GUIDE</span>
     </div>
-    <i class="fa fa-sync-alt" onclick="location.reload()" style="cursor:pointer"></i>
+    <div style="display: flex; gap: 15px;">
+        <i class="fa fa-sync-alt" onclick="location.reload()" title="Refresh"></i>
+    </div>
 </header>
 
 <main>
-    <div id="map"></div>
+    <div id="map">
+        <div class="map-tools">
+            <div class="tool-box">
+                <b onclick="toggleT('s-box')">TÌM KIẾM <i class="fa fa-search"></i></b>
+                <div id="s-box">
+                    <input type="text" id="s-input" placeholder="Nhập địa danh...">
+                    <button class="btn" style="background: var(--primary);" onclick="findLoc()">Tìm đường & Cắm mốc</button>
+                </div>
+            </div>
+            <div class="tool-box">
+                <b onclick="toggleT('r-box')">CHỈ ĐƯỜNG <i class="fa fa-route"></i></b>
+                <div id="r-box" class="hidden">
+                    <input type="text" id="start-node" placeholder="Điểm đi">
+                    <input type="text" id="end-node" placeholder="Điểm đến">
+                    <button class="btn" style="background: #28a745;" onclick="clearMap()">Xóa Marker & Đường</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="chat-side">
-        <div style="display:flex; background:#f8f9fa; border-bottom:1px solid #ddd;">
-            <div style="flex:1; padding:15px; text-align:center; cursor:pointer; font-weight:bold; color:var(--primary); border-bottom:3px solid var(--primary)">TRỢ LÝ AI</div>
-            <div style="flex:1; padding:15px; text-align:center; cursor:pointer" onclick="window.location.href='/export_pdf'"><i class="fa fa-file-pdf"></i> XUẤT PDF</div>
+        <div class="tab-bar">
+            <div class="tab active" id="t-chat" onclick="setTab('chat')">HỘI THOẠI</div>
+            <div class="tab" id="t-hist" onclick="loadHistory()">LỊCH SỬ</div>
+            <div class="tab" onclick="window.location.href='/export_pdf'">PDF</div>
+            <div class="tab" onclick="clearHistory()" style="color:red;">XÓA</div>
         </div>
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào Bạn! AI đã sẵn sàng hỗ trợ lộ trình của bạn.</div>
+            <div class="msg bot">Chào Bạn! Hãy tìm địa danh trên bản đồ, click vào mốc (Marker) để AI tư vấn nhé.</div>
         </div>
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="Hỏi địa danh hoặc lộ trình..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
+        <div class="input-area" id="inp-wrap">
+            <input type="text" id="user-input" placeholder="Hỏi AI..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button onclick="sendMessage()" style="border:none; background:none; color:var(--primary); font-size:20px;"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
 </main>
 
 <footer>
-    <div>
-        <i class="fa fa-code"></i> Developer: <span class="dev-link">Lại Nguyễn Minh Trí</span>
-    </div>
-    <div>
-        <i class="fa fa-phone"></i> Hotline: <a href="tel:0908083566" class="dev-link">0908.08.3566</a>
-    </div>
+    <div><i class="fa fa-terminal"></i> Developer: <span class="dev-link">Lại Nguyễn Minh Trí</span></div>
+    <div><i class="fa fa-phone"></i> <a href="tel:0908083566" class="dev-link">84.908.08.3566</a></div>
 </footer>
+
+<div id="img-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;">
+    <img id="modal-img" src="" style="max-width:90%; max-height:90%;">
+    <i class="fa fa-times" onclick="closeImg()" style="position:absolute; top:20px; right:20px; color:white; font-size:30px; cursor:pointer;"></i>
+</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map').setView([16.0, 107.0], 6);
+    const map = L.map('map', {zoomControl: false}).setView([16.0, 107.0], 6);
     L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
+    let markers = [];
+
+    function toggleT(id) { document.getElementById(id).classList.toggle('hidden'); }
+    function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
+
+    // Tìm kiếm chỉ hiện Marker, không gọi AI
+    async function findLoc() {
+        const q = document.getElementById('s-input').value;
+        if(!q) return;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+        const data = await res.json();
+        if(data[0]) {
+            const pos = [data[0].lat, data[0].lon];
+            map.setView(pos, 13);
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')">Hỏi AI về nơi này</button>`).openPopup();
+            markers.push(m);
+        }
+    }
+
+    // Click bất kỳ đâu trên map cũng hiện Marker để hỏi AI
+    map.on('click', function(e) {
+        const m = L.marker(e.latlng).addTo(map).bindPopup(`<button onclick="askAI('vị trí này')">Khám phá vị trí này</button>`).openPopup();
+        markers.push(m);
+    });
+
+    function askAI(loc) { sendMessage(`Review chi tiết du lịch, văn hóa và ẩm thực tại ${loc}`); }
 
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
         const msg = text || input.value.trim();
-        if (!msg) return;
+        if(!msg) return;
         input.value = "";
+        setTab('chat');
         appendMsg('user', msg);
-        const loading = appendMsg('bot', '<i class="fa fa-spinner fa-spin"></i> Đang xử lý...');
+        const loading = appendMsg('bot', '<i class="fa fa-spinner fa-spin"></i> AI đang phân tích...');
         
         try {
             const res = await fetch('/chat', {
@@ -105,18 +160,15 @@
             });
             const data = await res.json();
             loading.remove();
-            renderBotResponse(data, msg);
+            
+            let html = `<div>${data.text}</div>`;
+            if(data.image_url) html += `<img src="${data.image_url}" onclick="openImg('${data.image_url}')">`;
+            if(data.youtube_link) html += `<br><a href="${data.youtube_link}" target="_blank" style="color:red; font-weight:bold;"><i class="fab fa-youtube"></i> Xem Video liên quan</a>`;
+            if(data.suggestions) {
+                data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')">${s}</div>`);
+            }
+            appendMsg('bot', html);
         } catch { loading.innerHTML = "Lỗi kết nối!"; }
-    }
-
-    function renderBotResponse(data, query) {
-        let html = `<b>KẾT QUẢ: ${query.toUpperCase()}</b><br><br>`;
-        if (data.history) html += `🏛 <b>Thông tin:</b> ${data.history}<br><br>`;
-        if (data.cuisine) html += `🍲 <b>Ẩm thực:</b> ${data.cuisine}<br><br>`;
-        if (data.suggestions) {
-            data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')">👉 ${s}</div>`);
-        }
-        appendMsg('bot', html);
     }
 
     function appendMsg(role, content) {
@@ -128,6 +180,32 @@
         box.scrollTop = box.scrollHeight;
         return div;
     }
+
+    function setTab(t) {
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        document.getElementById('inp-wrap').classList.remove('hidden');
+        if(t==='chat') document.getElementById('t-chat').classList.add('active');
+    }
+
+    async function loadHistory() {
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        document.getElementById('t-hist').classList.add('active');
+        document.getElementById('inp-wrap').classList.add('hidden');
+        const box = document.getElementById('chat-box');
+        box.innerHTML = "Đang tải...";
+        const res = await fetch('/history');
+        const data = await res.json();
+        box.innerHTML = "";
+        data.forEach(m => {
+            const content = typeof m.content === 'object' ? m.content.text : m.content;
+            appendMsg(m.role, content);
+        });
+    }
+
+    async function clearHistory() { if(confirm("Xóa hết hội thoại?")) { await fetch('/clear_history', {method:'POST'}); location.reload(); } }
+    
+    function openImg(src) { document.getElementById('modal-img').src = src; document.getElementById('img-modal').classList.remove('hidden'); }
+    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 </script>
 </body>
 </html>
