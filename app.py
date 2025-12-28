@@ -38,8 +38,8 @@ def call_gemini(user_msg):
         return {"text": "Chưa có API Key!", "image_url": "", "youtube_link": "", "suggestions": []}
 
     prompt = (
-        f"Bạn là hướng dẫn viên du lịch Việt Nam. Người dùng hỏi: {user_msg}\n"
-        "Trả về JSON: {\"text\": \"...\", \"image_url\": \"...\", \"youtube_link\": \"...\", \"suggestions\": []}"
+        f"Bạn là hướng dẫn viên du lịch Việt Nam chuyên nghiệp. Người dùng hỏi: {user_msg}\n"
+        "Trả về JSON thuần: {\"text\": \"nội dung trả lời chi tiết tiếng Việt có dấu\", \"image_url\": \"...\", \"youtube_link\": \"...\", \"suggestions\": []}"
     )
 
     for key in API_KEYS:
@@ -57,7 +57,7 @@ def call_gemini(user_msg):
         except:
             continue 
 
-    return {"text": "Hết lượt dùng (Quota). Thử lại sau nhé!", "image_url": "", "youtube_link": "", "suggestions": []}
+    return {"text": "Hết lượt dùng hôm nay. Thử lại sau nhé!", "image_url": "", "youtube_link": "", "suggestions": []}
 
 @app.route("/")
 def index():
@@ -109,19 +109,24 @@ def export_pdf():
         pdf = FPDF()
         pdf.add_page()
         
-        # Nhúng Font Unicode từ /static
+        # Nhúng Font Unicode từ /static/DejaVuSans.ttf
         font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
+        
         if os.path.exists(font_path):
             pdf.add_font('DejaVu', '', font_path)
-            pdf.set_font('DejaVu', '', 12)
+            pdf.set_font('DejaVu', '', 14)
+            pdf.set_text_color(0, 51, 102) # Xanh đậm chuyên nghiệp
+            pdf.cell(0, 10, txt="LỊCH TRÌNH DU LỊCH SMART TRAVEL 2026", ln=True, align='C')
+            pdf.set_font('DejaVu', '', 11)
         else:
             pdf.set_font('Arial', '', 12)
+            pdf.cell(0, 10, txt="LICH TRINH SMART TRAVEL 2026", ln=True, align='C')
 
-        pdf.cell(0, 10, txt="LICH TRINH SMART TRAVEL 2026", ln=True, align='C')
         pdf.ln(10)
+        pdf.set_text_color(0, 0, 0)
 
         for role, content, time_str in rows:
-            prefix = "Khách hàng: " if role == "user" else "AI: "
+            prefix = "Khách hàng: " if role == "user" else "AI Tư vấn: "
             try:
                 data = json.loads(content)
                 text = data.get('text', '')
@@ -130,16 +135,24 @@ def export_pdf():
             pdf.multi_cell(0, 8, txt=f"[{time_str}] {prefix}{text}")
             pdf.ln(3)
 
-        # FIX LỖI 502: Chuyển bytearray thành bytes
         pdf_bytes = bytes(pdf.output())
-
         return Response(
             pdf_bytes,
             mimetype='application/pdf',
-            headers={"Content-Disposition": "attachment;filename=lich-trinh.pdf"}
+            headers={"Content-Disposition": "attachment;filename=lich-trinh-2026.pdf"}
         )
     except Exception as e:
         return f"Lỗi: {str(e)}", 500
+
+@app.route("/clear_history", methods=["POST"])
+def clear_history():
+    sid = request.cookies.get("session_id")
+    if sid:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+    resp = jsonify({"status": "ok"})
+    resp.set_cookie("session_id", str(uuid.uuid4()), httponly=True)
+    return resp
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
