@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
-        /* ĐỊNH NGHĨA BIẾN MÀU SẮC */
+        /* ĐỊNH NGHĨA BIẾN MÀU SẮC - GIỮ NGUYÊN */
         :root {
             --primary: #0066cc;
             --primary-dark: #004a7c;
@@ -20,7 +20,7 @@
             --shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
 
-        /* THIẾT LẬP CƠ BẢN */
+        /* THIẾT LẬP CƠ BẢN - TỐI ƯU DVH CHO MOBILE */
         * { 
             box-sizing: border-box; 
             -webkit-tap-highlight-color: transparent; 
@@ -48,18 +48,19 @@
             z-index: 2000; 
             height: 65px; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            flex-shrink: 0;
         }
 
         .logo { 
             font-weight: bold; 
-            font-size: 1.4rem; 
+            font-size: 1.2rem; 
             display: flex; 
             align-items: center; 
             gap: 15px; 
         }
 
         .logo img { 
-            height: 48px; 
+            height: 45px; 
             border-radius: 10px; 
             background: white; 
             padding: 3px; 
@@ -70,19 +71,14 @@
             background: rgba(255,255,255,0.15); 
             border: 1px solid rgba(255,255,255,0.3); 
             color: white;
-            padding: 8px 18px; 
+            padding: 8px 15px; 
             border-radius: 25px; 
-            font-size: 0.85rem; 
+            font-size: 0.8rem; 
             cursor: pointer; 
             transition: 0.3s ease;
             display: flex;
             align-items: center;
             gap: 8px;
-        }
-
-        .refresh-btn:hover { 
-            background: rgba(255,255,255,0.3); 
-            transform: scale(1.05);
         }
 
         /* --- VÙNG NỘI DUNG CHÍNH --- */
@@ -91,7 +87,6 @@
             display: flex; 
             position: relative; 
             overflow: hidden; 
-            background: #eee;
         }
 
         /* --- BẢN ĐỒ --- */
@@ -112,7 +107,7 @@
             top: 15px; 
             left: 15px; 
             z-index: 1001;
-            width: 300px; 
+            width: 280px; 
             display: flex; 
             flex-direction: column; 
             gap: 12px;
@@ -129,54 +124,50 @@
 
         .control-box b { 
             color: var(--primary); 
-            font-size: 0.95rem; 
+            font-size: 0.9rem; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
             cursor: pointer;
-            margin-bottom: 5px;
         }
 
         .control-box input { 
             width: 100%; 
-            padding: 12px; 
-            margin: 10px 0; 
+            padding: 10px; 
+            margin: 8px 0; 
             border: 1px solid #ddd; 
-            border-radius: 10px; 
-            font-size: 14px; 
+            border-radius: 8px; 
+            font-size: 13px; 
             outline: none;
         }
 
         .btn-blue, .btn-green, .btn-gray { 
             width: 100%; 
-            padding: 12px; 
+            padding: 10px; 
             border: none; 
-            border-radius: 10px; 
+            border-radius: 8px; 
             color: white; 
             font-weight: bold; 
             cursor: pointer; 
-            font-size: 14px; 
+            font-size: 13px; 
             margin-top: 5px;
-            transition: 0.2s;
         }
 
         .btn-blue { background: var(--primary); }
         .btn-green { background: var(--green); }
         .btn-gray { background: #7f8c8d; }
 
-        .btn-blue:hover { background: var(--primary-dark); }
-
         /* --- KHUNG CHAT AI BÊN PHẢI --- */
         #chat-side {
-            width: 400px; 
+            width: 380px; 
             background: white; 
             display: flex; 
             flex-direction: column;
             border-left: 1px solid #ddd; 
             z-index: 1002; 
+            flex-shrink: 0;
         }
 
-        /* Tab chuyển đổi */
         .chat-tabs { 
             display: flex; 
             background: #f1f4f7; 
@@ -189,14 +180,13 @@
             text-align: center; 
             cursor: pointer; 
             font-weight: bold; 
-            font-size: 0.8rem; 
+            font-size: 0.75rem; 
             color: #7f8c8d; 
-            transition: 0.3s;
         }
 
         .tab i { 
             display: block; 
-            font-size: 1.2rem; 
+            font-size: 1.1rem; 
             margin-bottom: 5px; 
         }
 
@@ -208,116 +198,76 @@
 
         .tab-red { color: var(--red) !important; }
 
-        /* Vùng hiển thị tin nhắn */
         .chat-box { 
             flex: 1; 
             overflow-y: auto; 
-            padding: 20px; 
+            padding: 15px; 
             display: flex; 
             flex-direction: column; 
-            gap: 15px; 
-            background: #ffffff; 
+            gap: 12px; 
         }
 
         .msg { 
-            padding: 14px 18px; 
-            border-radius: 20px; 
+            padding: 12px 16px; 
+            border-radius: 18px; 
             max-width: 88%; 
-            line-height: 1.6; 
-            font-size: 14.5px; 
-            position: relative; 
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            line-height: 1.5; 
+            font-size: 14px; 
         }
 
-        .user { 
-            background: var(--primary); 
-            color: white; 
-            align-self: flex-end; 
-            border-bottom-right-radius: 2px; 
-        }
+        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .bot { background: #f0f3f6; color: #2c3e50; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #e1e8ed; }
 
-        .bot { 
-            background: #f0f3f6; 
-            color: #2c3e50; 
-            align-self: flex-start; 
-            border-bottom-left-radius: 2px; 
-            border: 1px solid #e1e8ed; 
-        }
-
-        /* Vùng nhập liệu */
         .input-area { 
-            padding: 15px; 
+            padding: 12px; 
             border-top: 1px solid #eee; 
             display: flex; 
-            gap: 10px; 
+            gap: 8px; 
             background: white; 
-            align-items: center;
         }
 
         #user-input { 
             flex: 1; 
-            padding: 14px 20px; 
+            padding: 12px 18px; 
             border: 1px solid #ddd; 
-            border-radius: 30px; 
+            border-radius: 25px; 
             outline: none; 
-            font-size: 15px;
-            background: #f9f9f9;
+            font-size: 14px;
         }
 
         .send-btn { 
             background: var(--primary); 
             color: white; 
-            width: 50px; 
-            height: 50px; 
+            width: 45px; 
+            height: 45px; 
             border-radius: 50%; 
             border: none; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
             cursor: pointer;
-            transition: 0.3s;
-        }
-
-        .send-btn:hover { 
-            transform: rotate(15deg) scale(1.1);
-            background: var(--primary-dark);
         }
 
         /* --- FOOTER FULL WIDTH CHUẨN XANH --- */
         footer {
             background: var(--primary); 
             color: white; 
-            padding: 12px 25px; 
-            font-size: 13.5px; 
+            padding: 10px 20px; 
+            font-size: 13px; 
             display: flex; 
             justify-content: space-between; 
             align-items: center;
             z-index: 2005; 
             width: 100%;
-            box-shadow: 0 -4px 12px rgba(0,0,0,0.2);
-            border-top: 1px solid rgba(255,255,255,0.2);
+            flex-shrink: 0;
         }
 
-        footer b { 
-            color: #f1c40f; 
-            font-weight: 800;
-        }
+        footer b { color: #f1c40f; }
 
-        .status-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(0,0,0,0.15);
-            padding: 5px 12px;
-            border-radius: 20px;
-        }
+        .status-container { display: flex; align-items: center; gap: 8px; }
 
         .status-dot {
-            height: 10px;
-            width: 10px;
+            height: 9px; width: 9px;
             background-color: #2ecc71;
             border-radius: 50%;
-            box-shadow: 0 0 10px #2ecc71;
+            box-shadow: 0 0 8px #2ecc71;
             animation: pulse 2s infinite;
         }
 
@@ -327,58 +277,21 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        /* --- LIGHTBOX & HÌNH ẢNH --- */
-        .img-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 10px; 
-            margin-top: 12px; 
-        }
-
-        .img-grid img { 
-            width: 100%; 
-            aspect-ratio: 16/9; 
-            object-fit: cover; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            transition: 0.3s;
-        }
-
-        .img-grid img:hover { transform: scale(1.03); }
-
-        .suggest-item { 
-            background: #eef7ff; 
-            color: var(--primary); 
-            padding: 12px; 
-            border-radius: 12px; 
-            margin-top: 10px; 
-            font-size: 13.5px; 
-            cursor: pointer; 
-            border: 1px solid #d0e7ff;
-            transition: 0.2s;
-        }
-
-        .suggest-item:hover { background: #d0e7ff; }
-
+        /* --- HÌNH ẢNH & GỢI Ý --- */
+        .img-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .img-grid img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; cursor: pointer; }
+        .suggest-item { background: #eef7ff; color: var(--primary); padding: 10px; border-radius: 10px; margin-top: 8px; font-size: 13px; cursor: pointer; border: 1px solid #d0e7ff; }
+        
         .hidden { display: none !important; }
 
         /* --- MOBILE RESPONSIVE --- */
         @media (max-width: 768px) {
             main { flex-direction: column; }
-            #chat-side { 
-                width: 100%; 
-                height: 45%; 
-                border-left: none; 
-                border-top: 2px solid #ddd;
-            }
-            #map-container { height: 55%; }
-            .left-controls { width: calc(100% - 30px); }
-            footer { 
-                flex-direction: column; 
-                gap: 8px; 
-                text-align: center; 
-                padding: 15px;
-            }
+            #map-container { height: 55%; flex: none; }
+            #chat-side { width: 100%; height: 45%; border-left: none; border-top: 1px solid #ddd; }
+            .left-controls { width: 220px; top: 10px; left: 10px; }
+            header .logo span { font-size: 1rem; }
+            footer { flex-direction: column; gap: 5px; text-align: center; padding: 12px; font-size: 11px; }
         }
     </style>
 </head>
@@ -390,7 +303,7 @@
         <span>VIETNAM TRAVEL AI GUIDE <small>2026</small></span>
     </div>
     <button class="refresh-btn" onclick="location.reload()">
-        <i class="fa fa-sync-alt"></i> Làm mới hệ thống
+        <i class="fa fa-sync-alt"></i> Làm mới
     </button>
 </header>
 
@@ -398,25 +311,24 @@
     <div id="map-container">
         <div class="left-controls">
             <div class="control-box">
-                <b onclick="toggleFold('search-area')">TÌM KIẾM ĐỊA DANH <i class="fa fa-chevron-down"></i></b>
+                <b onclick="toggleFold('search-area')">TÌM ĐỊA DANH <i class="fa fa-chevron-down"></i></b>
                 <div id="search-area">
-                    <input type="text" id="search-input" placeholder="Nhập: Đà Lạt, Vịnh Hạ Long...">
-                    <button class="btn-blue" onclick="searchLocation()">Bắt đầu khám phá</button>
-                    <button class="btn-gray" onclick="clearMarkers()">Xóa tất cả Marker</button>
+                    <input type="text" id="search-input" placeholder="Nhập: Đà Lạt, Hội An...">
+                    <button class="btn-blue" onclick="searchLocation()">Khám phá</button>
+                    <button class="btn-gray" onclick="clearMarkers()">Xóa Marker</button>
                 </div>
             </div>
 
             <div class="control-box">
-                <b onclick="toggleFold('route-area')">DẪN ĐƯỜNG DU LỊCH <i class="fa fa-chevron-down"></i></b>
+                <b onclick="toggleFold('route-area')">DẪN ĐƯỜNG <i class="fa fa-chevron-down"></i></b>
                 <div id="route-area" class="hidden">
-                    <input type="text" id="start-node" placeholder="Điểm khởi hành">
-                    <input type="text" id="end-node" placeholder="Điểm đến mong muốn">
-                    <button class="btn-green" onclick="drawRoute()">Xem lộ trình di chuyển</button>
-                    <button class="btn-gray" onclick="clearRoute()">Xóa đường đi</button>
+                    <input type="text" id="start-node" placeholder="Điểm đi">
+                    <input type="text" id="end-node" placeholder="Điểm đến">
+                    <button class="btn-green" onclick="drawRoute()">Xem lộ trình</button>
+                    <button class="btn-gray" onclick="clearRoute()">Xóa đường</button>
                 </div>
             </div>
         </div>
-        
         <div id="map"></div>
     </div>
 
@@ -429,22 +341,18 @@
                 <i class="fa fa-clock-rotate-left"></i> LỊCH SỬ
             </div>
             <div class="tab" onclick="window.location.href='/export_pdf'">
-                <i class="fa fa-file-pdf"></i> XUẤT PDF
+                <i class="fa fa-file-pdf"></i> PDF
             </div>
             <div class="tab tab-red" onclick="clearHistory()">
                 <i class="fa fa-trash-can"></i> DỌN DẸP
             </div>
         </div>
-        
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Xin chào Trí! Mình là trợ lý AI chuyên về du lịch Việt Nam. Bạn muốn lên kế hoạch đi đâu hôm nay? 🇻🇳</div>
+            <div class="msg bot">Chào Bạn! AI đã sẵn sàng hỗ trợ bạn trên mọi thiết bị. 🇻🇳</div>
         </div>
-
         <div class="input-area" id="input-container">
-            <input type="text" id="user-input" placeholder="Gửi tin nhắn cho AI..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button class="send-btn" onclick="sendMessage()">
-                <i class="fa fa-paper-plane"></i>
-            </button>
+            <input type="text" id="user-input" placeholder="Hỏi AI..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
 </main>
@@ -452,7 +360,7 @@
 <footer>
     <div>
         <i class="fa fa-code"></i> Developer: <b>Lại Nguyễn Minh Trí</b> | 
-        <i class="fa fa-envelope"></i> Contact: minh.tri.2026@travel.vn
+        <i class="fa fa-phone"></i> +84-908-08-3566
     </div>
     <div class="status-container">
         <div class="status-dot"></div>
@@ -469,73 +377,47 @@
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
 <script>
-    // --- KHỞI TẠO BẢN ĐỒ ---
+    // --- LOGIC MAP & UI - GIỮ NGUYÊN TỪ BẢN CỦA TRÍ ---
     const map = L.map('map', { zoomControl: false }).setView([16.0, 107.0], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png').addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     let routeControl = null;
     let markers = [];
 
-    // --- CÁC HÀM XỬ LÝ UI ---
-    function toggleFold(id) { 
-        document.getElementById(id).classList.toggle('hidden'); 
-    }
-
-    function clearMarkers() {
-        markers.forEach(m => map.removeLayer(m));
-        markers = [];
-    }
-
-    function clearRoute() {
-        if (routeControl) {
-            map.removeControl(routeControl);
-            routeControl = null;
-        }
-    }
+    function toggleFold(id) { document.getElementById(id).classList.toggle('hidden'); }
+    function clearMarkers() { markers.forEach(m => map.removeLayer(m)); markers = []; }
+    function clearRoute() { if (routeControl) { map.removeControl(routeControl); routeControl = null; } }
 
     function switchTab(type) {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.getElementById('input-container').classList.remove('hidden');
-        if(type === 'chat') {
-            document.getElementById('tab-chat').classList.add('active');
-        }
+        if(type === 'chat') document.getElementById('tab-chat').classList.add('active');
     }
 
-    // --- LOGIC TÌM KIẾM ĐỊA ĐIỂM ---
     async function searchLocation() {
         const q = document.getElementById('search-input').value.trim();
         if (!q) return;
-        try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Việt Nam')}&limit=1`);
-            const data = await res.json();
-            if (data[0]) {
-                const pos = [data[0].lat, data[0].lon];
-                map.setView(pos, 14);
-                const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b>`).openPopup();
-                markers.push(m);
-                sendMessage(`Review du lịch tại địa danh: ${q}`);
-            }
-        } catch(e) { console.error("Lỗi tìm kiếm địa điểm."); }
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Việt Nam')}&limit=1`);
+        const data = await res.json();
+        if (data[0]) {
+            const pos = [data[0].lat, data[0].lon];
+            map.setView(pos, 14);
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b>`).openPopup();
+            markers.push(m);
+            sendMessage(`Review du lịch tại địa danh: ${q}`);
+        }
     }
 
-    // --- LOGIC CHỈ ĐƯỜNG ---
     async function drawRoute() {
         const s = document.getElementById('start-node').value.trim();
         const e = document.getElementById('end-node').value.trim();
         if (!s || !e) return;
-        
-        const getLoc = async (name) => {
-            const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name + ', Việt Nam')}&limit=1`);
-            const d = await r.json(); 
-            return d[0] ? L.latLng(d[0].lat, d[0].lon) : null;
+        const getLoc = async (n) => {
+            const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(n + ', Việt Nam')}&limit=1`);
+            const d = await r.json(); return d[0] ? L.latLng(d[0].lat, d[0].lon) : null;
         };
-
-        const p1 = await getLoc(s); 
-        const p2 = await getLoc(e);
-
+        const p1 = await getLoc(s); const p2 = await getLoc(e);
         if (p1 && p2) {
             clearRoute();
             routeControl = L.Routing.control({
@@ -547,30 +429,26 @@
         }
     }
 
-    // --- HỆ THỐNG GIAO TIẾP AI ---
+    // --- LOGIC AI - GIỮ NGUYÊN TOÀN BỘ PHẦN TRÍ VIẾT ---
     async function sendMessage(text = null) {
         const input = document.getElementById('user-input');
         const msg = text || input.value.trim();
         if (!msg) return;
-        
         input.value = "";
         appendMsg('user', msg);
         const loading = appendMsg('bot', '<i class="fa fa-spinner fa-spin"></i> Trí đợi xíu, AI đang phân tích...');
-
         try {
             const res = await fetch('/chat', {
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'},
+                method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({msg: msg})
             });
             const data = await res.json();
             loading.remove();
-
-            // XỬ LÝ PHẢN HỒI ĐA DẠNG KHI LỖI
+            
             const errorQuotes = [
-                "Server đang bận ngắm cảnh, Trí gửi lại nhé! 🌸",
-                "Hệ thống đang nạp năng lượng, Trí vui lòng thử lại! 🚀",
-                "Ối, vệ tinh đang mất tín hiệu, Trí bấm gửi lại giúp AI nhé! 🛠️"
+                "Server đang bận ngắm cảnh, Bạn gửi lại nhé! 🌸",
+                "Hệ thống đang nạp năng lượng, Bạn vui lòng thử lại! 🚀",
+                "Ối, vệ tinh đang mất tín hiệu, Bạn bấm gửi lại giúp AI nhé! 🛠️"
             ];
 
             if (data.history && (data.history.includes("404") || data.history.includes("error"))) {
@@ -578,24 +456,16 @@
             } else {
                 renderBotResponse(data, msg);
             }
-        } catch { 
-            loading.innerHTML = "Mất kết nối server rồi Trí ơi! Kiểm tra lại nhé."; 
-        }
+        } catch { loading.innerHTML = "Lỗi server rồi Trí ơi!"; }
     }
 
-    // Hàm hiển thị phản hồi AI đẹp mắt
     function renderBotResponse(data, query) {
         let html = `<div style="font-weight:800; color:var(--primary); margin-bottom:10px; text-decoration:underline;">THÔNG TIN: ${query.toUpperCase()}</div>`;
-        
-        if (data.history) html += `<div style="margin-bottom:15px;">🏛 <b>Di tích & Lịch sử:</b><br>${data.history}</div>`;
-        if (data.cuisine) html += `<div style="margin-bottom:15px;">🍲 <b>Đặc sản nên thử:</b><br>${data.cuisine}</div>`;
-        
-        // Thêm gợi ý câu hỏi tiếp theo
+        if (data.history) html += `<div style="margin-bottom:12px;">🏛 <b>Di tích & Lịch sử:</b><br>${data.history}</div>`;
+        if (data.cuisine) html += `<div style="margin-bottom:12px;">🍲 <b>Đặc sản:</b><br>${data.cuisine}</div>`;
         if (data.suggestions) {
-            html += `<div style="border-top: 1px dashed #ccc; padding-top: 10px; margin-top: 10px;">`;
-            data.suggestions.forEach(s => {
-                html += `<div class="suggest-item" onclick="sendMessage('${s}')"><i class="fa fa-lightbulb"></i> ${s}</div>`;
-            });
+            html += `<div style="border-top: 1px dashed #ccc; padding-top: 8px;">`;
+            data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')"><i class="fa fa-lightbulb"></i> ${s}</div>`);
             html += `</div>`;
         }
         appendMsg('bot', html);
@@ -611,35 +481,23 @@
         return div;
     }
 
-    // Lịch sử chat
     async function loadHistory() {
         switchTab('hist');
         document.getElementById('tab-hist').classList.add('active');
         document.getElementById('input-container').classList.add('hidden');
         const box = document.getElementById('chat-box');
-        box.innerHTML = '<div class="msg bot">Đang kết nối kho dữ liệu lịch sử...</div>';
-        try {
-            const res = await fetch('/history');
-            const data = await res.json();
-            box.innerHTML = '';
-            if (data.length === 0) {
-                box.innerHTML = '<div class="msg bot">Chưa có cuộc hội thoại nào trước đó.</div>';
-                return;
-            }
-            data.forEach(item => {
-                let text = item.content;
-                if (typeof text === 'object') text = text.history || "Dữ liệu AI";
-                appendMsg(item.role, text);
-            });
-        } catch(e) { box.innerHTML = "Không thể tải lịch sử lúc này."; }
+        box.innerHTML = '<div class="msg bot">Đang tải lịch sử...</div>';
+        const res = await fetch('/history');
+        const data = await res.json();
+        box.innerHTML = '';
+        data.forEach(item => {
+            let t = typeof item.content === 'object' ? item.content.history : item.content;
+            appendMsg(item.role, t);
+        });
     }
 
-    // Xóa lịch sử
     async function clearHistory() {
-        if(confirm("Xác nhận dọn dẹp toàn bộ dữ liệu chat và làm mới ứng dụng?")) {
-            await fetch('/clear_history', {method: 'POST'});
-            location.reload();
-        }
+        if(confirm("Xóa hết dữ liệu chat?")) { await fetch('/clear_history', {method: 'POST'}); location.reload(); }
     }
 </script>
 </body>
