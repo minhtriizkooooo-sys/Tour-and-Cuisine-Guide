@@ -149,7 +149,50 @@ def clear_history():
         conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
     return jsonify({"status": "ok"})
 
+from fpdf import FPDF
+import os
+
+@app.route('/export_pdf')
+def export_pdf():
+    # Khởi tạo PDF
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # ĐƯỜNG DẪN FONT: Đảm bảo file DejaVuSans.ttf nằm trong thư mục static
+    font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
+    
+    # Đăng ký font hỗ trợ Unicode (Tiếng Việt)
+    pdf.add_font('DejaVu', '', font_path, uni=True)
+    pdf.set_font('DejaVu', '', 12)
+    
+    # Tiêu đề
+    pdf.set_font('DejaVu', '', 16)
+    pdf.cell(200, 10, txt="LỊCH TRÌNH DU LỊCH VIỆT NAM 2026", ln=True, align='C')
+    pdf.ln(10)
+    
+    # Nội dung (Lấy từ session/database history của bạn)
+    pdf.set_font('DejaVu', '', 11)
+    # Giả sử bạn lấy history từ session
+    chat_history = session.get('history', [])
+    
+    for item in chat_history:
+        role = "BẠN: " if item['role'] == 'user' else "AI: "
+        content = item['content']
+        # Nếu content là dict (như cấu trúc của Trí), ta lấy phần history/cuisine
+        if isinstance(content, dict):
+            text = f"{role}\n- Di tích: {content.get('history','')}\n- Đặc sản: {content.get('cuisine','')}"
+        else:
+            text = f"{role} {content}"
+            
+        pdf.multi_cell(0, 10, txt=text)
+        pdf.ln(2)
+
+    return Response(pdf.output(dest='S'), mimetype='application/pdf', 
+                    headers={"Content-Disposition": "attachment;filename=Lich_Trinh_VietNam.pdf"})
+
+
 if __name__ == "__main__":
     # Render yêu cầu dùng port từ environment variable
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
