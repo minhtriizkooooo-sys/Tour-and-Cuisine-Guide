@@ -78,12 +78,17 @@ def clear():
 
 @app.route("/export_pdf")
 def export_pdf():
-    # Xuất PDF đơn giản tránh 502
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="LICH TRINH SMART TRAVEL 2026", ln=True, align='C')
-    return Response(pdf.output(dest='S'), mimetype='application/pdf')
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(200, 10, txt="LICH TRINH SMART TRAVEL 2026", ln=True, align='C')
+        # Sửa lỗi 502: Ép kiểu output về bytes chuẩn
+        pdf_bytes = bytes(pdf.output())
+        return Response(pdf_bytes, mimetype='application/pdf', 
+                        headers={"Content-Disposition": "attachment;filename=hanh-trinh.pdf"})
+    except Exception as e:
+        return str(e), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
