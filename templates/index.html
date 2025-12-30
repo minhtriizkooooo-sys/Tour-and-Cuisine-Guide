@@ -36,7 +36,16 @@
         .msg { padding: 12px 16px; border-radius: 18px; max-width: 88%; font-size: 15px; line-height: 1.5; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .bot img { width: 100%; border-radius: 10px; margin-top: 10px; cursor: zoom-in; }
+        
+        /* CẬP NHẬT: HIỂN THỊ ẢNH VÀ VIDEO */
+        .bot .image-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; justify-content: flex-start; }
+        .bot .image-item { flex: 1 1 150px; /* Responsive images */ max-width: 100%; text-align: center; background: #e0e6eb; padding: 5px; border-radius: 8px;}
+        .bot .image-item img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; cursor: zoom-in; margin-bottom: 5px; }
+        .bot .image-item .caption { font-size: 12px; color: #555; display: block; margin-top: 5px; }
+        .bot .video-container { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
+        .bot .video-frame { flex: 1 1 100%; max-width: 400px; height: 220px; border-radius: 10px; overflow: hidden; background: #333;}
+        .bot .video-frame iframe { width: 100%; height: 100%; border: none; }
+        .bot .video-item { flex: 1 1 100%; max-width: 100%; }
 
         .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; width: 100%; }
         #user-input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
@@ -61,11 +70,39 @@
             margin-left: 5px;
         }
 
+        /* Responsive cho Mobile */
         @media (max-width: 768px) {
+            header { height: 60px; padding: 0 10px; }
+            .logo { font-size: 18px; gap: 8px; }
+            .logo img { height: 50px; }
+
             main { flex-direction: column; }
             #map-side { height: 45%; flex: none; border-bottom: 2px solid #ddd; }
             #chat-side { width: 100%; height: 55%; }
-            footer { flex-direction: column; gap: 8px; text-align: center; }
+            
+            .map-tools { width: calc(100% - 30px); left: 15px; top: 10px; }
+            .tool-box { padding: 8px; border-radius: 8px; }
+            .tool-box b { font-size: 13px; }
+            .tool-box input { padding: 8px; margin: 5px 0; }
+            .btn-map { padding: 8px; font-size: 13px; margin-top: 3px; }
+
+            .tab { padding: 12px 3px; font-size: 10px; }
+            .chat-box { padding: 10px; gap: 10px; }
+            .msg { padding: 10px 14px; border-radius: 16px; font-size: 14px; max-width: 95%; }
+            
+            .input-area { padding: 10px; gap: 8px; }
+            #user-input { padding: 10px 18px; font-size: 14px; }
+            .send-btn { width: 40px; height: 40px; }
+
+            footer { flex-direction: column; gap: 8px; text-align: center; font-size: 14px; padding: 10px 15px; }
+            .tri-style { margin-left: 0; display: block; margin-top: 3px; }
+            .dev-text { display: inline-block; margin-right: 5px; }
+
+            /* Image/Video on mobile */
+            .bot .image-gallery { flex-direction: column; align-items: center; }
+            .bot .image-item { flex: none; width: 95%; max-width: none; }
+            .bot .video-container { flex-direction: column; align-items: center; }
+            .bot .video-item { flex: none; width: 95%; max-width: none; }
         }
 
         /* Ẩn triệt để logo Leaflet */
@@ -76,6 +113,46 @@
         
         .pdf-btn-container { padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: center; }
         .btn-pdf { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+
+        /* Modal cho ảnh phóng to */
+        #img-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 20px;
+        }
+        #modal-img {
+            max-width: 95%;
+            max-height: 80vh; /* Giảm chiều cao để hiển thị nút đóng */
+            border: 3px solid white;
+            object-fit: contain; /* Đảm bảo ảnh không bị cắt */
+        }
+        #modal-caption {
+            color: white;
+            font-size: 16px;
+            margin-top: 10px;
+            text-align: center;
+            max-width: 90%;
+        }
+        #close-modal-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -109,7 +186,6 @@
                 </b>
                 <div id="u-content">
                     <button class="btn-map" style="background: #e74c3c;" onclick="clearMap()">Xóa Marker</button>
-                    <button class="btn-map" style="background: #27ae60;" onclick="window.location.href='/export_pdf'">Xuất PDF Lịch Trình</button>
                 </div>
             </div>
         </div>
@@ -124,7 +200,7 @@
         </div>
         
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào Trí! Hãy chọn địa danh trên bản đồ để bắt đầu hành trình. 🇻🇳</div>
+            <div class="msg bot">Chào Bạn! Hãy chọn địa danh trên bản đồ hoặc nhập câu hỏi để bắt đầu hành trình. 🇻🇳</div>
         </div>
 
         <div id="pdf-area" class="pdf-btn-container hidden">
@@ -152,25 +228,30 @@
     </div>
 </footer>
 
-<div id="img-modal" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;" onclick="closeImg()">
-    <img id="modal-img" src="" style="max-width:90%; max-height:90%; border: 3px solid white;">
+<div id="img-modal" class="hidden">
+    <img id="modal-img" src="" alt="Ảnh chi tiết">
+    <span id="modal-caption"></span>
+    <button id="close-modal-btn" onclick="closeImg()">Đóng</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Khởi tạo bản đồ và ẩn attribution (logo Leaflet)
     const map = L.map('map', {
         zoomControl: false,
         attributionControl: false 
     }).setView([10.762, 106.660], 13);
 
-    // Dùng Google Maps Tile có hl=vi để ép bản đồ hiện Tiếng Việt địa phương chuẩn
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
         maxZoom: 20,
         subdomains:['mt0','mt1','mt2','mt3']
     }).addTo(map);
 
     let markers = [];
+    const chatBox = document.getElementById('chat-box');
+    const userInput = document.getElementById('user-input');
+    const tabChat = document.getElementById('t-chat');
+    const tabHist = document.getElementById('t-hist');
+    const pdfArea = document.getElementById('pdf-area');
 
     function toggleMinimize(contentId, iconId) {
         const content = document.getElementById(contentId);
@@ -184,19 +265,21 @@
     async function findLoc() {
         const q = document.getElementById('s-input').value;
         if(!q) return;
-        // Sử dụng tiếng Việt trong tìm kiếm
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&accept-language=vi`);
         const data = await res.json();
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 14);
-            addTravelMarker(pos, q);
+            addTravelMarker(pos, data[0].display_name); // Sử dụng display_name cho label chi tiết hơn
         }
     }
 
-    map.on('click', function(e) { addTravelMarker(e.latlng, "Vị trí đã chọn"); });
+    map.on('click', function(e) { addTravelMarker(e.latlng, `Vị trí (${e.latlng.lat.toFixed(3)}, ${e.latlng.lat.toFixed(3)})`); });
 
     function addTravelMarker(pos, label) {
+        // Xóa marker cũ nếu chỉ muốn 1 marker
+        clearMap(); 
+        
         const m = L.marker(pos).addTo(map).bindPopup(`
             <div style="text-align:center">
                 <b style="color:var(--primary)">${label}</b><br>
@@ -206,84 +289,219 @@
         markers.push(m);
     }
 
-    function askAI(loc) { sendMessage(`Review du lịch chi tiết tại ${loc}`); }
-
-    async function sendMessage(text = null) {
-        const input = document.getElementById('user-input');
-        const msg = text || input.value.trim();
-        if(!msg) return;
-        input.value = "";
+    function askAI(loc) { 
         setTab('chat');
-        appendMsg('user', msg);
-        const loading = appendMsg('bot', '<i class="fa fa-spinner fa-spin"></i> AI Trí đang suy nghĩ...');
+        userInput.value = `Review du lịch chi tiết tại ${loc}`; 
+        sendMessage();
+    }
+
+    // Hàm trích xuất ID YouTube từ URL
+    function getYouTubeId(url) {
+        if (!url) return null;
+        // Regex để bắt ID từ các định dạng URL khác nhau
+        const patterns = [
+            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/i,
+            /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^?]+)/i,
+            /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([^?]+)/i
+        ];
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match && match[1].length === 11) { // ID YouTube có 11 ký tự
+                return match[1];
+            }
+        }
+        return null;
+    }
+
+    function createMessageElement(role, content) {
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `msg ${role}`;
         
+        if (role === 'user') {
+            msgDiv.textContent = content;
+        } else if (role === 'bot') {
+            const data = typeof content === 'string' ? JSON.parse(content) : content;
+            
+            // 1. TEXT
+            const textContent = document.createElement('div');
+            textContent.innerHTML = data.text.replace(/\n/g, '<br>');
+            msgDiv.appendChild(textContent);
+
+            // 2. IMAGES
+            if (data.images && data.images.length > 0) {
+                const imgGallery = document.createElement('div');
+                imgGallery.className = 'image-gallery';
+                data.images.forEach(img => {
+                    const imgItem = document.createElement('div');
+                    imgItem.className = 'image-item';
+                    const imgTag = document.createElement('img');
+                    imgTag.src = img.url;
+                    imgTag.alt = img.caption;
+                    imgTag.onclick = () => showImg(img.url, img.caption);
+                    
+                    const caption = document.createElement('span');
+                    caption.className = 'caption';
+                    caption.textContent = img.caption;
+                    
+                    imgItem.appendChild(imgTag);
+                    imgItem.appendChild(caption);
+                    imgGallery.appendChild(imgItem);
+                });
+                msgDiv.appendChild(imgGallery);
+            }
+
+            // 3. YOUTUBE VIDEOS
+            if (data.youtube_links && data.youtube_links.length > 0) {
+                const videoContainer = document.createElement('div');
+                videoContainer.className = 'video-container';
+                
+                data.youtube_links.forEach(link => {
+                    const videoId = getYouTubeId(link);
+                    if (videoId) {
+                        const videoItem = document.createElement('div');
+                        videoItem.className = 'video-item';
+
+                        const iframeWrapper = document.createElement('div');
+                        iframeWrapper.className = 'video-frame';
+                        const iframe = document.createElement('iframe');
+                        iframe.src = `https://www.youtube.com/embed/${videoId}`;
+                        iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+                        iframe.allowFullscreen = true;
+                        
+                        iframeWrapper.appendChild(iframe);
+                        videoItem.appendChild(iframeWrapper);
+                        videoContainer.appendChild(videoItem);
+                    }
+                });
+                if(videoContainer.childElementCount > 0) {
+                    msgDiv.appendChild(videoContainer);
+                }
+            }
+
+            // 4. SUGGESTIONS
+            if (data.suggestions && data.suggestions.length > 0) {
+                const suggestContainer = document.createElement('div');
+                data.suggestions.forEach(suggest => {
+                    const suggestItem = document.createElement('div');
+                    suggestItem.className = 'suggest-item';
+                    suggestItem.textContent = suggest;
+                    suggestItem.onclick = () => {
+                        userInput.value = suggest;
+                        sendMessage();
+                    };
+                    suggestContainer.appendChild(suggestItem);
+                });
+                msgDiv.appendChild(suggestContainer);
+            }
+        }
+        return msgDiv;
+    }
+
+    function appendMessage(role, content) {
+        chatBox.appendChild(createMessageElement(role, content));
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function sendMessage() {
+        const msg = userInput.value.trim();
+        if (!msg) return;
+
+        appendMessage('user', msg);
+        userInput.value = '';
+        const sendBtn = document.querySelector('.send-btn');
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+
         try {
             const res = await fetch('/chat', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({msg: msg})
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ msg: msg })
             });
             const data = await res.json();
-            loading.remove();
-            
-            let html = `<div>${data.text}</div>`;
-            if(data.image_url) html += `<img src="${data.image_url}" onclick="openImg('${data.image_url}')">`;
-            if(data.youtube_link) html += `<br><a href="${data.youtube_link}" target="_blank" style="color:#FF0000; font-weight:bold; text-decoration:none;"><i class="fab fa-youtube"></i> Xem Video Review</a>`;
-            if(data.suggestions && data.suggestions.length > 0) {
-                html += `<div style="margin-top:10px; border-top:1px dashed #ccc; padding-top:5px"><b>Gợi ý thêm:</b></div>`;
-                data.suggestions.forEach(s => html += `<div class="suggest-item" onclick="sendMessage('${s}')">📍 ${s}</div>`);
-            }
-            appendMsg('bot', html);
-        } catch { loading.innerHTML = "Lỗi kết nối server!"; }
-    }
-
-    function appendMsg(role, content) {
-        const div = document.createElement('div');
-        div.className = `msg ${role}`;
-        div.innerHTML = content;
-        const box = document.getElementById('chat-box');
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
-        return div;
-    }
-
-    function setTab(t) {
-        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-        if(t==='chat') {
-            document.getElementById('t-chat').classList.add('active');
-            document.getElementById('inp-wrap').classList.remove('hidden');
-            document.getElementById('pdf-area').classList.add('hidden');
+            appendMessage('bot', data);
+        } catch (e) {
+            appendMessage('bot', {text: "Lỗi kết nối hoặc dữ liệu không hợp lệ. Vui lòng thử lại."});
+            console.error(e);
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fa fa-paper-plane"></i>';
         }
     }
 
-    async function loadHistory() {
-        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-        document.getElementById('t-hist').classList.add('active');
-        document.getElementById('inp-wrap').classList.add('hidden');
-        document.getElementById('pdf-area').classList.remove('hidden');
-        
-        const box = document.getElementById('chat-box');
-        box.innerHTML = "Đang tải lịch trình...";
+    function setTab(tabName) {
+        tabChat.classList.remove('active');
+        tabHist.classList.remove('active');
+        pdfArea.classList.add('hidden');
+        chatBox.innerHTML = ''; // Clear box content
+
+        if (tabName === 'chat') {
+            tabChat.classList.add('active');
+            // Re-load current chat history if available
+            loadHistory(true); 
+        } else if (tabName === 'history') {
+            tabHist.classList.add('active');
+            pdfArea.classList.remove('hidden');
+        }
+    }
+    
+    async function loadHistory(isChatTab = false) {
+        if (!isChatTab) setTab('history');
+        else chatBox.innerHTML = ''; // Only clear if reloading chat tab
+
         try {
             const res = await fetch('/history');
             const data = await res.json();
-            box.innerHTML = "";
-            if(data.length === 0) box.innerHTML = "<div class='msg bot'>Bạn chưa có lịch sử tư vấn nào.</div>";
-            data.forEach(m => {
-                const contentText = typeof m.content === 'object' ? m.content.text : m.content;
-                appendMsg(m.role, contentText);
+
+            if (data.length === 0) {
+                appendMessage('bot', {text: "Lịch sử trò chuyện trống. Hãy bắt đầu một cuộc trò chuyện mới!"});
+                pdfArea.classList.add('hidden');
+                return;
+            }
+            
+            data.forEach(item => {
+                appendMessage(item.role, item.content);
             });
-        } catch { box.innerHTML = "Lỗi tải lịch sử."; }
+            
+            if (!isChatTab) pdfArea.classList.remove('hidden');
+
+        } catch (e) {
+            appendMessage('bot', {text: "Không thể tải lịch sử trò chuyện."});
+            console.error(e);
+        }
     }
 
-    async function clearHistory() { 
-        if(confirm("Xóa toàn bộ lịch trình và làm mới phiên chat?")) { 
-            await fetch('/clear_history', {method:'POST'}); 
-            location.reload(); 
-        } 
+    async function clearHistory() {
+        if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử chat và tạo phiên mới không?")) return;
+        try {
+            await fetch('/clear_history', { method: 'POST' });
+            // Tải lại trang để xóa cookie session_id và reset giao diện
+            window.location.reload(); 
+        } catch (e) {
+            alert("Lỗi khi xóa lịch sử.");
+        }
     }
-    
-    function openImg(src) { document.getElementById('modal-img').src = src; document.getElementById('img-modal').classList.remove('hidden'); }
-    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
+
+    // Chức năng phóng to ảnh (Modal)
+    const imgModal = document.getElementById('img-modal');
+    const modalImg = document.getElementById('modal-img');
+    const modalCaption = document.getElementById('modal-caption');
+
+    function showImg(url, caption) {
+        modalImg.src = url;
+        modalCaption.textContent = caption || 'Không có chú thích';
+        imgModal.classList.remove('hidden');
+    }
+
+    function closeImg() {
+        imgModal.classList.add('hidden');
+        modalImg.src = '';
+    }
+
+    // Tải lịch sử lần đầu
+    loadHistory(true);
+
 </script>
+<script src="/static/js/script.js" defer></script> 
 </body>
 </html>
