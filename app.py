@@ -14,25 +14,22 @@ import re
 import random
 
 app = Flask(__name__)
-# Nên thay đổi key này khi triển khai
+# Thiết lập Secret Key
 app.secret_key = "trip_smart_2026_tri" 
 CORS(app)
 
 # --- CẤU HÌNH API KEYS VÀ HỖ TRỢ MULTI-KEY ---
 API_KEYS = []
-# Lấy tất cả các khóa từ biến môi trường có chứa "API_KEY"
 for key, value in os.environ.items():
     if "API_KEY" in key.upper() and value:
-        # Hỗ trợ nhiều khóa cách nhau bằng dấu phẩy
         API_KEYS.extend([k.strip() for k in value.split(',') if k.strip()])
-# Loại bỏ trùng lặp và chỉ giữ lại các khóa hợp lệ (bắt đầu bằng 'AIza')
 API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')]))
 print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
 
 model_name = "gemini-2.5-flash"
 DB_PATH = "chat_history.db"
 
-# === SYSTEM INSTRUCTION MẠNH MẼ ===
+# === SYSTEM INSTRUCTION MẠNH MẼ - ÉP BUỘC CHẤT LƯỢNG MEDIA CAO NHẤT ===
 system_instruction = """
 Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
 Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn về địa điểm người dùng hỏi.
@@ -40,28 +37,18 @@ Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Ti�
 BẮT BUỘT TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa):
 {
   "text": "Nội dung chi tiết Tiếng Việt có dấu, trình bày đẹp bằng Markdown. Phải bao gồm đầy đủ 4 phần chính:\\n1. Lịch sử phát triển và nét đặc trưng địa phương.\\n2. Văn hóa và con người.\\n3. Ẩm thực nổi bật.\\n4. Đề xuất lịch trình cụ thể và gợi ý du lịch.",
-  "images": [{"url": "link_ảnh", "caption": "mô_tả_ngắn"}, ...],
-  "youtube_links": ["https://www.youtube.com/watch?v=ID_11_ký_tự", ...],
+  "images": [{"url": "link_ảnh_chất_lượng_cao", "caption": "mô_tả_chính_xác_nội_dung_ảnh"}, ...],
+  "youtube_links": ["FULL_URL_youtube_review_moi_nhat", ...],
   "suggestions": ["Gợi ý câu hỏi 1", "Gợi ý câu hỏi 2"]
 }
 
 YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100%):
-• IMAGES: 
-  - CHỈ dùng URL ảnh chất lượng cao, công khai, đang hoạt động từ các nguồn UY TÍN: 
-    pexels.com, pixabay.com, unsplash.com
-  - Ảnh PHẢI liên quan TRỰC TIẾP và chính xác với địa điểm người dùng hỏi.
-  - Caption ngắn gọn, mô tả đúng nội dung ảnh.
-  - Tối đa 3 ảnh.
-  - Nếu không tìm được ảnh phù hợp tuyệt đối → để mảng rỗng [].
+• TÍNH CHÍNH XÁC: Media (Ảnh/Video) PHẢI liên quan TRỰC TIẾP, PHÙ HỢP TUYỆT ĐỐI và LÀ HÌNH ẢNH MỚI/CẬP NHẬT NHẤT của địa điểm/món ăn.
+• Tối đa 3 ảnh và 2 video.
+• NGUỒN IMAGES: CHỈ được lấy từ các miền sau: pexels.com, pixabay.com, unsplash.com. TUYỆT ĐỐI KHÔNG dùng bất kỳ miền nào khác. URL phải là link trực tiếp đến file ảnh (.jpg, .png...).
+• NGUỒN YOUTUBE: Video phải là FULL URL hợp lệ (https://www.youtube.com/watch?v=...), CHẤT LƯỢNG CAO (HD/4K), và là vlog/review du lịch CÓ NGÀY TẢI GẦN ĐÂY (Năm 2024 hoặc 2025).
 
-• YOUTUBE_LINKS:
-  - CHỈ cung cấp FULL URL hợp lệ (https://www.youtube.com/watch?v=ID_11_ký_tự)
-  - Video phải chất lượng cao (HD/4K), liên quan TRỰC TIẾP đến địa điểm (travel vlog, tour thực tế, review mới).
-  - Video phải đang công khai và xem được.
-  - Tối đa 2 video.
-  - Nếu không tìm được video tốt → để mảng rỗng [].
-
-Tuyệt đối không bịa đặt link. Nếu không chắc chắn → để mảng rỗng.
+Nếu bạn không tìm thấy bất kỳ liên kết hình ảnh hay video nào đáp ứng tất cả tiêu chí trên (bao gồm cả nguồn và độ liên quan tuyệt đối), bạn phải để mảng rỗng [].
 """
 # --- HẾT SYSTEM INSTRUCTION ---
 
@@ -106,27 +93,25 @@ def get_ai_response(session_id, user_msg):
     if session_id:
         with sqlite3.connect(DB_PATH) as conn:
             conn.row_factory = sqlite3.Row
-            # Lấy 10 tin nhắn gần nhất (5 lượt chat)
             rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 10", (session_id,)).fetchall()
-            rows.reverse() # Đảo ngược để có thứ tự thời gian
+            rows.reverse() 
             
             for r in rows:
                 role = "user" if r['role'] == 'user' else "model"
                 content_text = r['content']
                 
                 if role == "model":
-                    # Nội dung bot được lưu dưới dạng JSON string, chỉ lấy phần 'text' để đưa vào context
                     try:
                         content_json = json.loads(content_text)
                         content_text = content_json.get('text', content_text)
                     except:
                         pass
                 
-                # SỬA LỖI 1: TẠO PART CHO LỊCH SỬ DỤNG types.Part(text=...)
+                # SỬA LỖI: Dùng types.Part(text=...) để tạo Content
                 history_contents.append(types.Content(role=role, parts=[types.Part(text=content_text)]))
 
-    # 2. XÂY DỰNG CONTENTS CHO API (Lịch sử + Tin nhắn hiện tại)
-    # SỬA LỖI 2: TẠO PART CHO TIN NHẮN HIỆN TẠI DỤNG types.Part(text=...)
+    # 2. XÂY DỰNG CONTENTS CHO API 
+    # SỬA LỖI: Dùng types.Part(text=...) cho tin nhắn hiện tại
     contents = history_contents + [types.Content(role="user", parts=[types.Part(text=user_msg)])]
 
     # 3. QUAY VÒNG KEY VÀ GỌI API
@@ -138,7 +123,7 @@ def get_ai_response(session_id, user_msg):
                 model=model_name,
                 contents=contents,
                 config=types.GenerateContentConfig(
-                    system_instruction=system_instruction, # Đặt System Instruction ở đây
+                    system_instruction=system_instruction, 
                     response_mime_type="application/json",
                     temperature=0.7
                 )
@@ -146,21 +131,25 @@ def get_ai_response(session_id, user_msg):
             
             print(f"[DEBUG-AI] Raw AI Response (Key {i+1}): {response.text[:200]}...")
             
-            # Phản hồi từ AI phải là JSON, tiến hành parse
             ai_data = json.loads(response.text)
             
             # === LỌC NGHIÊM NGẶT MEDIA SAU KHI NHẬN ===
-            # Images: chỉ giữ từ nguồn uy tín
             if 'images' in ai_data:
+                valid_domains = ['pexels.com', 'pixabay.com', 'unsplash.com', 'images.pexels.com', 'cdn.pixabay.com']
                 valid_images = []
                 for img in ai_data.get('images', []):
                     url = img.get('url', '')
-                    if any(domain in url.lower() for domain in ['pexels.com', 'pixabay.com', 'unsplash.com', 'images.pexels.com', 'cdn.pixabay.com']):
+                    # Kiểm tra nguồn UY TÍN
+                    is_valid_domain = any(domain in url.lower() for domain in valid_domains)
+                    # Kiểm tra đuôi file để tăng khả năng là link ảnh trực tiếp
+                    is_direct_link = url.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+                    
+                    if is_valid_domain or (is_valid_domain and is_direct_link):
                         valid_images.append(img)
                 ai_data['images'] = valid_images[:3]
 
-            # YouTube: chỉ giữ link hợp lệ
             if 'youtube_links' in ai_data:
+                # Kiểm tra tính hợp lệ cú pháp của YouTube ID
                 valid_links = [link for link in ai_data['youtube_links'] if get_youtube_id(link)]
                 ai_data['youtube_links'] = valid_links[:2]
             
@@ -183,7 +172,6 @@ def index():
     """Trang chủ, thiết lập session_id (cookie)."""
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
     resp = make_response(render_template("index.html"))
-    # Thêm cookie session_id (HttpOnly để tăng bảo mật)
     resp.set_cookie("session_id", sid, httponly=True) 
     return resp
 
@@ -194,6 +182,7 @@ def chat():
     msg = request.json.get("msg", "").strip()
     if not msg: return jsonify({"text": "Vui lòng nhập tin nhắn."})
     
+    # GỌI HÀM ĐÃ SỬA LỖI LỊCH SỬ
     ai_data = get_ai_response(sid, msg) 
     
     # Lưu lịch sử vào DB
@@ -215,7 +204,6 @@ def get_history():
     res = []
     for r in rows:
         try:
-            # Parse nội dung bot từ JSON để hiển thị
             content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
         except: content = r['content']
         res.append({"role": r['role'], "content": content})
@@ -244,7 +232,7 @@ def export_pdf():
             pdf.set_font('DejaVu', '', 11)
         else:
             pdf.set_font('Arial', '', 12)
-            pdf.cell(0, 10, txt="LICH TRINH SMART TRAVEL 2026 (Font Viet Nam khong duoc ho tro)", ln=True, align='C')
+            pdf.cell(0, 10, txt="LICH TRINH SMART TRAVEL 2026 (Khong ho tro day du font Viet Nam)", ln=True, align='C')
             
         pdf.ln(10)
         pdf.set_text_color(0, 0, 0)
@@ -292,7 +280,6 @@ def clear_history():
             conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
             
     resp = jsonify({"status": "ok"})
-    # Đặt cookie mới để bắt đầu phiên mới
     resp.set_cookie("session_id", str(uuid.uuid4()), httponly=True) 
     return resp
 
