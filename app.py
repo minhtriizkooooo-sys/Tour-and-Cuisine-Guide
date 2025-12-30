@@ -9,7 +9,7 @@ from google import genai
 from google.genai import types
 from fpdf import FPDF
 import re
-import random # Thêm thư viện random để chọn ngẫu nhiên API key
+import random 
 
 app = Flask(__name__)
 app.secret_key = "trip_smart_2026_tri"
@@ -23,7 +23,7 @@ for key, value in os.environ.items():
         # Hỗ trợ dán nhiều key cách nhau bằng dấu phẩy
         API_KEYS.extend([k.strip() for k in value.split(',') if k.strip()])
 
-API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')])) # Loại bỏ các key trùng lặp và lọc key hợp lệ
+API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')])) # Lọc key hợp lệ
 print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
 # --------------------------------------------------------
 
@@ -44,7 +44,7 @@ def init_db():
         """)
 init_db()
 
-# Hàm trích xuất ID YouTube từ URL (Giữ nguyên)
+# Hàm trích xuất ID YouTube từ URL (Đã tối ưu để chỉ lấy ID chuẩn)
 def get_youtube_id(url):
     if not url: return None
     patterns = [
@@ -56,8 +56,9 @@ def get_youtube_id(url):
         match = re.search(pattern, url)
         if match:
             # Chỉ trả về ID nếu có độ dài 11 ký tự (chuẩn YouTube)
-            if len(match.group(1)) == 11:
-                 return match.group(1)
+            video_id = match.group(1).split('&')[0] # Loại bỏ tham số &t=...
+            if len(video_id) == 11:
+                 return video_id
     return None
 
 def get_ai_response(user_msg):
@@ -65,13 +66,15 @@ def get_ai_response(user_msg):
         return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini nào.", 
                 "images": [], "youtube_links": [], "suggestions": []}
 
-    # TĂNG CƯỜNG SYSTEM INSTRUCTION MỚI
+    # --- SYSTEM INSTRUCTION MẠNH MẼ NHẤT ---
+    # ÉP AI TUÂN THỦ 4 MỤC NỘI DUNG VÀ CHẤT LƯỢNG LINK MEDIA
     system_instruction = """
     Bạn là AI Hướng dẫn Du lịch Việt Nam (VIET NAM TRAVEL AI GUIDE 2026).
     Nhiệm vụ của bạn là cung cấp thông tin du lịch chi tiết, hấp dẫn, bằng Tiếng Việt chuẩn.
-    LUÔN LUÔN trả lời dưới định dạng JSON sau, ngay cả khi không có ảnh hoặc video (chỉ để trống danh sách):
+    
+    LUÔN LUÔN trả lời DƯỚI DẠNG JSON THUẦN (KHÔNG thêm bất kỳ text nào ngoài JSON, không có ```json```):
     {
-      "text": "Phần nội dung mô tả chi tiết du lịch, dùng markdown (như **đậm**, *nghiêng*, danh sách) để trình bày đẹp và dễ đọc.",
+      "text": "Nội dung trả lời chi tiết Tiếng Việt có dấu, được trình bày đẹp bằng Markdown (như **đậm**, *nghiêng*, danh sách). NỘI DUNG NÀY PHẢI BAO GỒM VÀ TUÂN THỦ 4 PHẦN CHÍNH:\n\n1. Lịch sử phát triển và những nét đặc trưng địa phương.\n2. Văn hóa và Con người địa phương.\n3. Ẩm thực địa phương (món ăn, đặc sản nổi bật).\n4. Đề xuất cụ thể, chi tiết về lịch trình và gợi ý du lịch địa phương.",
       "images": [
         {"url": "link_anh_chat_luong_cao_lien_quan_1.jpg", "caption": "Chú thích ảnh 1"},
         {"url": "link_anh_chat_luong_cao_lien_quan_2.jpg", "caption": "Chú thích ảnh 2"}
@@ -83,23 +86,23 @@ def get_ai_response(user_msg):
       "suggestions": ["Gợi ý câu hỏi tiếp theo 1", "Gợi ý câu hỏi tiếp theo 2"]
     }
     
-    YÊU CẦU ĐẶC BIỆT VỀ MEDIA:
-    1. IMAGE URLS: LUÔN SỬ DỤNG các URL ảnh chất lượng cao, dễ truy cập (ví dụ: từ Wikipedia, các trang tin tức du lịch uy tín, hoặc các CDN công cộng), và phải **liên quan trực tiếp** đến nội dung mô tả. KHÔNG sử dụng các link ảnh bị giới hạn truy cập (như Google Drive, private links). Cung cấp tối đa 3 ảnh.
-    2. YOUTUBE LINKS: LUÔN CUNG CẤP **LIÊN KẾT ĐẦY ĐỦ** (full URL) của video YouTube LIÊN QUAN TRỰC TIẾP đến địa điểm. Cung cấp tối đa 2 video.
+    YÊU CẦU NGHIÊM NGẶT VỀ MEDIA:
+    1. IMAGE URLS: LUÔN SỬ DỤNG các URL ảnh chất lượng cao, dễ truy cập, **còn hoạt động (working URL)**, và phải **liên quan trực tiếp** đến nội dung mô tả. KHÔNG sử dụng các link ảnh bị giới hạn truy cập (như Google Drive, private links). Cung cấp tối đa 3 ảnh.
+    2. YOUTUBE LINKS: LUÔN CUNG CẤP **LIÊN KẾT ĐẦY ĐỦ** (full URL) của video YouTube LIÊN QUAN TRỰC TIẾP đến địa điểm. **Đảm bảo link video xem được** (ví dụ: `https://youtu.be/ID` hoặc `https://www.youtube.com/watch?v=ID`). Cung cấp tối đa 2 video.
 
-    Nếu bạn không thể tìm thấy ảnh hoặc video phù hợp, chỉ cần để danh sách đó là [] (rỗng).
+    Nếu không tìm thấy link media nào đáp ứng các tiêu chí NGHIÊM NGẶT trên, bạn phải để danh sách đó là [] (rỗng).
     """
 
     for i, key in enumerate(API_KEYS):
         try:
             client = genai.Client(api_key=key)
             
-            # Sử dụng hệ thống instruction và prompt đơn giản hơn
             response = client.models.generate_content(
                 model=model_name,
+                # THAY ĐỔI CÁCH GỌI ĐỂ DÙNG SYSTEM INSTRUCTION MỚI
                 contents=[
-                    {"role": "user", "parts": [{"text": system_instruction}]}, # Dùng System Instruction
-                    {"role": "user", "parts": [{"text": user_msg}]} # Lời hỏi của user
+                    {"role": "user", "parts": [{"text": system_instruction}]}, 
+                    {"role": "user", "parts": [{"text": user_msg}]} 
                 ],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -107,29 +110,25 @@ def get_ai_response(user_msg):
                 )
             )
             
-            # --- DEBUG QUAN TRỌNG MỚI: LOG RAW RESPONSE ---
-            # Ghi lại 200 ký tự đầu của JSON để kiểm tra lỗi format
+            # --- DEBUG QUAN TRỌNG: LOG RAW RESPONSE ---
             print(f"[DEBUG-AI] Raw AI Response (Key {i+1}): {response.text[:200]}...")
             
             ai_data = json.loads(response.text)
             
             # Xử lý các link YouTube (Chỉ giữ lại link hợp lệ)
             if 'youtube_links' in ai_data:
+                # Lọc link để chỉ lấy các link có ID YouTube 11 ký tự hợp lệ
                 ai_data['youtube_links'] = [link for link in ai_data['youtube_links'] if get_youtube_id(link)]
             
             # Trả về ngay khi thành công
             return ai_data 
             
         except json.JSONDecodeError as json_err:
-            # Lỗi nếu AI trả về JSON không hợp lệ
             print(f"Lỗi JSON Decode (Key {i+1}): {json_err}. AI trả về không phải JSON thuần.")
-            # Chuyển sang Key tiếp theo
             continue
 
         except Exception as e:
-            # Lỗi API (Key invalid, Quota exceeded, 404 Model Not Found, v.v.)
             print(f"Lỗi API (Key {i+1}): {e}") 
-            # Chuyển sang Key tiếp theo
             continue 
 
     # Nếu tất cả các key đều lỗi
@@ -212,17 +211,17 @@ def export_pdf():
                 # Thêm thông tin ảnh/video vào PDF để người dùng dễ tra cứu
                 if data.get('images'):
                     for img in data['images']:
-                        text += f"\n   [Ảnh: {img.get('caption', 'Hình ảnh')} - {img['url']}]"
+                        text += f"\n   [Ảnh: {img.get('caption', 'Hình ảnh')} - {img['url']}]"
                 if data.get('youtube_links'):
                     for link in data['youtube_links']:
-                        text += f"\n   [Video YouTube: {link}]"
+                        text += f"\n   [Video YouTube: {link}]"
             except: 
                 # Nếu là nội dung người dùng hoặc bot trả về JSON lỗi
                 text = content
             
             # Xóa các Markdown để fpdf không bị lỗi
-            text = re.sub(r'(\*\*|__|#)', '', text) 
-            text = re.sub(r'^\* ', '- ', text, flags=re.MULTILINE)
+            text = re.sub(r'(\*\*|__)', '', text) # Xóa ** và __
+            text = re.sub(r'^\* ', '- ', text, flags=re.MULTILINE) # Chuyển * thành -
 
             pdf.multi_cell(0, 8, txt=f"[{time_str}] {prefix}{text}")
             pdf.ln(3)
@@ -234,7 +233,6 @@ def export_pdf():
             headers={"Content-Disposition": "attachment;filename=lich-trinh-2026.pdf"}
         )
     except Exception as e:
-        # Nếu có lỗi (ví dụ: thiếu font), in ra lỗi
         print(f"Lỗi khi xuất PDF: {str(e)}")
         return f"Lỗi khi xuất PDF: {str(e)}", 500
 
