@@ -29,7 +29,7 @@ print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
 model_name = "gemini-2.5-flash"
 DB_PATH = "chat_history.db"
 
-# === SYSTEM INSTRUCTION MẠNH MẼ - TỐI ƯU TRIỆT ĐỂ MEDIA ===
+# === SYSTEM INSTRUCTION MẠNH MẼ - TỐI ƯU TRIỆT ĐỂ MEDIA LẦN CUỐI ===
 system_instruction = """
 Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
 Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn về địa điểm người dùng hỏi.
@@ -43,15 +43,15 @@ BẮT BUỘT TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa)
 }
 
 YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100% VÀ KIỂM TRA CHẶT CHẼ):
-• TÍNH CHÍNH XÁC: Media (Ảnh/Video) PHẢI liên quan **TRỰC TIẾP VÀ CHÍNH XÁC TUYỆT ĐỐI** với nội dung người dùng hỏi. Caption phải dài và mô tả chi tiết nội dung ảnh.
+• TÍNH CHÍNH XÁC: Media (Ảnh/Video) PHẢI liên quan **TRỰC TIẾP VÀ CHÍNH XÁC TUYỆT ĐỐI** với nội dung người dùng hỏi. Caption phải mô tả **CHI TIẾT** nội dung ảnh (ví dụ: "Cầu Vàng tại Đà Nẵng lúc hoàng hôn, nhìn từ trên cao").
 • Tối đa 3 ảnh và 2 video.
-• NGUỒN IMAGES: CHỈ được lấy từ các miền sau: pexels.com, pixabay.com, unsplash.com. TUYỆT ĐỐI KHÔNG dùng bất kỳ miền nào khác. URL phải là link trực tiếp đến file ảnh và có độ dài tối thiểu để tránh link chung chung.
+• NGUỒN IMAGES: CHỈ được lấy từ các miền sau: pexels.com, pixabay.com, unsplash.com. TUYỆT ĐỐI KHÔNG dùng bất kỳ miền nào khác. URL phải là link trực tiếp đến file ảnh.
 • NGUỒN YOUTUBE: 
   - Video phải là **FULL URL HỢP LỆ** (ví dụ: https://www.youtube.com/watch?v=XXXXXXXXXXX).
   - **NGHIÊM CẤM** trả về URL trang chủ (https://youtube.com) hoặc các link không đầy đủ.
   - Video phải CHẤT LƯỢNG CAO (HD/4K), là vlog/review du lịch CÓ NGÀY TẢI GẦN ĐÂY (Năm 2024 hoặc 2025).
 
-Nếu bạn không tìm thấy bất kỳ liên kết hình ảnh hay video nào đáp ứng tất cả tiêu chí trên (bao gồm cả nguồn, độ liên quan tuyệt đối và định dạng URL), bạn phải để mảng rỗng [].
+Nếu bạn không tìm thấy bất kỳ liên kết hình ảnh hay video nào đáp ứng tất cả tiêu chí trên, bạn phải để mảng rỗng [].
 """
 # --- HẾT SYSTEM INSTRUCTION ---
 
@@ -72,9 +72,13 @@ init_db()
 def get_youtube_id(url):
     """Trích xuất ID YouTube hợp lệ và kiểm tra định dạng URL cơ bản."""
     if not url or len(url) < 20 or 'youtube.com' not in url.lower() and 'youtu.be' not in url.lower():
-        # Thêm kiểm tra độ dài tối thiểu và từ khóa
+        # Kiểm tra độ dài tối thiểu và từ khóa
         return None
     
+    # Loại bỏ link trang chủ/link kênh
+    if url.strip().lower() == 'https://youtube.com/' or '/channel/' in url.lower():
+        return None
+        
     patterns = [
         r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([^&]+)",
         r"(?:https?://)?(?:www\.)?youtu\.be/([^?]+)",
@@ -137,24 +141,26 @@ def get_ai_response(session_id, user_msg):
             
             ai_data = json.loads(response.text)
             
-            # === LỌC NGHIÊM NGẶT MEDIA SAU KHI NHẬN ===
+            # === LỌC MEDIA LẠI LẦN CUỐI (Tập trung vào Domain và Cú pháp) ===
             if 'images' in ai_data:
-                valid_domains = ['pexels.com', 'pixabay.com', 'unsplash.com', 'images.pexels.com', 'cdn.pixabay.com']
+                valid_domains = ['pexels.com', 'pixabay.com', 'unsplash.com']
                 valid_images = []
                 for img in ai_data.get('images', []):
                     url = img.get('url', '')
-                    # Kiểm tra nguồn UY TÍN
+                    # CHỈ KIỂM TRA DOMAIN VÀ ĐỘ DÀI TỐI THIỂU (>30 ký tự)
                     is_valid_domain = any(domain in url.lower() for domain in valid_domains)
-                    # Kiểm tra đuôi file và độ dài tối thiểu (link chung chung thường rất ngắn)
-                    is_direct_link_format = url.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and len(url) > 50
                     
-                    if is_valid_domain or (is_valid_domain and is_direct_link_format):
+                    if is_valid_domain and len(url) > 30: 
                         valid_images.append(img)
                 ai_data['images'] = valid_images[:3]
 
             if 'youtube_links' in ai_data:
-                # LỌC: Loại bỏ link trang chủ (https://youtube.com) và chỉ giữ link hợp lệ
-                valid_links = [link for link in ai_data['youtube_links'] if get_youtube_id(link) and link.strip().lower() != 'https://youtube.com']
+                valid_links = []
+                for link in ai_data['youtube_links']:
+                    # Sử dụng hàm get_youtube_id đã được tăng cường để loại bỏ link trang chủ/link kênh
+                    if get_youtube_id(link):
+                        valid_links.append(link)
+
                 ai_data['youtube_links'] = valid_links[:2]
             
             return ai_data
