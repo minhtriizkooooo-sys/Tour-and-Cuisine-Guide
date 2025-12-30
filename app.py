@@ -1,3 +1,5 @@
+# app.py
+
 import os
 import uuid
 import sqlite3
@@ -23,8 +25,42 @@ for key, value in os.environ.items():
 API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')]))
 print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
 
-model_name = "gemini-2.5-flash"  # Cập nhật model mới nhất nếu cần
+model_name = "gemini-2.5-flash"
 DB_PATH = "chat_history.db"
+
+# === SYSTEM INSTRUCTION MẠNH MẼ - KHÔNG NÊN ĐẶT TRONG HÀM GỌI API ===
+system_instruction = """
+Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
+Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn về địa điểm người dùng hỏi.
+
+BẮT BUỘC TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa):
+{
+  "text": "Nội dung chi tiết Tiếng Việt có dấu, trình bày đẹp bằng Markdown. Phải bao gồm đầy đủ 4 phần chính:\\n1. Lịch sử phát triển và nét đặc trưng địa phương.\\n2. Văn hóa và con người.\\n3. Ẩm thực nổi bật.\\n4. Đề xuất lịch trình cụ thể và gợi ý du lịch.",
+  "images": [{"url": "link_ảnh", "caption": "mô_tả_ngắn"}, ...],
+  "youtube_links": ["https://www.youtube.com/watch?v=ID_11_ký_tự", ...],
+  "suggestions": ["Gợi ý câu hỏi 1", "Gợi ý câu hỏi 2"]
+}
+
+YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100%):
+• IMAGES: 
+  - CHỈ dùng URL ảnh chất lượng cao, công khai, đang hoạt động từ các nguồn UY TÍN: 
+    pexels.com, pixabay.com, unsplash.com
+    (Ví dụ: https://images.pexels.com/photos/...jpg hoặc https://cdn.pixabay.com/photo/...jpg)
+  - Ảnh PHẢI liên quan TRỰC TIẾP và chính xác với địa điểm người dùng hỏi.
+  - Caption ngắn gọn, mô tả đúng nội dung ảnh.
+  - Tối đa 3 ảnh.
+  - Nếu không tìm được ảnh phù hợp tuyệt đối → để mảng rỗng [].
+
+• YOUTUBE_LINKS:
+  - CHỈ cung cấp FULL URL hợp lệ (https://www.youtube.com/watch?v=ID_11_ký_tự)
+  - Video phải chất lượng cao (HD/4K), liên quan TRỰC TIẾP đến địa điểm (travel vlog, tour thực tế, review mới).
+  - Video phải đang công khai và xem được.
+  - Tối đa 2 video.
+  - Nếu không tìm được video tốt → để mảng rỗng [].
+
+Tuyệt đối không bịa đặt link. Nếu không chắc chắn → để mảng rỗng.
+"""
+# --- HẾT SYSTEM INSTRUCTION ---
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
@@ -54,64 +90,58 @@ def get_youtube_id(url):
                  return video_id
     return None
 
-def get_ai_response(user_msg):
+# === HÀM GỌI API ĐÃ CHỈNH SỬA LÔI LỊCH SỬ HỘI THOẠI ===
+def get_ai_response(session_id, user_msg):
     if not API_KEYS:
         return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini nào.",
                 "images": [], "youtube_links": [], "suggestions": []}
 
-    # === SYSTEM INSTRUCTION MẠNH MẼ - ÉP MEDIA CHẤT LƯỢNG CAO & LIÊN QUAN ===
-    system_instruction = """
-    Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
-    Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn về địa điểm người dùng hỏi.
+    # 1. TẢI LỊCH SỬ HỘI THOẠI TỪ DB
+    history_contents = []
+    if session_id:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            # Lấy 10 tin nhắn gần nhất (5 lượt chat) để duy trì ngữ cảnh
+            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 10", (session_id,)).fetchall()
+            rows.reverse() # Đảo ngược để có thứ tự thời gian
+            
+            for r in rows:
+                role = "user" if r['role'] == 'user' else "model"
+                content_text = r['content']
+                
+                if role == "model":
+                    # Nội dung bot được lưu dưới dạng JSON string, chỉ lấy phần 'text' để đưa vào context
+                    try:
+                        content_json = json.loads(content_text)
+                        content_text = content_json.get('text', content_text)
+                    except:
+                        pass # Giữ nguyên nếu không phải JSON
+                
+                history_contents.append(types.Content(role=role, parts=[types.Part.from_text(content_text)]))
 
-    BẮT BUỘC TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa):
-    {
-      "text": "Nội dung chi tiết Tiếng Việt có dấu, trình bày đẹp bằng Markdown. Phải bao gồm đầy đủ 4 phần chính:\\n1. Lịch sử phát triển và nét đặc trưng địa phương.\\n2. Văn hóa và con người.\\n3. Ẩm thực nổi bật.\\n4. Đề xuất lịch trình cụ thể và gợi ý du lịch.",
-      "images": [{"url": "link_ảnh", "caption": "mô_tả_ngắn"}, ...],
-      "youtube_links": ["https://www.youtube.com/watch?v=ID_11_ký_tự", ...],
-      "suggestions": ["Gợi ý câu hỏi 1", "Gợi ý câu hỏi 2"]
-    }
+    # 2. XÂY DỰNG CONTENTS CHO API (Lịch sử + Tin nhắn hiện tại)
+    # LƯU Ý: Đã bỏ tin nhắn system_instruction khỏi contents
+    contents = history_contents + [types.Content(role="user", parts=[types.Part.from_text(user_msg)])]
 
-    YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100%):
-    • IMAGES: 
-      - CHỈ dùng URL ảnh chất lượng cao, công khai, đang hoạt động từ các nguồn UY TÍN: 
-        pexels.com, pixabay.com, unsplash.com
-        (Ví dụ: https://images.pexels.com/photos/...jpg hoặc https://cdn.pixabay.com/photo/...jpg)
-      - Ảnh PHẢI liên quan TRỰC TIẾP và chính xác với địa điểm người dùng hỏi.
-      - Caption ngắn gọn, mô tả đúng nội dung ảnh.
-      - Tối đa 3 ảnh.
-      - Nếu không tìm được ảnh phù hợp tuyệt đối → để mảng rỗng [].
-
-    • YOUTUBE_LINKS:
-      - CHỈ cung cấp FULL URL hợp lệ[](https://www.youtube.com/watch?v=ID_11_ký_tự)
-      - Video phải chất lượng cao (HD/4K), liên quan TRỰC TIẾP đến địa điểm (travel vlog, tour thực tế, review mới).
-      - Video phải đang công khai và xem được.
-      - Tối đa 2 video.
-      - Nếu không tìm được video tốt → để mảng rỗng [].
-
-    Tuyệt đối không bịa đặt link. Nếu không chắc chắn → để mảng rỗng.
-    """
-
+    # 3. QUAY VÒNG KEY VÀ GỌI API
     for i, key in enumerate(API_KEYS):
         try:
             client = genai.Client(api_key=key)
-           
+            
             response = client.models.generate_content(
                 model=model_name,
-                contents=[
-                    {"role": "user", "parts": [{"text": system_instruction}]},
-                    {"role": "user", "parts": [{"text": user_msg}]}
-                ],
+                contents=contents,
                 config=types.GenerateContentConfig(
+                    system_instruction=system_instruction, # Đặt System Instruction ở đây là ĐÚNG
                     response_mime_type="application/json",
                     temperature=0.7
                 )
             )
-           
+            
             print(f"[DEBUG-AI] Raw AI Response (Key {i+1}): {response.text[:200]}...")
-           
+            
             ai_data = json.loads(response.text)
-           
+            
             # === LỌC NGHIÊM NGẶT MEDIA SAU KHI NHẬN ===
             # Images: chỉ giữ từ nguồn uy tín
             if 'images' in ai_data:
@@ -126,9 +156,9 @@ def get_ai_response(user_msg):
             if 'youtube_links' in ai_data:
                 valid_links = [link for link in ai_data['youtube_links'] if get_youtube_id(link)]
                 ai_data['youtube_links'] = valid_links[:2]
-           
+            
             return ai_data
-           
+            
         except json.JSONDecodeError as json_err:
             print(f"Lỗi JSON Decode (Key {i+1}): {json_err}")
             continue
@@ -139,7 +169,7 @@ def get_ai_response(user_msg):
     return {"text": "Tất cả Khóa API đều đã hết hạn mức hoặc lỗi. Vui lòng thử lại sau.",
             "images": [], "youtube_links": [], "suggestions": []}
 
-# === CÁC ROUTE KHÁC GIỮ NGUYÊN 100% ===
+# === CÁC ROUTE KHÁC ĐÃ CHỈNH SỬA CÁCH GỌI HÀM get_ai_response ===
 @app.route("/")
 def index():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
@@ -152,7 +182,11 @@ def chat():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
     msg = request.json.get("msg", "").strip()
     if not msg: return jsonify({"text": "Rỗng!"})
-    ai_data = get_ai_response(msg)
+    
+    # === CHỈNH SỬA: TRUYỀN session_id VÀO HÀM GỌI AI ===
+    ai_data = get_ai_response(sid, msg) 
+    
+    # Lưu lịch sử vào DB (đã đúng)
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "user", msg, datetime.now().strftime("%H:%M")))
@@ -170,6 +204,7 @@ def get_history():
     res = []
     for r in rows:
         try:
+            # Lấy dữ liệu bot đã được parse để hiển thị
             content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
         except: content = r['content']
         res.append({"role": r['role'], "content": content})
@@ -184,9 +219,9 @@ def export_pdf():
             rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
         pdf = FPDF()
         pdf.add_page()
-       
+        
         font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
-       
+        
         if os.path.exists(font_path):
             pdf.add_font('DejaVu', '', font_path)
             pdf.set_font('DejaVu', '', 14)
@@ -211,7 +246,7 @@ def export_pdf():
                         text += f"\n [Video YouTube: {link}]"
             except:
                 text = content
-           
+            
             text = re.sub(r'(\*\*|__)', '', text)
             text = re.sub(r'^\* ', '- ', text, flags=re.MULTILINE)
             pdf.multi_cell(0, 8, txt=f"[{time_str}] {prefix}{text}")
@@ -238,4 +273,3 @@ def clear_history():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
-
