@@ -9,7 +9,7 @@ from google import genai
 from google.genai import types
 from fpdf import FPDF
 import re
-import random 
+import random
 
 app = Flask(__name__)
 app.secret_key = "trip_smart_2026_tri"
@@ -17,18 +17,13 @@ CORS(app)
 
 # --- CẤU HÌNH API KEYS VÀ HỖ TRỢ MULTI-KEY ---
 API_KEYS = []
-# Duyệt qua tất cả biến môi trường để tìm các key có tên chứa "API_KEY"
 for key, value in os.environ.items():
     if "API_KEY" in key.upper() and value:
-        # Hỗ trợ dán nhiều key cách nhau bằng dấu phẩy
         API_KEYS.extend([k.strip() for k in value.split(',') if k.strip()])
-
-API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')])) # Lọc key hợp lệ
+API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')]))
 print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
-# --------------------------------------------------------
 
-model_name = "gemini-2.5-flash" 
-
+model_name = "gemini-1.5-flash"  # Cập nhật model mới nhất nếu cần
 DB_PATH = "chat_history.db"
 
 def init_db():
@@ -44,7 +39,6 @@ def init_db():
         """)
 init_db()
 
-# Hàm trích xuất ID YouTube từ URL (Đã tối ưu để chỉ lấy ID chuẩn)
 def get_youtube_id(url):
     if not url: return None
     patterns = [
@@ -55,86 +49,97 @@ def get_youtube_id(url):
     for pattern in patterns:
         match = re.search(pattern, url)
         if match:
-            # Chỉ trả về ID nếu có độ dài 11 ký tự (chuẩn YouTube)
-            video_id = match.group(1).split('&')[0] # Loại bỏ tham số &t=...
+            video_id = match.group(1).split('&')[0]
             if len(video_id) == 11:
                  return video_id
     return None
 
 def get_ai_response(user_msg):
     if not API_KEYS:
-        return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini nào.", 
+        return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini nào.",
                 "images": [], "youtube_links": [], "suggestions": []}
 
-    # --- SYSTEM INSTRUCTION MẠNH MẼ NHẤT ---
-    # ÉP AI TUÂN THỦ 4 MỤC NỘI DUNG VÀ CHẤT LƯỢNG LINK MEDIA
+    # === SYSTEM INSTRUCTION MẠNH MẼ - ÉP MEDIA CHẤT LƯỢNG CAO & LIÊN QUAN ===
     system_instruction = """
-    Bạn là AI Hướng dẫn Du lịch Việt Nam (VIET NAM TRAVEL AI GUIDE 2026).
-    Nhiệm vụ của bạn là cung cấp thông tin du lịch chi tiết, hấp dẫn, bằng Tiếng Việt chuẩn.
-    
-    LUÔN LUÔN trả lời DƯỚI DẠNG JSON THUẦN (KHÔNG thêm bất kỳ text nào ngoài JSON, không có ```json```):
-    {
-      "text": "Nội dung trả lời chi tiết Tiếng Việt có dấu, được trình bày đẹp bằng Markdown (như **đậm**, *nghiêng*, danh sách). NỘI DUNG NÀY PHẢI BAO GỒM VÀ TUÂN THỦ 4 PHẦN CHÍNH:\n\n1. Lịch sử phát triển và những nét đặc trưng địa phương.\n2. Văn hóa và Con người địa phương.\n3. Ẩm thực địa phương (món ăn, đặc sản nổi bật).\n4. Đề xuất cụ thể, chi tiết về lịch trình và gợi ý du lịch địa phương.",
-      "images": [
-        {"url": "link_anh_chat_luong_cao_lien_quan_1.jpg", "caption": "Chú thích ảnh 1"},
-        {"url": "link_anh_chat_luong_cao_lien_quan_2.jpg", "caption": "Chú thích ảnh 2"}
-      ],
-      "youtube_links": [
-        "https://www.youtube.com/watch?v=VIDEO_ID_LIEN_QUAN_1",
-        "https://www.youtube.com/watch?v=VIDEO_ID_LIEN_QUAN_2"
-      ],
-      "suggestions": ["Gợi ý câu hỏi tiếp theo 1", "Gợi ý câu hỏi tiếp theo 2"]
-    }
-    
-    YÊU CẦU NGHIÊM NGẶT VỀ MEDIA:
-    1. IMAGE URLS: LUÔN SỬ DỤNG các URL ảnh chất lượng cao, dễ truy cập, **còn hoạt động (working URL)**, và phải **liên quan trực tiếp** đến nội dung mô tả. KHÔNG sử dụng các link ảnh bị giới hạn truy cập (như Google Drive, private links). Cung cấp tối đa 3 ảnh.
-    2. YOUTUBE LINKS: LUÔN CUNG CẤP **LIÊN KẾT ĐẦY ĐỦ** (full URL) của video YouTube LIÊN QUAN TRỰC TIẾP đến địa điểm. **Đảm bảo link video xem được** (ví dụ: `https://youtu.be/ID` hoặc `https://www.youtube.com/watch?v=ID`). Cung cấp tối đa 2 video.
+    Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
+    Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn về địa điểm người dùng hỏi.
 
-    Nếu không tìm thấy link media nào đáp ứng các tiêu chí NGHIÊM NGẶT trên, bạn phải để danh sách đó là [] (rỗng).
+    BẮT BUỘC TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa):
+    {
+      "text": "Nội dung chi tiết Tiếng Việt có dấu, trình bày đẹp bằng Markdown. Phải bao gồm đầy đủ 4 phần chính:\\n1. Lịch sử phát triển và nét đặc trưng địa phương.\\n2. Văn hóa và con người.\\n3. Ẩm thực nổi bật.\\n4. Đề xuất lịch trình cụ thể và gợi ý du lịch.",
+      "images": [{"url": "link_ảnh", "caption": "mô_tả_ngắn"}, ...],
+      "youtube_links": ["https://www.youtube.com/watch?v=ID_11_ký_tự", ...],
+      "suggestions": ["Gợi ý câu hỏi 1", "Gợi ý câu hỏi 2"]
+    }
+
+    YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100%):
+    • IMAGES: 
+      - CHỈ dùng URL ảnh chất lượng cao, công khai, đang hoạt động từ các nguồn UY TÍN: 
+        pexels.com, pixabay.com, unsplash.com
+        (Ví dụ: https://images.pexels.com/photos/...jpg hoặc https://cdn.pixabay.com/photo/...jpg)
+      - Ảnh PHẢI liên quan TRỰC TIẾP và chính xác với địa điểm người dùng hỏi.
+      - Caption ngắn gọn, mô tả đúng nội dung ảnh.
+      - Tối đa 3 ảnh.
+      - Nếu không tìm được ảnh phù hợp tuyệt đối → để mảng rỗng [].
+
+    • YOUTUBE_LINKS:
+      - CHỈ cung cấp FULL URL hợp lệ[](https://www.youtube.com/watch?v=ID_11_ký_tự)
+      - Video phải chất lượng cao (HD/4K), liên quan TRỰC TIẾP đến địa điểm (travel vlog, tour thực tế, review mới).
+      - Video phải đang công khai và xem được.
+      - Tối đa 2 video.
+      - Nếu không tìm được video tốt → để mảng rỗng [].
+
+    Tuyệt đối không bịa đặt link. Nếu không chắc chắn → để mảng rỗng.
     """
 
     for i, key in enumerate(API_KEYS):
         try:
             client = genai.Client(api_key=key)
-            
+           
             response = client.models.generate_content(
                 model=model_name,
-                # THAY ĐỔI CÁCH GỌI ĐỂ DÙNG SYSTEM INSTRUCTION MỚI
                 contents=[
-                    {"role": "user", "parts": [{"text": system_instruction}]}, 
-                    {"role": "user", "parts": [{"text": user_msg}]} 
+                    {"role": "user", "parts": [{"text": system_instruction}]},
+                    {"role": "user", "parts": [{"text": user_msg}]}
                 ],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    temperature=0.8
+                    temperature=0.7
                 )
             )
-            
-            # --- DEBUG QUAN TRỌNG: LOG RAW RESPONSE ---
+           
             print(f"[DEBUG-AI] Raw AI Response (Key {i+1}): {response.text[:200]}...")
-            
+           
             ai_data = json.loads(response.text)
-            
-            # Xử lý các link YouTube (Chỉ giữ lại link hợp lệ)
+           
+            # === LỌC NGHIÊM NGẶT MEDIA SAU KHI NHẬN ===
+            # Images: chỉ giữ từ nguồn uy tín
+            if 'images' in ai_data:
+                valid_images = []
+                for img in ai_data.get('images', []):
+                    url = img.get('url', '')
+                    if any(domain in url.lower() for domain in ['pexels.com', 'pixabay.com', 'unsplash.com', 'images.pexels.com', 'cdn.pixabay.com']):
+                        valid_images.append(img)
+                ai_data['images'] = valid_images[:3]
+
+            # YouTube: chỉ giữ link hợp lệ
             if 'youtube_links' in ai_data:
-                # Lọc link để chỉ lấy các link có ID YouTube 11 ký tự hợp lệ
-                ai_data['youtube_links'] = [link for link in ai_data['youtube_links'] if get_youtube_id(link)]
-            
-            # Trả về ngay khi thành công
-            return ai_data 
-            
+                valid_links = [link for link in ai_data['youtube_links'] if get_youtube_id(link)]
+                ai_data['youtube_links'] = valid_links[:2]
+           
+            return ai_data
+           
         except json.JSONDecodeError as json_err:
-            print(f"Lỗi JSON Decode (Key {i+1}): {json_err}. AI trả về không phải JSON thuần.")
+            print(f"Lỗi JSON Decode (Key {i+1}): {json_err}")
+            continue
+        except Exception as e:
+            print(f"Lỗi API (Key {i+1}): {e}")
             continue
 
-        except Exception as e:
-            print(f"Lỗi API (Key {i+1}): {e}") 
-            continue 
-
-    # Nếu tất cả các key đều lỗi
-    return {"text": "Tất cả Khóa API đều đã hết hạn mức hoặc không hợp lệ. Vui lòng tạo khóa mới hoặc thử lại sau.", 
+    return {"text": "Tất cả Khóa API đều đã hết hạn mức hoặc lỗi. Vui lòng thử lại sau.",
             "images": [], "youtube_links": [], "suggestions": []}
 
+# === CÁC ROUTE KHÁC GIỮ NGUYÊN 100% ===
 @app.route("/")
 def index():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
@@ -147,15 +152,12 @@ def chat():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
     msg = request.json.get("msg", "").strip()
     if not msg: return jsonify({"text": "Rỗng!"})
-
     ai_data = get_ai_response(msg)
-
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "user", msg, datetime.now().strftime("%H:%M")))
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
-
     return jsonify(ai_data)
 
 @app.route("/history")
@@ -177,17 +179,14 @@ def get_history():
 def export_pdf():
     sid = request.cookies.get("session_id")
     if not sid: return "Không có lịch sử", 400
-
     try:
         with sqlite3.connect(DB_PATH) as conn:
             rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
-
         pdf = FPDF()
         pdf.add_page()
-        
-        # Nhúng Font Unicode từ /static/DejaVuSans.ttf
+       
         font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
-        
+       
         if os.path.exists(font_path):
             pdf.add_font('DejaVu', '', font_path)
             pdf.set_font('DejaVu', '', 14)
@@ -197,35 +196,26 @@ def export_pdf():
         else:
             pdf.set_font('Arial', '', 12)
             pdf.cell(0, 10, txt="LICH TRINH SMART TRAVEL 2026", ln=True, align='C')
-
         pdf.ln(10)
         pdf.set_text_color(0, 0, 0)
-
         for role, content, time_str in rows:
             prefix = "Khách hàng: " if role == "user" else "AI Tư vấn: "
             try:
-                # Xử lý nội dung AI
                 data = json.loads(content)
                 text = data.get('text', '')
-                
-                # Thêm thông tin ảnh/video vào PDF để người dùng dễ tra cứu
                 if data.get('images'):
                     for img in data['images']:
-                        text += f"\n   [Ảnh: {img.get('caption', 'Hình ảnh')} - {img['url']}]"
+                        text += f"\n [Ảnh: {img.get('caption', 'Hình ảnh')} - {img['url']}]"
                 if data.get('youtube_links'):
                     for link in data['youtube_links']:
-                        text += f"\n   [Video YouTube: {link}]"
-            except: 
-                # Nếu là nội dung người dùng hoặc bot trả về JSON lỗi
+                        text += f"\n [Video YouTube: {link}]"
+            except:
                 text = content
-            
-            # Xóa các Markdown để fpdf không bị lỗi
-            text = re.sub(r'(\*\*|__)', '', text) # Xóa ** và __
-            text = re.sub(r'^\* ', '- ', text, flags=re.MULTILINE) # Chuyển * thành -
-
+           
+            text = re.sub(r'(\*\*|__)', '', text)
+            text = re.sub(r'^\* ', '- ', text, flags=re.MULTILINE)
             pdf.multi_cell(0, 8, txt=f"[{time_str}] {prefix}{text}")
             pdf.ln(3)
-
         pdf_bytes = bytes(pdf.output())
         return Response(
             pdf_bytes,
