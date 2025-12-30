@@ -13,9 +13,15 @@ app = Flask(__name__)
 app.secret_key = "trip_smart_2026_tri"
 CORS(app)
 
-# --- CẤU HÌNH API KEYS ---
-API_KEYS = [os.environ.get(f"GEMINI-KEY-{i}") for i in range(11)]
-API_KEYS = [k for k in API_KEYS if k]  
+# --- CẤU HÌNH API KEYS ĐÃ CẬP NHẬT (Fix lỗi xóa Key) ---
+# Ưu tiên lấy khóa mặc định mới GOOGLE_API_KEY. Nếu không có, thử GEMINI_API_KEY.
+API_KEYS = [
+    os.environ.get("GOOGLE_API_KEY"),
+    os.environ.get("GEMINI_API_KEY") 
+]
+# Chỉ giữ lại các khóa không rỗng
+API_KEYS = [k for k in API_KEYS if k]
+# --------------------------------------------------------
 
 model_name = "gemini-1.5-flash"
 DB_PATH = "chat_history.db"
@@ -34,14 +40,16 @@ def init_db():
 init_db()
 
 def call_gemini(user_msg):
+    # API_KEYS chỉ còn chứa key mới của bạn
     if not API_KEYS:
-        return {"text": "Chưa có API Key!", "image_url": "", "youtube_link": "", "suggestions": []}
+        return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini trong biến môi trường GOOGLE_API_KEY.", "image_url": "", "youtube_link": "", "suggestions": []}
 
     prompt = (
         f"Bạn là hướng dẫn viên du lịch Việt Nam chuyên nghiệp. Người dùng hỏi: {user_msg}\n"
         "Trả về JSON thuần: {\"text\": \"nội dung trả lời chi tiết tiếng Việt có dấu\", \"image_url\": \"...\", \"youtube_link\": \"...\", \"suggestions\": []}"
     )
 
+    # Vòng lặp này sẽ thử Khóa API mới của bạn. Nếu nó lỗi (vì hết hạn/hết lượt), nó sẽ báo lỗi.
     for key in API_KEYS:
         try:
             client = genai.Client(api_key=key)
@@ -54,10 +62,12 @@ def call_gemini(user_msg):
                 )
             )
             return json.loads(response.text)
-        except:
-            continue 
+        except Exception as e:
+            # Ghi lại lỗi để tiện debug (Nếu chạy trên Render logs)
+            print(f"Lỗi khi sử dụng key: {e}") 
+            continue # Thử key tiếp theo (nếu có, nhưng giờ chỉ có 1 key) 
 
-    return {"text": "Hết lượt dùng hôm nay. Thử lại sau nhé!", "image_url": "", "youtube_link": "", "suggestions": []}
+    return {"text": "Hết lượt dùng hôm nay hoặc Khóa API của bạn không hợp lệ.", "image_url": "", "youtube_link": "", "suggestions": []}
 
 @app.route("/")
 def index():
