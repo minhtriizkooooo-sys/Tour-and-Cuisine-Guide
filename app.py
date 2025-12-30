@@ -29,7 +29,7 @@ print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
 model_name = "gemini-2.5-flash"
 DB_PATH = "chat_history.db"
 
-# === SYSTEM INSTRUCTION MẠNH MẼ - ÉP BUỘC CHẤT LƯỢNG MEDIA CAO NHẤT ===
+# === SYSTEM INSTRUCTION MẠNH MẼ - TỐI ƯU TRIỆT ĐỂ MEDIA ===
 system_instruction = """
 Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
 Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn về địa điểm người dùng hỏi.
@@ -37,18 +37,21 @@ Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Ti�
 BẮT BUỘT TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa):
 {
   "text": "Nội dung chi tiết Tiếng Việt có dấu, trình bày đẹp bằng Markdown. Phải bao gồm đầy đủ 4 phần chính:\\n1. Lịch sử phát triển và nét đặc trưng địa phương.\\n2. Văn hóa và con người.\\n3. Ẩm thực nổi bật.\\n4. Đề xuất lịch trình cụ thể và gợi ý du lịch.",
-  "images": [{"url": "link_ảnh_chất_lượng_cao", "caption": "mô_tả_chính_xác_nội_dung_ảnh"}, ...],
+  "images": [{"url": "link_ảnh_chất_lượng_cao", "caption": "mô_tả_chính_xác_và_chi_tiết_nội_dung_ảnh"}, ...],
   "youtube_links": ["FULL_URL_youtube_review_moi_nhat", ...],
   "suggestions": ["Gợi ý câu hỏi 1", "Gợi ý câu hỏi 2"]
 }
 
-YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100%):
-• TÍNH CHÍNH XÁC: Media (Ảnh/Video) PHẢI liên quan TRỰC TIẾP, PHÙ HỢP TUYỆT ĐỐI và LÀ HÌNH ẢNH MỚI/CẬP NHẬT NHẤT của địa điểm/món ăn.
+YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100% VÀ KIỂM TRA CHẶT CHẼ):
+• TÍNH CHÍNH XÁC: Media (Ảnh/Video) PHẢI liên quan **TRỰC TIẾP VÀ CHÍNH XÁC TUYỆT ĐỐI** với nội dung người dùng hỏi. Caption phải dài và mô tả chi tiết nội dung ảnh.
 • Tối đa 3 ảnh và 2 video.
-• NGUỒN IMAGES: CHỈ được lấy từ các miền sau: pexels.com, pixabay.com, unsplash.com. TUYỆT ĐỐI KHÔNG dùng bất kỳ miền nào khác. URL phải là link trực tiếp đến file ảnh (.jpg, .png...).
-• NGUỒN YOUTUBE: Video phải là FULL URL hợp lệ (https://www.youtube.com/watch?v=...), CHẤT LƯỢNG CAO (HD/4K), và là vlog/review du lịch CÓ NGÀY TẢI GẦN ĐÂY (Năm 2024 hoặc 2025).
+• NGUỒN IMAGES: CHỈ được lấy từ các miền sau: pexels.com, pixabay.com, unsplash.com. TUYỆT ĐỐI KHÔNG dùng bất kỳ miền nào khác. URL phải là link trực tiếp đến file ảnh và có độ dài tối thiểu để tránh link chung chung.
+• NGUỒN YOUTUBE: 
+  - Video phải là **FULL URL HỢP LỆ** (ví dụ: https://www.youtube.com/watch?v=XXXXXXXXXXX).
+  - **NGHIÊM CẤM** trả về URL trang chủ (https://youtube.com) hoặc các link không đầy đủ.
+  - Video phải CHẤT LƯỢNG CAO (HD/4K), là vlog/review du lịch CÓ NGÀY TẢI GẦN ĐÂY (Năm 2024 hoặc 2025).
 
-Nếu bạn không tìm thấy bất kỳ liên kết hình ảnh hay video nào đáp ứng tất cả tiêu chí trên (bao gồm cả nguồn và độ liên quan tuyệt đối), bạn phải để mảng rỗng [].
+Nếu bạn không tìm thấy bất kỳ liên kết hình ảnh hay video nào đáp ứng tất cả tiêu chí trên (bao gồm cả nguồn, độ liên quan tuyệt đối và định dạng URL), bạn phải để mảng rỗng [].
 """
 # --- HẾT SYSTEM INSTRUCTION ---
 
@@ -67,8 +70,11 @@ def init_db():
 init_db()
 
 def get_youtube_id(url):
-    """Trích xuất ID YouTube hợp lệ."""
-    if not url: return None
+    """Trích xuất ID YouTube hợp lệ và kiểm tra định dạng URL cơ bản."""
+    if not url or len(url) < 20 or 'youtube.com' not in url.lower() and 'youtu.be' not in url.lower():
+        # Thêm kiểm tra độ dài tối thiểu và từ khóa
+        return None
+    
     patterns = [
         r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([^&]+)",
         r"(?:https?://)?(?:www\.)?youtu\.be/([^?]+)",
@@ -107,11 +113,9 @@ def get_ai_response(session_id, user_msg):
                     except:
                         pass
                 
-                # SỬA LỖI: Dùng types.Part(text=...) để tạo Content
                 history_contents.append(types.Content(role=role, parts=[types.Part(text=content_text)]))
 
     # 2. XÂY DỰNG CONTENTS CHO API 
-    # SỬA LỖI: Dùng types.Part(text=...) cho tin nhắn hiện tại
     contents = history_contents + [types.Content(role="user", parts=[types.Part(text=user_msg)])]
 
     # 3. QUAY VÒNG KEY VÀ GỌI API
@@ -141,16 +145,16 @@ def get_ai_response(session_id, user_msg):
                     url = img.get('url', '')
                     # Kiểm tra nguồn UY TÍN
                     is_valid_domain = any(domain in url.lower() for domain in valid_domains)
-                    # Kiểm tra đuôi file để tăng khả năng là link ảnh trực tiếp
-                    is_direct_link = url.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+                    # Kiểm tra đuôi file và độ dài tối thiểu (link chung chung thường rất ngắn)
+                    is_direct_link_format = url.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')) and len(url) > 50
                     
-                    if is_valid_domain or (is_valid_domain and is_direct_link):
+                    if is_valid_domain or (is_valid_domain and is_direct_link_format):
                         valid_images.append(img)
                 ai_data['images'] = valid_images[:3]
 
             if 'youtube_links' in ai_data:
-                # Kiểm tra tính hợp lệ cú pháp của YouTube ID
-                valid_links = [link for link in ai_data['youtube_links'] if get_youtube_id(link)]
+                # LỌC: Loại bỏ link trang chủ (https://youtube.com) và chỉ giữ link hợp lệ
+                valid_links = [link for link in ai_data['youtube_links'] if get_youtube_id(link) and link.strip().lower() != 'https://youtube.com']
                 ai_data['youtube_links'] = valid_links[:2]
             
             return ai_data
@@ -182,7 +186,6 @@ def chat():
     msg = request.json.get("msg", "").strip()
     if not msg: return jsonify({"text": "Vui lòng nhập tin nhắn."})
     
-    # GỌI HÀM ĐÃ SỬA LỖI LỊCH SỬ
     ai_data = get_ai_response(sid, msg) 
     
     # Lưu lịch sử vào DB
