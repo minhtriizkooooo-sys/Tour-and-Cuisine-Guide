@@ -23,7 +23,9 @@ API_KEYS = [
 API_KEYS = [k for k in API_KEYS if k]
 # --------------------------------------------------------
 
-model_name = "gemini-1.5-flash"
+# SỬA LỖI: Thay thế tên mô hình để tránh lỗi 404 NOT_FOUND
+model_name = "gemini-2.5-flash" 
+
 DB_PATH = "chat_history.db"
 
 def init_db():
@@ -40,11 +42,10 @@ def init_db():
 init_db()
 
 def call_gemini(user_msg):
-    # DÒNG DEBUG QUAN TRỌNG: Kiểm tra xem Render có đọc được Khóa API không
+    # DÒNG DEBUG QUAN TRỌNG: Kiểm tra số lượng key (Chắc chắn sẽ là 1)
     print(f"[DEBUG-KEY] Keys found: {len(API_KEYS)}") 
 
     if not API_KEYS:
-        # Nếu không tìm thấy key, trả về thông báo lỗi cấu hình
         return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini trong biến môi trường GOOGLE_API_KEY.", "image_url": "", "youtube_link": "", "suggestions": []}
 
     prompt = (
@@ -63,13 +64,14 @@ def call_gemini(user_msg):
                     temperature=0.8
                 )
             )
+            # Nếu thành công, trả về kết quả ngay
             return json.loads(response.text)
         except Exception as e:
-            # Ghi lại lỗi API chi tiết khi thử key (ví dụ: Key invalid, quota exceeded)
+            # Ghi lại lỗi API chi tiết khi thử key
             print(f"Lỗi khi gọi Gemini API: {e}") 
             continue 
 
-    # Nếu tất cả các key (thường chỉ 1) đều lỗi
+    # Nếu tất cả các key đều lỗi hoặc hết lượt (rất hiếm khi xảy ra nếu key hợp lệ)
     return {"text": "Hết lượt dùng hôm nay hoặc Khóa API của bạn không hợp lệ.", "image_url": "", "youtube_link": "", "suggestions": []}
 
 @app.route("/")
