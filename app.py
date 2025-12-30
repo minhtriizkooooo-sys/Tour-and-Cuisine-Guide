@@ -23,7 +23,7 @@ for key, value in os.environ.items():
 API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')]))
 print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
 
-model_name = "gemini-1.5-flash"  # Cập nhật model mới nhất nếu cần
+model_name = "gemini-2.5-flash"  # Cập nhật model mới nhất nếu cần
 DB_PATH = "chat_history.db"
 
 def init_db():
@@ -238,3 +238,4 @@ def clear_history():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
