@@ -8,23 +8,20 @@ from flask_cors import CORS
 from google import genai
 from google.genai import types
 from fpdf import FPDF
+import re # Import module regex để xử lý link YouTube
 
 app = Flask(__name__)
 app.secret_key = "trip_smart_2026_tri"
 CORS(app)
 
-# --- CẤU HÌNH API KEYS ĐÃ CẬP NHẬT (Fix lỗi xóa Key) ---
-# Ưu tiên lấy khóa mặc định mới GOOGLE_API_KEY. Nếu không có, thử GEMINI_API_KEY.
+# --- CẤU HÌNH API KEYS ---
 API_KEYS = [
     os.environ.get("GOOGLE_API_KEY"),
     os.environ.get("GEMINI_API_KEY") 
 ]
-# Chỉ giữ lại các khóa không rỗng
 API_KEYS = [k for k in API_KEYS if k]
-# --------------------------------------------------------
 
-# SỬA LỖI: Thay thế tên mô hình để tránh lỗi 404 NOT_FOUND
-model_name = "gemini-2.5-flash" 
+model_name = "gemini-2.5-flash" # Đảm bảo tên model chính xác
 
 DB_PATH = "chat_history.db"
 
@@ -41,16 +38,47 @@ def init_db():
         """)
 init_db()
 
+# Hàm trích xuất ID YouTube từ URL
+def get_youtube_id(url):
+    if not url: return None
+    patterns = [
+        r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([^&]+)",
+        r"(?:https?://)?(?:www\.)?youtu\.be/([^?]+)"
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
+
 def call_gemini(user_msg):
-    # DÒNG DEBUG QUAN TRỌNG: Kiểm tra số lượng key (Chắc chắn sẽ là 1)
     print(f"[DEBUG-KEY] Keys found: {len(API_KEYS)}") 
 
     if not API_KEYS:
-        return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini trong biến môi trường GOOGLE_API_KEY.", "image_url": "", "youtube_link": "", "suggestions": []}
+        return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API Gemini trong biến môi trường GOOGLE_API_KEY.", 
+                "images": [], "youtube_links": [], "suggestions": []}
 
+    # PROMPT ĐÃ ĐƯỢC CẬP NHẬT ĐỂ YÊU CẦU NỘI DUNG PHONG PHÚ HƠN
+    # và trả về JSON chuẩn với danh sách ảnh/video/gợi ý
     prompt = (
-        f"Bạn là hướng dẫn viên du lịch Việt Nam chuyên nghiệp. Người dùng hỏi: {user_msg}\n"
-        "Trả về JSON thuần: {\"text\": \"nội dung trả lời chi tiết tiếng Việt có dấu\", \"image_url\": \"...\", \"youtube_link\": \"...\", \"suggestions\": []}"
+        f"Bạn là hướng dẫn viên du lịch Việt Nam chuyên nghiệp và rất chi tiết. "
+        f"Người dùng hỏi: '{user_msg}'.\n"
+        f"Hãy cung cấp thông tin du lịch chi tiết và hấp dẫn về địa danh được hỏi, bao gồm:\n"
+        f"1. Lịch sử phát triển và những nét văn hóa đặc trưng.\n"
+        f"2. Con người và ẩm thực địa phương (đặc sản, món ăn nổi tiếng).\n"
+        f"3. Gợi ý cụ thể, chi tiết về lịch trình, địa điểm tham quan, trải nghiệm nên thử.\n"
+        f"4. Kèm theo 3-5 hình ảnh thực tế (có link url và chú thích tiếng Việt) và 2-3 link video YouTube có thể xem được về địa điểm đó.\n"
+        f"5. Đưa ra 3 câu hỏi gợi ý liên quan đến câu trả lời và chủ đề đang nói chuyện.\n"
+        f"Trả về JSON thuần (đảm bảo cú pháp JSON hợp lệ): \n"
+        "{ \n"
+        "  \"text\": \"nội dung trả lời chi tiết tiếng Việt có dấu\", \n"
+        "  \"images\": [ \n"
+        "    {\"url\": \"link_anh_1.jpg\", \"caption\": \"Chú thích ảnh 1\"}, \n"
+        "    {\"url\": \"link_anh_2.jpg\", \"caption\": \"Chú thích ảnh 2\"} \n"
+        "  ], \n"
+        "  \"youtube_links\": [\"link_video_1\", \"link_video_2\"], \n"
+        "  \"suggestions\": [\"Gợi ý câu hỏi 1\", \"Gợi ý câu hỏi 2\", \"Gợi ý câu hỏi 3\"] \n"
+        "}"
     )
 
     for key in API_KEYS:
@@ -64,15 +92,20 @@ def call_gemini(user_msg):
                     temperature=0.8
                 )
             )
-            # Nếu thành công, trả về kết quả ngay
-            return json.loads(response.text)
+            # Đảm bảo response.text là JSON hợp lệ
+            ai_data = json.loads(response.text)
+            
+            # Xử lý các link YouTube để chỉ lấy ID, nếu cần nhúng iframe
+            if 'youtube_links' in ai_data:
+                ai_data['youtube_links'] = [link for link in ai_data['youtube_links'] if get_youtube_id(link)]
+            
+            return ai_data
         except Exception as e:
-            # Ghi lại lỗi API chi tiết khi thử key
             print(f"Lỗi khi gọi Gemini API: {e}") 
             continue 
 
-    # Nếu tất cả các key đều lỗi hoặc hết lượt (rất hiếm khi xảy ra nếu key hợp lệ)
-    return {"text": "Hết lượt dùng hôm nay hoặc Khóa API của bạn không hợp lệ.", "image_url": "", "youtube_link": "", "suggestions": []}
+    return {"text": "Hết lượt dùng hôm nay hoặc Khóa API của bạn không hợp lệ.", 
+            "images": [], "youtube_links": [], "suggestions": []}
 
 @app.route("/")
 def index():
@@ -92,6 +125,7 @@ def chat():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "user", msg, datetime.now().strftime("%H:%M")))
+        # Lưu toàn bộ JSON response vào DB để khi hiển thị lịch sử không bị mất thông tin ảnh/video
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
 
@@ -107,6 +141,7 @@ def get_history():
     res = []
     for r in rows:
         try:
+            # Khi tải lịch sử, phải parse lại JSON để lấy đủ thông tin
             content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
         except: content = r['content']
         res.append({"role": r['role'], "content": content})
@@ -145,7 +180,15 @@ def export_pdf():
             try:
                 data = json.loads(content)
                 text = data.get('text', '')
-            except: text = content
+                # Thêm thông tin ảnh/video vào PDF nếu có
+                if data.get('images'):
+                    for img in data['images']:
+                        text += f"\n   [Ảnh: {img.get('caption', 'Hình ảnh')} - {img['url']}]"
+                if data.get('youtube_links'):
+                    for link in data['youtube_links']:
+                        text += f"\n   [Video YouTube: {link}]"
+            except: 
+                text = content
             
             pdf.multi_cell(0, 8, txt=f"[{time_str}] {prefix}{text}")
             pdf.ln(3)
