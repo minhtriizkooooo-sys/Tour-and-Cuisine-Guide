@@ -37,9 +37,9 @@
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
         
-        /* CẬP NHẬT: HIỂN THỊ ẢNH VÀ VIDEO */
+        /* HIỂN THỊ ẢNH VÀ VIDEO */
         .bot .image-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; justify-content: flex-start; }
-        .bot .image-item { flex: 1 1 150px; /* Responsive images */ max-width: 100%; text-align: center; background: #e0e6eb; padding: 5px; border-radius: 8px;}
+        .bot .image-item { flex: 1 1 150px; max-width: 100%; text-align: center; background: #e0e6eb; padding: 5px; border-radius: 8px;}
         .bot .image-item img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; cursor: zoom-in; margin-bottom: 5px; }
         .bot .image-item .caption { font-size: 12px; color: #555; display: block; margin-top: 5px; }
         .bot .video-container { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
@@ -131,9 +131,9 @@
         }
         #modal-img {
             max-width: 95%;
-            max-height: 80vh; /* Giảm chiều cao để hiển thị nút đóng */
+            max-height: 80vh; 
             border: 3px solid white;
-            object-fit: contain; /* Đảm bảo ảnh không bị cắt */
+            object-fit: contain; 
         }
         #modal-caption {
             color: white;
@@ -200,7 +200,7 @@
         </div>
         
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào Bạn! Hãy chọn địa danh trên bản đồ hoặc nhập câu hỏi để bắt đầu hành trình. 🇻🇳</div>
+            <div class="msg bot">Chào bạn! Hãy chọn địa danh trên bản đồ hoặc nhập câu hỏi để bắt đầu hành trình. 🇻🇳</div>
         </div>
 
         <div id="pdf-area" class="pdf-btn-container hidden">
@@ -270,14 +270,13 @@
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 14);
-            addTravelMarker(pos, data[0].display_name); // Sử dụng display_name cho label chi tiết hơn
+            addTravelMarker(pos, data[0].display_name); 
         }
     }
 
     map.on('click', function(e) { addTravelMarker(e.latlng, `Vị trí (${e.latlng.lat.toFixed(3)}, ${e.latlng.lat.toFixed(3)})`); });
 
     function addTravelMarker(pos, label) {
-        // Xóa marker cũ nếu chỉ muốn 1 marker
         clearMap(); 
         
         const m = L.marker(pos).addTo(map).bindPopup(`
@@ -298,7 +297,6 @@
     // Hàm trích xuất ID YouTube từ URL
     function getYouTubeId(url) {
         if (!url) return null;
-        // Regex để bắt ID từ các định dạng URL khác nhau
         const patterns = [
             /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([^&]+)/i,
             /(?:https?:\/\/)?(?:www\.)?youtu\.be\/([^?]+)/i,
@@ -306,7 +304,7 @@
         ];
         for (const pattern of patterns) {
             const match = url.match(pattern);
-            if (match && match[1].length === 11) { // ID YouTube có 11 ký tự
+            if (match && match[1].length === 11) { 
                 return match[1];
             }
         }
@@ -320,11 +318,19 @@
         if (role === 'user') {
             msgDiv.textContent = content;
         } else if (role === 'bot') {
-            const data = typeof content === 'string' ? JSON.parse(content) : content;
+            let data;
+            try {
+                // Thử parse lại JSON, nếu content là string (từ lịch sử)
+                data = typeof content === 'string' ? JSON.parse(content) : content;
+            } catch (e) {
+                // Nếu JSON bị lỗi, hiển thị text thô hoặc thông báo lỗi
+                data = {text: content.text || content, images: [], youtube_links: [], suggestions: []};
+            }
             
             // 1. TEXT
             const textContent = document.createElement('div');
-            textContent.innerHTML = data.text.replace(/\n/g, '<br>');
+            // Cải thiện hiển thị text, thay thế \n bằng <br>
+            textContent.innerHTML = (data.text || "AI không thể tạo nội dung phản hồi.").replace(/\n/g, '<br>');
             msgDiv.appendChild(textContent);
 
             // 2. IMAGES
@@ -337,6 +343,7 @@
                     const imgTag = document.createElement('img');
                     imgTag.src = img.url;
                     imgTag.alt = img.caption;
+                    imgTag.onerror = () => { imgTag.style.display = 'none'; console.error('Ảnh bị lỗi URL hoặc không tồn tại:', img.url); };
                     imgTag.onclick = () => showImg(img.url, img.caption);
                     
                     const caption = document.createElement('span');
@@ -371,6 +378,8 @@
                         iframeWrapper.appendChild(iframe);
                         videoItem.appendChild(iframeWrapper);
                         videoContainer.appendChild(videoItem);
+                    } else {
+                         console.error('Link YouTube không hợp lệ:', link);
                     }
                 });
                 if(videoContainer.childElementCount > 0) {
@@ -421,7 +430,7 @@
             const data = await res.json();
             appendMessage('bot', data);
         } catch (e) {
-            appendMessage('bot', {text: "Lỗi kết nối hoặc dữ liệu không hợp lệ. Vui lòng thử lại."});
+            appendMessage('bot', {text: "Lỗi kết nối hoặc AI không phản hồi. Vui lòng thử lại."});
             console.error(e);
         } finally {
             sendBtn.disabled = false;
@@ -433,21 +442,19 @@
         tabChat.classList.remove('active');
         tabHist.classList.remove('active');
         pdfArea.classList.add('hidden');
-        chatBox.innerHTML = ''; // Clear box content
+        chatBox.innerHTML = ''; 
 
         if (tabName === 'chat') {
             tabChat.classList.add('active');
-            // Re-load current chat history if available
             loadHistory(true); 
         } else if (tabName === 'history') {
             tabHist.classList.add('active');
-            pdfArea.classList.remove('hidden');
         }
     }
     
     async function loadHistory(isChatTab = false) {
         if (!isChatTab) setTab('history');
-        else chatBox.innerHTML = ''; // Only clear if reloading chat tab
+        else chatBox.innerHTML = ''; 
 
         try {
             const res = await fetch('/history');
@@ -475,7 +482,6 @@
         if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử chat và tạo phiên mới không?")) return;
         try {
             await fetch('/clear_history', { method: 'POST' });
-            // Tải lại trang để xóa cookie session_id và reset giao diện
             window.location.reload(); 
         } catch (e) {
             alert("Lỗi khi xóa lịch sử.");
@@ -502,6 +508,5 @@
     loadHistory(true);
 
 </script>
-<script src="/static/js/script.js" defer></script> 
 </body>
 </html>
