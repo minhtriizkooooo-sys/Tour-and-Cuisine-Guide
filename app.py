@@ -2,46 +2,41 @@ import os
 import uuid
 import sqlite3
 import json
-import re
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
 from groq import Groq
 import random
-from fpdf import FPDF # Thêm thư viện này
+from fpdf import FPDF
 
 app = Flask(__name__)
 app.secret_key = "trip_smart_pro_2026"
 CORS(app)
 
 # --- CẤU HÌNH GROQ ---
-GROQ_KEYS = []
-raw_keys = os.environ.get("GROQ_API_KEY", "")
-if raw_keys:
-    GROQ_KEYS = [k.strip() for k in raw_keys.split(",") if k.strip()]
+# Thay key của bạn vào đây hoặc thiết lập trong biến môi trường
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "YOUR_GROQ_API_KEY_HERE")
 
 DB_PATH = "chat_history.db"
 
-# --- SYSTEM INSTRUCTION NÂNG CẤP (Sửa lỗi ảnh và tăng chiều sâu) ---
+# --- SYSTEM INSTRUCTION ---
 system_instruction = """
-Bạn là chuyên gia du lịch Việt Nam. Khi người dùng hỏi, trả về JSON với nội dung cực kỳ chi tiết:
-1. Lịch sử: Chi tiết mốc thời gian, ý nghĩa lịch sử.
-2. Văn hóa: Phong tục, tính cách địa phương, lễ hội đặc sắc.
-3. Ẩm thực: Tên món ăn + nguyên liệu + cảm giác khi ăn.
+Bạn là chuyên gia du lịch Việt Nam. Khi người dùng hỏi, trả về JSON với nội dung chi tiết:
+1. Lịch sử: Các mốc quan trọng.
+2. Văn hóa: Lễ hội, đặc sản con người.
+3. Ẩm thực: Tên món + mô tả.
 
 BẮT BUỘC TRẢ VỀ JSON:
 {
-  "text": "# [Tên địa phương]\\n## ⏳ Lịch sử\\n...\\n## 🎭 Văn hóa\\n...\\n## 🍲 Ẩm thực\\n...",
+  "text": "# [Địa danh]\\n## ⏳ Lịch sử\\n...\\n## 🎭 Văn hóa\\n...\\n## 🍲 Ẩm thực\\n...",
   "images": [
-    {"url": "https://source.unsplash.com/800x600/?vietnam,{tên_địa_danh}", "caption": "Cảnh đẹp thực tế tại địa phương"},
-    {"url": "https://source.unsplash.com/800x600/?vietnam,food,{tên_món_ăn}", "caption": "Đặc sản nổi tiếng"}
+    {"url": "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=800", "caption": "Cảnh đẹp Việt Nam"},
+    {"url": "https://images.unsplash.com/photo-1555949258-eb67b1ef0ceb?q=80&w=800", "caption": "Ẩm thực địa phương"}
   ],
-  "youtube_links": [
-    "https://www.youtube.com/results?search_query=du+lich+{tên_địa_phương}"
-  ],
-  "suggestions": ["Lịch sử nơi này có gì đặc biệt?", "Món này ăn ở đâu ngon nhất?"]
+  "youtube_links": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+  "suggestions": ["Món ăn nào nổi tiếng nhất?", "Thời điểm nào đi du lịch tốt nhất?"]
 }
-Lưu ý: URL ảnh phải dùng 'source.unsplash.com/800x600/?' để đảm bảo hiển thị tốt trên UI.
+Lưu ý: Luôn dùng 'source.unsplash.com' hoặc link ảnh thực tế. Nếu không có ảnh cụ thể, dùng chủ đề chung về du lịch VN.
 """
 
 def init_db():
@@ -50,26 +45,21 @@ def init_db():
 init_db()
 
 def get_ai_response(user_msg):
-    if not GROQ_KEYS: return {"text": "Vui lòng cấu hình API Key.", "images": [], "suggestions": []}
-    key = random.choice(GROQ_KEYS).strip()
-    client = Groq(api_key=key)
+    client = Groq(api_key=GROQ_API_KEY)
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "Return ONLY a valid JSON. " + system_instruction},
+                {"role": "system", "content": "Return ONLY a valid JSON object. " + system_instruction},
                 {"role": "user", "content": user_msg}
             ],
             temperature=0.7,
-            max_tokens=3000,
             response_format={"type": "json_object"}
         )
         return json.loads(completion.choices[0].message.content)
     except Exception as e:
-        print(f"Error: {e}")
-        return {"text": "AI đang bận, vui lòng thử lại!", "images": [], "suggestions": []}
+        return {"text": f"Lỗi: {str(e)}", "images": [], "suggestions": []}
 
-# --- ROUTES ---
 @app.route("/")
 def index():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
@@ -81,7 +71,6 @@ def index():
 def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
-    if not msg: return jsonify({"text": "Bạn muốn hỏi về đâu?"})
     ai_data = get_ai_response(msg)
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
@@ -111,39 +100,30 @@ def clear_history():
         conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
     return jsonify({"status": "ok"})
 
-# --- ROUTE XUẤT PDF ---
 @app.route("/export_pdf")
 def export_pdf():
     sid = request.cookies.get("session_id")
     pdf = FPDF()
     pdf.add_page()
-    # Sử dụng font mặc định có sẵn hoặc Arial (Lưu ý: Để hiển thị tiếng Việt hoàn hảo bạn cần file font .ttf, ở đây dùng Arial cơ bản)
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(190, 10, "LICH TRINH DU LICH VIET NAM", ln=True, align='C')
     pdf.set_font("Arial", size=12)
     
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-        
-        pdf.cell(200, 10, txt="LICH TRINH DU LICH VIET NAM 2026", ln=True, align='C')
-        pdf.ln(10)
-        
         for r in rows:
             role = "Ban: " if r['role'] == 'user' else "AI: "
-            content = r['content']
+            text = r['content']
             if r['role'] == 'bot':
-                try:
-                    data = json.loads(content)
-                    content = data.get('text', '').replace('#', '').replace('*', '')
+                try: text = json.loads(text)['text'].replace('#', '').replace('*', '')
                 except: pass
+            pdf.multi_cell(0, 10, f"{role}{text.encode('latin-1', 'ignore').decode('latin-1')}")
+            pdf.ln(5)
             
-            # Làm sạch ký tự lạ để tránh lỗi PDF font
-            clean_text = content.encode('latin-1', 'ignore').decode('latin-1')
-            pdf.multi_cell(0, 10, txt=role + clean_text)
-            pdf.ln(2)
-
-    pdf_path = f"history_{sid[:8]}.pdf"
-    pdf.output(pdf_path)
-    return send_file(pdf_path, as_attachment=True)
+    pdf_file = "tour_guide.pdf"
+    pdf.output(pdf_file)
+    return send_file(pdf_file, as_attachment=True)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run(host="0.0.0.0", port=10000)
