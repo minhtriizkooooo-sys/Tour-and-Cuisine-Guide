@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, make_response
 from flask_cors import CORS
-from groq import Groq  # Thư viện mới để dùng Gemma
+from groq import Groq
 import random
 
 app = Flask(__name__)
@@ -21,12 +21,12 @@ if raw_keys:
 
 DB_PATH = "chat_history.db"
 
-# System Instruction cho Gemma 2 (Cần ghi rõ hơn để ép trả về JSON chuẩn)
+# System Instruction: Bắt buộc từ "JSON" phải có mặt để Groq không lỗi
 system_instruction = """
 Bạn là AI hướng dẫn du lịch Việt Nam chuyên nghiệp. 
-BẮT BUỘC trả về dữ liệu dưới dạng JSON nguyên bản, không nằm trong tag ```json```:
+BẮT BUỘC trả về dữ liệu dưới định dạng JSON sau:
 {
-  "text": "Nội dung Markdown tiếng Việt chi tiết.",
+  "text": "Nội dung Markdown tiếng Việt chi tiết (sử dụng **để bôi đậm).",
   "images": [{"url": "https://images.unsplash.com/featured/?{keyword},vietnam", "caption": "Mô tả ảnh"}],
   "youtube_links": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
   "suggestions": ["Câu hỏi gợi ý 1", "Câu hỏi gợi ý 2"]
@@ -40,76 +40,94 @@ init_db()
 
 def get_ai_response(user_msg):
     if not GROQ_KEYS:
-        return {"text": "Lỗi: Chưa cấu hình GROQ_API_KEY.", "images": [], "youtube_links": []}
+        return {"text": "Lỗi: Chưa cấu hình GROQ_API_KEY trên Render.", "images": [], "youtube_links": [], "suggestions": []}
 
-    # Chọn ngẫu nhiên 1 Key Groq
     key = random.choice(GROQ_KEYS)
     client = Groq(api_key=key)
 
     try:
-        # Gọi mô hình Gemma 2 9B (Rất mạnh và hỗ trợ tiếng Việt khá tốt)
         completion = client.chat.completions.create(
             model="gemma2-9b-it",
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": user_msg}
             ],
-            temperature=0.5,
+            temperature=0.6,
             max_tokens=2048,
-            # Chế độ JSON cực kỳ ổn định trên Groq
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"} # Chế độ JSON chuẩn của Groq
         )
         
-        return json.loads(completion.choices[0].message.content)
+        # Parse thử để đảm bảo là JSON hợp lệ
+        res_content = completion.choices[0].message.content
+        return json.loads(res_content)
         
     except Exception as e:
         print(f"[GROQ ERROR] {str(e)}")
+        # Trả về JSON giả lập nhưng HỢP LỆ để không làm hỏng UI
         return {
-            "text": "⚠️ Gemma đang bận xử lý. Vui lòng thử lại sau giây lát.",
+            "text": "⚠️ Gemma đang bận xử lý hoặc hạn mức API đã hết. Bạn vui lòng đợi 10-15 giây rồi thử lại nhé!",
             "images": [],
             "youtube_links": [],
-            "suggestions": ["Thử lại"]
+            "suggestions": ["Thử lại lần nữa", "Review địa điểm khác"]
         }
 
 @app.route("/")
 def index():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
+    # Đảm bảo file index.html nằm trong thư mục templates
     resp = make_response(render_template("index.html"))
-    resp.set_cookie("session_id", sid, httponly=True)
+    resp.set_cookie("session_id", sid, httponly=True, max_age=3600*24*7)
     return resp
 
 @app.route("/chat", methods=["POST"])
 def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
-    if not msg: return jsonify({"text": "Hãy nhập tin nhắn."})
+    if not msg: return jsonify({"text": "Hãy nhập nội dung cần hỏi."})
 
     ai_data = get_ai_response(msg)
     
-    # Lưu vào DB
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-                     (sid, "user", msg, datetime.now().strftime("%H:%M")))
-        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-                     (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
+    # Lưu vào DB - Lưu Bot dưới dạng String JSON
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "user", msg, datetime.now().strftime("%H:%M")))
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
+    except Exception as e:
+        print(f"DB Error: {e}")
     
     return jsonify(ai_data)
 
-# Route lấy lịch sử để hiển thị lại khi F5
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
     res = []
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-        for r in rows:
-            try:
-                content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
-            except:
-                content = r['content']
-            res.append({"role": r['role'], "content": content})
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
+            for r in rows:
+                if r['role'] == 'bot':
+                    try:
+                        # Quan trọng: Trả về Object JSON đã parse để UI nhận diện đúng
+                        res.append({"role": "bot", "content": json.loads(r['content'])})
+                    except:
+                        res.append({"role": "bot", "content": {"text": r['content']}})
+                else:
+                    res.append({"role": "user", "content": r['content']})
+    except Exception as e:
+        print(f"History Error: {e}")
     return jsonify(res)
 
+@app.route("/clear_history", methods=["POST"])
+def clear_history():
+    sid = request.cookies.get("session_id")
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+    return jsonify({"status": "deleted"})
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    # Render yêu cầu dùng PORT từ biến môi trường
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
