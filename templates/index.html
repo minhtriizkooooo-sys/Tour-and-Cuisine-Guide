@@ -61,6 +61,10 @@
         .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 14px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
         .suggest-item:hover { background: #bbdefb; }
 
+        .video-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
+        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; }
+        .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+
         @media (max-width: 768px) {
             main { flex-direction: column; }
             #map-side { height: 45%; }
@@ -166,85 +170,81 @@
         let data = (typeof content === 'string') ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
 
+        // Text sạch
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        const parts = htmlText.split(/(\[HÌNH \d+\])/g);
+        const textP = document.createElement('div');
+        textP.innerHTML = htmlText;
+        textP.style.lineHeight = '1.7';
+        textP.style.marginBottom = '20px';
+        contentDiv.appendChild(textP);
 
-        parts.forEach(part => {
-            if (part.match(/\[HÌNH \d+\]/)) {
-                const idx = parseInt(part.match(/\d+/)[0]) - 1;
-                if (data.images && data.images[idx]) {
-                    const wrapper = document.createElement('div');
-                    wrapper.style.margin = '20px 0';
-                    wrapper.style.textAlign = 'center';
+        // 5 ảnh inline đẹp
+        if(data.images && data.images.length > 0) {
+            data.images.slice(0, 5).forEach(img => {
+                const wrapper = document.createElement('div');
+                wrapper.style.margin = '20px 0';
+                wrapper.style.textAlign = 'center';
 
-                    const img = document.createElement('img');
-                    img.src = data.images[idx].url;
-                    img.style.maxWidth = '100%';
-                    img.style.height = 'auto';
-                    img.style.borderRadius = '16px';
-                    img.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
-                    img.style.cursor = 'pointer';
-                    img.onclick = () => showImg(data.images[idx].url, data.images[idx].caption || '');
+                const image = document.createElement('img');
+                image.src = img.url;
+                image.style.maxWidth = '100%';
+                image.style.height = 'auto';
+                image.style.borderRadius = '16px';
+                image.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
+                image.style.cursor = 'pointer';
+                image.onclick = () => showImg(img.url, img.caption || '');
 
-                    wrapper.appendChild(img);
+                wrapper.appendChild(image);
 
-                    if (data.images[idx].caption) {
-                        const cap = document.createElement('div');
-                        cap.textContent = data.images[idx].caption;
-                        cap.style.fontSize = '14px';
-                        cap.style.color = '#444';
-                        cap.style.marginTop = '10px';
-                        cap.style.fontStyle = 'italic';
-                        wrapper.appendChild(cap);
-                    }
-
-                    contentDiv.appendChild(wrapper);
+                if (img.caption) {
+                    const cap = document.createElement('div');
+                    cap.textContent = img.caption;
+                    cap.style.fontSize = '14px';
+                    cap.style.color = '#444';
+                    cap.style.marginTop = '10px';
+                    cap.style.fontStyle = 'italic';
+                    wrapper.appendChild(cap);
                 }
-            } else if (part.trim()) {
-                const textP = document.createElement('div');
-                textP.innerHTML = part;
-                textP.style.marginBottom = '14px';
-                textP.style.lineHeight = '1.7';
-                contentDiv.appendChild(textP);
-            }
-        });
 
-        div.appendChild(contentDiv);
+                contentDiv.appendChild(wrapper);
+            });
+        }
 
+        // 5 video tiếng Việt ưu tiên
         if(data.youtube_links && data.youtube_links.length > 0) {
             const vTitle = document.createElement('div');
-            vTitle.innerHTML = '<b style="font-size:17px;">🎥 Video khám phá thực tế hay nhất</b>';
+            vTitle.innerHTML = '<b style="font-size:17px;">🎥 Video khám phá thực tế bằng tiếng Việt</b>';
             vTitle.style.margin = '30px 0 18px 0';
-            div.appendChild(vTitle);
+            contentDiv.appendChild(vTitle);
 
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
-            data.youtube_links.forEach(link => {
+            data.youtube_links.slice(0, 5).forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if(match) {
                     vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
-                } else {
-                    vCon.innerHTML += `<a href="${link}" target="_blank" style="display:block;margin:15px 0;color:#c4302b;font-size:15px;"><i class="fab fa-youtube"></i> ${link}</a>`;
                 }
             });
-            div.appendChild(vCon);
+            contentDiv.appendChild(vCon);
         }
 
+        // Gợi ý sạch
         if(data.suggestions && data.suggestions.length > 0) {
             const sTitle = document.createElement('div');
             sTitle.innerHTML = '<b style="font-size:17px;">💡 Gợi ý tiếp theo:</b>';
             sTitle.style.margin = '30px 0 18px 0';
-            div.appendChild(sTitle);
+            contentDiv.appendChild(sTitle);
 
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
                 btn.textContent = s;
                 btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
-                div.appendChild(btn);
+                contentDiv.appendChild(btn);
             });
         }
 
+        div.appendChild(contentDiv);
         return div;
     }
 
