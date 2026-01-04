@@ -103,7 +103,7 @@
         .pdf-btn-container { padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: center; }
         .btn-pdf { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; }
 
-        /* MODAL PHÓNG TO ẢNH - GIỮ LẠI STYLE CỦA BẠN VÀ TỐI ƯU */
+        /* MODAL PHÓNG TO ẢNH */
         #img-modal {
             position: fixed;
             top: 0;
@@ -253,7 +253,7 @@
             addTravelMarker(pos, data[0].display_name);
         }
     }
-    map.on('click', function(e) { addTravelMarker(e.latlng, `Vị trí (${e.latlng.lat.toFixed(3)}, ${e.latlng.lon.toFixed(3)})`); });
+    map.on('click', function(e) { addTravelMarker(e.latlng, `Vị trí (${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)})`); });
     function addTravelMarker(pos, label) {
         clearMap();
         
@@ -427,7 +427,7 @@
             const res = await fetch('/history');
             const data = await res.json();
             if (data.length === 0) {
-                appendMessage('bot', {text: "Lịch sử trò chuyện trống. Hãy bắt đầu một cuộc trò chuyện mới!"});
+                if(!isChatTab) appendMessage('bot', {text: "Lịch sử trò chuyện trống. Hãy bắt đầu một cuộc trò chuyện mới!"});
                 pdfArea.classList.add('hidden');
                 return;
             }
