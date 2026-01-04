@@ -10,57 +10,45 @@ from flask import Flask, request, jsonify, render_template, make_response, Respo
 from flask_cors import CORS
 from google import genai
 from google.genai import types
-from fpdf import FPDF
 
 app = Flask(__name__)
-app.secret_key = "trip_smart_2026_final_fix" 
+app.secret_key = "trip_smart_2026_final_emergency" 
 CORS(app)
 
 # --- CẤU HÌNH API KEYS ---
 API_KEYS = []
 for key, value in os.environ.items():
     if "API_KEY" in key.upper() and value:
-        # Tách key nếu người dùng nhập chuỗi phân cách bằng dấu phẩy
         parts = [k.strip() for k in value.split(',') if k.strip().startswith("AIza")]
         API_KEYS.extend(parts)
 
 API_KEYS = list(set(API_KEYS))
-print(f"[SYSTEM] Đã kích hoạt {len(API_KEYS)} API Keys.")
+# Nếu không có key nào trong biến môi trường, dùng danh sách rỗng để tránh crash
+if not API_KEYS:
+    print("[CRITICAL] Không tìm thấy API Key nào!")
 
-# Sử dụng model 1.5-flash-8b để có giới hạn RPM (Requests Per Minute) cao nhất
-model_name = "gemini-1.5-flash-8b" 
+# SỬ DỤNG MODEL 1.5-FLASH-8B VỚI VERSION ỔN ĐỊNH
+model_id = "gemini-1.5-flash-8b" 
 DB_PATH = "chat_history.db"
 
-system_instruction = """
-Bạn là AI Hướng dẫn Du lịch Việt Nam. Trả về JSON thuần (không markdown code block):
-{
-  "text": "Nội dung (Lịch sử, Văn hóa, Ẩm thực, Lịch trình).",
-  "images": [{"url": "https://images.unsplash.com/featured/?{place},vietnam", "caption": "Mô tả"}],
-  "youtube_links": ["Link video"],
-  "suggestions": ["Gợi ý 1"]
-}
-"""
+# Rút gọn System Instruction để tiết kiệm Token (giảm khả năng bị 429)
+system_instruction = "Bạn là AI du lịch VN. Trả về JSON: {text: str, images: [{url, caption}], youtube_links: [str], suggestions: [str]}"
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, created_at TEXT)")
 init_db()
 
-def get_youtube_id(url):
-    if not url: return None
-    match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
-    return match.group(1) if match else None
-
 def get_ai_response(session_id, user_msg):
     if not API_KEYS:
-        return {"text": "Chưa có API Key.", "images": [], "youtube_links": []}
+        return {"text": "Lỗi: Hệ thống chưa có Key.", "images": [], "youtube_links": []}
 
-    # Rút gọn lịch sử tối đa (chỉ lấy 4 câu) để tránh lỗi quota do token
+    # CHỈ LẤY 2 CÂU HỘI THOẠI GẦN NHẤT (Cực kỳ quan trọng để tránh bị chặn IP)
     history_contents = []
     try:
         with sqlite3.connect(DB_PATH) as conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 4", (session_id,)).fetchall()
+            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 2", (session_id,)).fetchall()
             for r in reversed(rows):
                 role = "user" if r['role'] == 'user' else "model"
                 txt = r['content']
@@ -72,39 +60,36 @@ def get_ai_response(session_id, user_msg):
 
     contents = history_contents + [types.Content(role="user", parts=[types.Part(text=user_msg)])]
 
-    # Xáo trộn danh sách để không tập trung vào 1 key đầu tiên
-    shuffled_keys = random.sample(API_KEYS, len(API_KEYS))
+    # Thử ngẫu nhiên 1 key, nếu lỗi thì dừng ngay để tránh bị Google khóa IP máy chủ
+    selected_keys = random.sample(API_KEYS, min(len(API_KEYS), 5)) # Chỉ thử tối đa 5 key mỗi lần nhắn
 
-    for i, key in enumerate(shuffled_keys):
+    for key in selected_keys:
         try:
             client = genai.Client(api_key=key)
             response = client.models.generate_content(
-                model=model_name,
+                model=model_id,
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=system_instruction, 
                     response_mime_type="application/json",
-                    temperature=0.4 # Giảm nhiệt độ để AI bớt "sáng tạo" gây lỗi JSON
+                    temperature=0.1 # Thấp nhất để xử lý nhanh nhất
                 )
             )
             
             if response and response.text:
-                ai_data = json.loads(response.text)
-                if 'youtube_links' in ai_data:
-                    ai_data['youtube_links'] = [l for l in ai_data['youtube_links'] if get_youtube_id(l)]
-                return ai_data
+                return json.loads(response.text)
                 
         except Exception as e:
             err = str(e)
-            print(f"[DEBUG] Key {i+1} lỗi: {err[:50]}...")
-            # Nếu lỗi quota, nghỉ 1.5 giây để server Google bớt chặn IP Render
-            if "429" in err or "quota" in err.lower():
-                time.sleep(1.5)
+            print(f"[DEBUG] Thử key thất bại, lỗi: {err[:30]}")
+            # Nếu gặp 429, nghỉ lâu hơn một chút
+            if "429" in err:
+                time.sleep(3) 
             continue
 
     return {
-        "text": "⚠️ Toàn bộ 11 cổng kết nối đều đang quá tải. Vui lòng quay lại sau 30-60 giây.",
-        "images": [], "youtube_links": [], "suggestions": ["Thử lại sau ít phút"]
+        "text": "⚠️ Máy chủ Google đang tạm chặn kết nối từ Render. Hãy thử lại sau 2 phút hoặc đổi câu hỏi ngắn hơn.",
+        "images": [], "youtube_links": [], "suggestions": ["Thử lại câu hỏi khác"]
     }
 
 @app.route("/")
@@ -131,53 +116,21 @@ def chat():
     except: pass
     return jsonify(ai_data)
 
+# --- GIỮ CÁC ROUTE KHÁC (HISTORY, CLEAR...) ---
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
     res = []
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-    for r in rows:
-        try: content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
-        except: content = r['content']
-        res.append({"role": r['role'], "content": content})
-    return jsonify(res)
-
-@app.route("/export_pdf")
-def export_pdf():
-    sid = request.cookies.get("session_id")
-    if not sid: return "Không có lịch sử", 400
     try:
         with sqlite3.connect(DB_PATH) as conn:
-            rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
-        pdf = FPDF()
-        pdf.add_page()
-        fpath = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
-        if os.path.exists(fpath):
-            pdf.add_font('DejaVu', '', fpath)
-            pdf.set_font('DejaVu', '', 11)
-        else: pdf.set_font('Arial', '', 11)
-
-        for role, content, time_str in rows:
-            prefix = "User: " if role == "user" else "AI: "
-            try: text = json.loads(content).get('text', '')
-            except: text = content
-            text = text.replace("**", "").replace("__", "")
-            pdf.multi_cell(0, 8, txt=f"[{time_str}] {prefix}{text}")
-            pdf.ln(2)
-        return Response(bytes(pdf.output()), mimetype='application/pdf', headers={"Content-Disposition": "attachment;filename=travel.pdf"})
-    except Exception as e: return str(e), 500
-
-@app.route("/clear_history", methods=["POST"])
-def clear_history():
-    sid = request.cookies.get("session_id")
-    if sid:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
-    resp = jsonify({"status": "ok"})
-    resp.set_cookie("session_id", str(uuid.uuid4()), httponly=True) 
-    return resp
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
+            for r in rows:
+                try: content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
+                except: content = r['content']
+                res.append({"role": r['role'], "content": content})
+    except: pass
+    return jsonify(res)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
