@@ -125,8 +125,11 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // --- KHỞI TẠO BẢN ĐỒ ---
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.762, 106.660], 13);
-    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { 
+        subdomains:['mt0','mt1','mt2','mt3'] 
+    }).addTo(map);
     let markers = [];
 
     function toggleMinimize(cId, iId) {
@@ -145,22 +148,33 @@
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 14);
-            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="cursor:pointer">Hỏi AI Review</button>`).openPopup();
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="cursor:pointer; margin-top:5px; padding:5px; border-radius:4px; border:none; background:#0066cc; color:white;">Hỏi AI Review</button>`).openPopup();
             markers.push(m);
         }
     }
 
-    function askAI(loc) { setTab('chat'); document.getElementById('user-input').value = `Review chi tiết lịch sử, văn hóa, ẩm thực tại ${loc}`; sendMessage(); }
-
-    function getYouTubeId(url) {
-        const match = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-        return match ? match[1] : null;
+    function askAI(loc) { 
+        setTab('chat'); 
+        document.getElementById('user-input').value = `Review chi tiết lịch sử, văn hóa, ẩm thực tại ${loc}`; 
+        sendMessage(); 
     }
 
+    // --- XỬ LÝ YOUTUBE ---
+    function getYouTubeId(url) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    }
+
+    // --- RENDER TIN NHẮN ---
     function createMessageElement(role, content) {
         const div = document.createElement('div');
         div.className = `msg ${role}`;
-        if(role === 'user') { div.textContent = content; return div; }
+        
+        if(role === 'user') { 
+            div.textContent = content; 
+            return div; 
+        }
 
         let data;
         try {
@@ -169,64 +183,86 @@
             data = { text: content };
         }
 
+        // 1. Render Text (Markdown đơn giản)
         const txt = document.createElement('div');
         txt.innerHTML = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         div.appendChild(txt);
 
+        // 2. Render Gallery Ảnh
         if(data.images && data.images.length > 0) {
-            const gal = document.createElement('div'); gal.className = 'image-gallery';
+            const gal = document.createElement('div'); 
+            gal.className = 'image-gallery';
             data.images.forEach(img => {
-                const item = document.createElement('div'); item.className = 'image-item';
-                item.innerHTML = `<img src="${img.url}" onerror="this.src='https://source.unsplash.com/featured/?vietnam,landmark'" onclick="event.stopPropagation(); showImg('${img.url}','${img.caption}')"><span class="caption">${img.caption}</span>`;
+                const item = document.createElement('div'); 
+                item.className = 'image-item';
+                // Tạo link Unsplash thật nếu AI trả về placeholder
+                const imgUrl = img.url.includes('unsplash.com') ? img.url : `https://source.unsplash.com/featured/?vietnam,landmark,${data.text.substring(0,10)}`;
+                item.innerHTML = `<img src="${imgUrl}" onerror="this.src='https://images.unsplash.com/photo-1528127269322-539801943592?w=500'" onclick="event.stopPropagation(); showImg('${imgUrl}','${img.caption}')"><span class="caption">${img.caption}</span>`;
                 gal.appendChild(item);
             });
             div.appendChild(gal);
         }
 
+        // 3. Render Youtube Videos (Nâng cấp regex)
         if(data.youtube_links && data.youtube_links.length > 0) {
-            const vCon = document.createElement('div'); vCon.className = 'video-container';
+            const vCon = document.createElement('div'); 
+            vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
                 const id = getYouTubeId(link);
-                if(id) vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${id}?rel=0" allowfullscreen></iframe></div>`;
+                if(id) {
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${id}?rel=0" allowfullscreen></iframe></div>`;
+                } else {
+                    // Nếu không có ID, tạo nút tìm kiếm thay thế
+                    vCon.innerHTML += `<a href="${link}" target="_blank" style="font-size:12px; color:#c4302b;"><i class="fab fa-youtube"></i> Xem video trên YouTube</a>`;
+                }
             });
             div.appendChild(vCon);
         }
 
+        // 4. Suggestions (Nút gợi ý)
         if(data.suggestions) {
             data.suggestions.forEach(s => {
-                const btn = document.createElement('div'); btn.className = 'suggest-item';
-                btn.textContent = s; btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
+                const btn = document.createElement('div'); 
+                btn.className = 'suggest-item';
+                btn.textContent = s; 
+                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
                 div.appendChild(btn);
             });
         }
         return div;
     }
 
+    // --- LOGIC CHAT ---
     async function sendMessage() {
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
         if(!msg) return;
+        
         const box = document.getElementById('chat-box');
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
         box.scrollTop = box.scrollHeight;
         
         try {
-            const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg: msg }) });
+            const res = await fetch('/chat', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ msg: msg }) 
+            });
             const data = await res.json();
             box.appendChild(createMessageElement('bot', data));
             box.scrollTop = box.scrollHeight;
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error("Lỗi gửi tin:", e); 
+        }
     }
 
+    // --- QUẢN LÝ TAB & LỊCH SỬ ---
     function setTab(t) {
         document.getElementById('t-chat').classList.toggle('active', t === 'chat');
         document.getElementById('t-hist').classList.toggle('active', t === 'history');
         document.getElementById('pdf-area').classList.toggle('hidden', t !== 'history');
         if(t === 'history') loadHistory();
-        else {
-            // Quay lại hội thoại - có thể giữ nguyên nội dung chat hiện tại
-        }
     }
 
     async function loadHistory() {
@@ -239,12 +275,13 @@
     }
 
     async function clearHistory() {
-        if(confirm("Xóa sạch toàn bộ dữ liệu?")) {
+        if(confirm("Xóa sạch toàn bộ dữ liệu hội thoại?")) {
             await fetch('/clear_history', { method: 'POST' });
             location.reload();
         }
     }
 
+    // --- MODAL ẢNH ---
     function showImg(u, c) {
         const modal = document.getElementById('img-modal');
         document.getElementById('modal-img').src = u;
