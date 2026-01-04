@@ -7,45 +7,46 @@ from flask import Flask, request, jsonify, render_template, make_response, send_
 from flask_cors import CORS
 from groq import Groq
 from fpdf import FPDF
+from PIL import Image
+import requests
+from io import BytesIO
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026")
 CORS(app)
 
-# Lấy API Key từ Environment (Render, Railway, etc.)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 DB_PATH = "chat_history.db"
 
-# SYSTEM PROMPT MỚI - Đảm bảo hình ảnh & video THỰC TẾ, chất lượng cao
+# SYSTEM PROMPT SIÊU CHẶT CHẼ - BẮT BUỘC ảnh & video THỰC TẾ, CHẤT LƯỢNG CAO
 SYSTEM_PROMPT = """
-Bạn là chuyên gia du lịch Việt Nam giàu kinh nghiệm, nhiệt huyết và am hiểu sâu sắc. 
-Trả về JSON hợp lệ với nội dung cực kỳ chi tiết, hấp dẫn (text > 800 từ), hoàn toàn bằng tiếng Việt.
+Bạn là chuyên gia du lịch Việt Nam hàng đầu, trả lời cực kỳ chi tiết và hấp dẫn bằng tiếng Việt.
 
-Cấu trúc JSON bắt buộc:
+Trả về JSON hợp lệ strictly theo cấu trúc sau:
 {
-  "text": "# [Tên địa danh chính]\\n\\n## ⏳ Lịch sử hình thành\\n[chi tiết]\\n\\n## 🎭 Văn hóa đặc trưng\\n[chi tiết]\\n\\n## 🍲 Ẩm thực tiêu biểu\\n[chi tiết]\\n\\n## 📅 Lịch trình gợi ý 3-5 ngày\\n[chi tiết]\\n\\n## 🗺️ Địa điểm nổi bật\\n[chi tiết]\\n...",
+  "text": "# [Tên địa danh]\\n\\n## ⏳ Lịch sử...\\n[chi tiết dài >800 từ]...",
   "images": [
-    {"url": "URL_DIRECT_ẢNH_THỰC_TẾ.jpg", "caption": "Mô tả ngắn gọn, hấp dẫn bằng tiếng Việt"}
+    {"url": "https://direct-link-to-real-high-quality.jpg", "caption": "Mô tả ngắn hấp dẫn"}
   ],
-  "youtube_links": ["https://www.youtube.com/watch?v=VIDEO_ID_THỰC"],
-  "suggestions": ["Gợi ý câu hỏi tiếp theo 1", "Gợi ý 2", "Gợi ý 3", ...]
+  "youtube_links": ["https://www.youtube.com/watch?v=VIDEO_ID_THỰC_TẾ"],
+  "suggestions": ["Gợi ý 1", "Gợi ý 2", ...]
 }
 
 YÊU CẦU BẮT BUỘC:
-- text: Nội dung phong phú, sống động như hướng dẫn viên thực thụ, sử dụng markdown nhẹ (##, \\n\\n cho đoạn mới).
-- images: Chỉ dùng link direct (.jpg hoặc .png) từ nguồn UY TÍN và THỰC TẾ như:
-  + Unsplash: https://images.unsplash.com/...
-  + Pexels: https://images.pexels.com/photos/...
-  + Wikimedia Commons: https://upload.wikimedia.org/...
-  Chọn 4-6 ảnh đẹp nhất, chất lượng cao, liên quan trực tiếp đến địa danh và các phần nội dung.
-  KHÔNG dùng link random hoặc placeholder.
+- images: CHỈ dùng link direct (.jpg hoặc .png) từ nguồn UY TÍN, CHẤT LƯỢNG CAO, THỰC TẾ:
+  + https://images.unsplash.com/... (Unsplash)
+  + https://images.pexels.com/photos/...
+  + https://upload.wikimedia.org/wikipedia/commons/...
+  Tuyệt đối KHÔNG dùng link random, placeholder, hoặc link có thể die.
+  Chọn 5-7 ảnh đẹp nhất, đa dạng góc chụp, liên quan trực tiếp đến địa danh và nội dung.
 
-- youtube_links: Chỉ dùng link YouTube THỰC TẾ, chất lượng cao (1080p+), gần đây (2023-2026 nếu có), nội dung travel vlog/review chân thực.
-  Ưu tiên video có phụ đề hoặc tiếng Việt/Anh rõ ràng. Chọn 3-5 video hay nhất.
+- youtube_links: CHỈ dùng video YouTube THỰC TẾ, chất lượng cao (1080p+), cập nhật gần đây (2023-2026), nội dung travel vlog/review chân thực về đúng địa danh.
+  Ưu tiên video có hình ảnh đẹp, tiếng Việt hoặc tiếng Anh rõ ràng.
+  Chọn 4-6 video hay nhất.
 
-- suggestions: 4-6 gợi ý câu hỏi tiếp theo thông minh, khuyến khích người dùng khám phá sâu hơn.
+- suggestions: 5-7 gợi ý câu hỏi tiếp theo thông minh.
 
-Luôn trả về JSON hợp lệ, không thêm bất kỳ text nào ngoài JSON.
+Chỉ trả về JSON thuần, không thêm bất kỳ text nào khác.
 """
 
 def init_db():
@@ -59,7 +60,6 @@ def init_db():
                 created_at TEXT
             )
         """)
-
 init_db()
 
 @app.route("/")
@@ -73,46 +73,29 @@ def index():
 def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
-    
     if not msg:
         return jsonify({"text": "Vui lòng nhập câu hỏi!", "images": [], "youtube_links": [], "suggestions": []})
-    
     if not GROQ_API_KEY:
-        return jsonify({"text": "Lỗi hệ thống: Thiếu GROQ_API_KEY", "images": [], "youtube_links": [], "suggestions": []})
+        return jsonify({"text": "Lỗi: Thiếu GROQ_API_KEY", "images": [], "youtube_links": [], "suggestions": []})
 
     client = Groq(api_key=GROQ_API_KEY)
-
     try:
         chat_completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": msg}
-            ],
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": msg}],
             temperature=0.7,
             max_tokens=4096,
             response_format={"type": "json_object"}
         )
         ai_data = json.loads(chat_completion.choices[0].message.content)
     except Exception as e:
-        ai_data = {
-            "text": f"Xin lỗi, có lỗi xảy ra khi xử lý: {str(e)}",
-            "images": [],
-            "youtube_links": [],
-            "suggestions": []
-        }
+        ai_data = {"text": f"Lỗi xử lý: {str(e)}", "images": [], "youtube_links": [], "suggestions": []}
 
-    # Lưu lịch sử chat
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            "INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-            (sid, "user", msg, datetime.now().strftime("%H:%M"))
-        )
-        conn.execute(
-            "INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-            (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M"))
-        )
-
+        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                     (sid, "user", msg, datetime.now().strftime("%H:%M")))
+        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                     (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
     return jsonify(ai_data)
 
 @app.route("/history")
@@ -121,9 +104,7 @@ def get_history():
     res = []
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            "SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)
-        ).fetchall()
+        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
         for r in rows:
             content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
             res.append({"role": r['role'], "content": content})
@@ -132,49 +113,81 @@ def get_history():
 @app.route("/export_pdf")
 def export_pdf():
     sid = request.cookies.get("session_id")
-    
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Thêm font hỗ trợ tiếng Việt (DejaVuSans.ttf phải nằm trong /static)
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    # Font tiếng Việt
     font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
     if os.path.exists(font_path):
         pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.set_font("DejaVu", size=12)
+        pdf.set_font("DejaVu", size=14)
     else:
-        # Fallback nếu không tìm thấy font (dùng Arial nhưng có thể mất dấu)
-        pdf.set_font("Arial", size=12)
+        pdf.set_font("Arial", size=14)
 
+    pdf.set_text_color(0, 51, 102)
+    pdf.cell(0, 15, "VIETNAM TRAVEL AI GUIDE 2026", ln=True, align='C')
+    pdf.set_font("DejaVu", size=12) if os.path.exists(font_path) else pdf.set_font("Arial", size=12)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 10, "LỊCH TRÌNH DU LỊCH VIỆT NAM - AI GUIDE 2026", ln=True, align='C')
     pdf.ln(10)
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            "SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)
-        ).fetchall()
-        
+        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
+
         for r in rows:
-            if r['role'] == 'bot':
+            if r['role'] == 'user':
+                pdf.set_font("DejaVu", 'B', 12) if os.path.exists(font_path) else pdf.set_font("Arial", 'B', 12)
+                pdf.multi_cell(0, 8, f"Bạn: {r['content']}")
+                pdf.ln(5)
+            else:
                 try:
                     data = json.loads(r['content'])
-                    text = data.get('text', '').strip()
+                    text = data.get('text', '')
+                    images = data.get('images', [])
+                    youtube_links = data.get('youtube_links', [])
                 except:
                     text = r['content']
-            else:
-                text = f"Bạn: {r['content']}"
-            
-            if text:
-                # Xử lý text để in được nhiều dòng
-                pdf.multi_cell(0, 8, txt=text)
-                pdf.ln(5)
+                    images = []
+                    youtube_links = []
 
-    pdf_file = "Lich_Trinh_Du_Lich_Viet_Nam.pdf"
+                if text:
+                    pdf.set_font("DejaVu", size=11) if os.path.exists(font_path) else pdf.set_font("Arial", size=11)
+                    pdf.multi_cell(0, 7, text)
+                    pdf.ln(8)
+
+                # Thêm ảnh vào PDF (nếu có)
+                for img in images[:6]:  # Giới hạn 6 ảnh để PDF không quá nặng
+                    url = img['url']
+                    caption = img.get('caption', 'Hình ảnh du lịch')
+                    try:
+                        response = requests.get(url, timeout=10)
+                        if response.status_code == 200:
+                            img_data = BytesIO(response.content)
+                            img = Image.open(img_data)
+                            img_width, img_height = img.size
+                            max_width = 180
+                            ratio = max_width / img_width
+                            new_height = img_height * ratio
+                            pdf.image(url, w=max_width, h=new_height)
+                            pdf.set_font("DejaVu", size=10) if os.path.exists(font_path) else pdf.set_font("Arial", size=10)
+                            pdf.multi_cell(0, 6, caption)
+                            pdf.ln(8)
+                    except:
+                        continue  # Bỏ qua nếu ảnh lỗi
+
+                # Thêm link YouTube
+                if youtube_links:
+                    pdf.set_font("DejaVu", 'B', 11) if os.path.exists(font_path) else pdf.set_font("Arial", 'B', 11)
+                    pdf.cell(0, 8, "Video tham khảo thực tế:", ln=True)
+                    pdf.set_font("DejaVu", size=10) if os.path.exists(font_path) else pdf.set_font("Arial", size=10)
+                    for link in youtube_links[:6]:
+                        pdf.cell(0, 7, link, ln=True, link=link)
+                    pdf.ln(10)
+
+    pdf_file = "Lich_Trinh_Du_Lich_Viet_Nam_2026.pdf"
     pdf.output(pdf_file)
-
-    return send_file(pdf_file, as_attachment=True, download_name="Lich_Trinh_Du_Lich_Viet_Nam_2026.pdf")
+    return send_file(pdf_file, as_attachment=True, download_name="Lich_Trinh_Viet_Nam_2026.pdf")
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
