@@ -19,16 +19,19 @@ CORS(app)
 # --- CẤU HÌNH API KEYS VÀ HỖ TRỢ MULTI-KEY ---
 API_KEYS = []
 for key, value in os.environ.items():
+    # Tìm tất cả các biến chứa API_KEY (GOOGLE_API_KEY, API_KEY_1, v.v.)
     if "API_KEY" in key.upper() and value:
         API_KEYS.extend([k.strip() for k in value.split(',') if k.strip()])
-API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')]))
-print(f"[DEBUG-KEY] Total VALID Keys Found in Environment: {len(API_KEYS)}")
 
-# Lưu ý: Gemini 2.5 chưa ra mắt bản ổn định, nên dùng gemini-2.0-flash để JSON chuẩn nhất
-model_name = "gemini-2.0-flash" 
+# Lọc các key hợp lệ bắt đầu bằng AIza
+API_KEYS = list(set([key for key in API_KEYS if key.startswith('AIza')]))
+print(f"[SYSTEM] Đã tìm thấy {len(API_KEYS)} API Keys hợp lệ.")
+
+# Chuyển sang gemini-1.5-flash để có Quota ổn định hơn cho tài khoản Free
+model_name = "gemini-1.5-flash" 
 DB_PATH = "chat_history.db"
 
-# === SYSTEM INSTRUCTION CẢI TIẾN: GEMINI TỰ TÌM MEDIA KHÔNG CẦN SEARCH API ===
+# === SYSTEM INSTRUCTION ===
 system_instruction = """
 Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
 Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn.
@@ -41,17 +44,12 @@ BẮT BUỘC TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa)
   "suggestions": ["Gợi ý câu hỏi 1", "Gợi ý câu hỏi 2"]
 }
 
-YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TỰ SUY LUẬN):
-1. IMAGES: Bạn hãy tự tạo link ảnh chất lượng từ Unsplash theo cú pháp:
-   https://images.unsplash.com/featured/?{tên_địa_danh_tiếng_anh},vietnam,travel
-   (Ví dụ: Nếu là Phú Quốc, dùng: https://images.unsplash.com/featured/?phu-quoc,beach)
-2. YOUTUBE: Dựa vào kiến thức của bạn, hãy cung cấp link video YouTube thực tế (link FULL). 
-   Ví dụ: link review của 'Khoai Lang Thang', 'VTV24', 'Mùa đi nếm' về địa danh đó.
-3. Luôn đảm bảo ít nhất 2 ảnh và 1 video YouTube trong JSON.
+YÊU CẦU MEDIA:
+1. IMAGES: Sử dụng: https://images.unsplash.com/featured/?{tên_địa_danh_tiếng_anh},vietnam,travel
+2. YOUTUBE: Cung cấp link video thực tế từ Khoai Lang Thang, VTV24 hoặc Mùa đi nếm.
 """
 
 def init_db():
-    """Khởi tạo cơ sở dữ liệu SQLite."""
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS messages (
@@ -65,7 +63,6 @@ def init_db():
 init_db()
 
 def get_youtube_id(url):
-    """Trích xuất ID YouTube hợp lệ."""
     if not url: return None
     patterns = [
         r"(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([^&]+)",
@@ -76,29 +73,36 @@ def get_youtube_id(url):
         match = re.search(pattern, url)
         if match:
             video_id = match.group(1).split('&')[0]
-            if len(video_id) == 11: return video_id
+            return video_id
     return None
 
 def get_ai_response(session_id, user_msg):
     if not API_KEYS:
-        return {"text": "Lỗi cấu hình: Chưa tìm thấy Khóa API.", "images": [], "youtube_links": []}
+        return {"text": "Lỗi: Không tìm thấy API Key nào trong cấu hình.", "images": [], "youtube_links": []}
 
+    # Lấy lịch sử hội thoại
     history_contents = []
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 10", (session_id,)).fetchall()
-        rows.reverse()
-        for r in rows:
-            role = "user" if r['role'] == 'user' else "model"
-            content_text = r['content']
-            if role == "model":
-                try: content_text = json.loads(content_text).get('text', content_text)
-                except: pass
-            history_contents.append(types.Content(role=role, parts=[types.Part(text=content_text)]))
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 10", (session_id,)).fetchall()
+            rows.reverse()
+            for r in rows:
+                role = "user" if r['role'] == 'user' else "model"
+                content_text = r['content']
+                if role == "model":
+                    try: content_text = json.loads(content_text).get('text', content_text)
+                    except: pass
+                history_contents.append(types.Content(role=role, parts=[types.Part(text=content_text)]))
+    except: pass
 
     contents = history_contents + [types.Content(role="user", parts=[types.Part(text=user_msg)])]
 
-    for key in API_KEYS:
+    # Xáo trộn Key để phân bổ request
+    shuffled_keys = API_KEYS.copy()
+    random.shuffle(shuffled_keys)
+
+    for key in shuffled_keys:
         try:
             client = genai.Client(api_key=key)
             response = client.models.generate_content(
@@ -110,18 +114,27 @@ def get_ai_response(session_id, user_msg):
                     temperature=0.7
                 )
             )
-            ai_data = json.loads(response.text)
             
-            # Hậu kiểm link YouTube
-            if 'youtube_links' in ai_data:
-                ai_data['youtube_links'] = [l for l in ai_data['youtube_links'] if get_youtube_id(l)]
-            
-            return ai_data
+            if response and response.text:
+                ai_data = json.loads(response.text)
+                if 'youtube_links' in ai_data:
+                    ai_data['youtube_links'] = [l for l in ai_data['youtube_links'] if get_youtube_id(l)]
+                return ai_data
+                
         except Exception as e:
-            print(f"Lỗi API Key: {e}")
+            error_msg = str(e)
+            print(f"[DEBUG] Key lỗi: {key[:10]}... - Lỗi: {error_msg}")
+            # Nếu hết hạn mức (429), nhảy sang key tiếp theo
+            if "429" in error_msg or "quota" in error_msg.lower():
+                continue
             continue
 
-    return {"text": "Lỗi kết nối AI.", "images": [], "youtube_links": []}
+    return {
+        "text": "⚠️ Hiện tại tất cả các cổng kết nối AI đều bận hoặc hết hạn mức. Vui lòng thử lại sau ít phút.",
+        "images": [],
+        "youtube_links": [],
+        "suggestions": ["Thử lại sau"]
+    }
 
 @app.route("/")
 def index():
@@ -148,10 +161,10 @@ def chat():
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
+    res = []
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-    res = []
     for r in rows:
         try: content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
         except: content = r['content']
@@ -167,6 +180,7 @@ def export_pdf():
             rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id", (sid,)).fetchall()
         pdf = FPDF()
         pdf.add_page()
+        
         font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
         if os.path.exists(font_path):
             pdf.add_font('DejaVu', '', font_path)
@@ -180,6 +194,7 @@ def export_pdf():
                 data = json.loads(content)
                 text = data.get('text', '')
             except: text = content
+            # Xóa markdown bold
             text = re.sub(r'(\*\*|__)', '', text)
             pdf.multi_cell(0, 8, txt=f"[{time_str}] {prefix}{text}")
             pdf.ln(2)
@@ -200,4 +215,5 @@ def clear_history():
     return resp
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
