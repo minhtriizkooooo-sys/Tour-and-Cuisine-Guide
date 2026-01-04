@@ -1,99 +1,327 @@
-function createMessageElement(role, content) {
-    const div = document.createElement('div');
-    div.className = `msg ${role}`;
-    if(role === 'user') { 
-        div.textContent = content; 
-        return div; 
-    }
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VIETNAM TRAVEL AI GUIDE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f4f7f9; --accent: #f39c12; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 0 15px; height: 75px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .logo { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 22px; }
+        .logo img { height: 65px; width: auto; background: transparent !important; }
+        main { flex: 1; display: flex; position: relative; overflow: hidden; }
+        #map-side { flex: 1; position: relative; z-index: 1; }
+        #map { height: 100%; width: 100%; }
 
-    let data = (typeof content === 'string') ? JSON.parse(content) : content;
+        /* MAP TOOLS */
+        .map-tools { position: absolute; top: 15px; left: 15px; z-index: 1001; width: 280px; display: flex; flex-direction: column; gap: 10px; }
+        .tool-box { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.05); }
+        .tool-box b { color: var(--primary); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; text-transform: uppercase; }
+        .tool-box input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
+        .btn-map { border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; color: white; margin-top: 5px; }
 
-    const contentDiv = document.createElement('div');
+        /* CHAT SIDEBAR */
+        #chat-side { width: 420px; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; z-index: 1002; }
+        .tab-bar { display: flex; background: #f8f9fa; border-bottom: 1px solid #eee; }
+        .tab { flex: 1; padding: 15px 5px; text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; color: #666; }
+        .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); background: white; }
 
-    // Xử lý text + chèn ảnh inline
-    let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    const parts = htmlText.split(/(\[HÌNH \d+\])/g);
+        .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; background: #fff; }
+        .msg { padding: 12px 16px; border-radius: 18px; max-width: 88%; font-size: 15px; line-height: 1.6; }
+        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
 
-    parts.forEach(part => {
-        if (part.match(/\[HÌNH \d+\]/)) {
-            const idx = parseInt(part.match(/\d+/)[0]) - 1;
-            if (data.images && data.images[idx]) {
-                const wrapper = document.createElement('div');
-                wrapper.style.margin = '18px 0';
-                wrapper.style.textAlign = 'center';
+        .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
+        #user-input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; }
+        .send-btn { background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; }
 
-                const img = document.createElement('img');
-                img.src = data.images[idx].url;
-                img.style.maxWidth = '100%';
-                img.style.height = 'auto';
-                img.style.borderRadius = '14px';
-                img.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
-                img.style.cursor = 'pointer';
-                img.onclick = () => showImg(data.images[idx].url, data.images[idx].caption || '');
-
-                wrapper.appendChild(img);
-
-                if (data.images[idx].caption) {
-                    const cap = document.createElement('div');
-                    cap.textContent = data.images[idx].caption;
-                    cap.style.fontSize = '13px';
-                    cap.style.color = '#555';
-                    cap.style.marginTop = '8px';
-                    cap.style.fontStyle = 'italic';
-                    wrapper.appendChild(cap);
-                }
-
-                contentDiv.appendChild(wrapper);
-            }
-        } else if (part.trim()) {
-            const textP = document.createElement('div');
-            textP.innerHTML = part;
-            textP.style.marginBottom = '12px';
-            textP.style.lineHeight = '1.6';
-            contentDiv.appendChild(textP);
+        /* FOOTER */
+        footer {
+            background: #006699;
+            padding: 12px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 2005;
+            border-top: 2px solid var(--accent);
         }
-    });
+        .footer-label {
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+        .tri-style {
+            color: #ffdd59 !important;
+            font-weight: 900;
+            font-size: 16px;
+            text-shadow: 1px 1px 0px #000;
+            text-decoration: none;
+            margin-left: 8px;
+            transition: 0.3s;
+        }
+        .tri-style:hover {
+            color: #ffffff !important;
+            text-shadow: 1px 1px 0px #000, 0px 0px 8px rgba(255, 255, 255, 0.8);
+        }
 
-    div.appendChild(contentDiv);
+        .pdf-btn-container { padding: 12px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; justify-content: center; }
+        .btn-pdf { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+        #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #modal-img { max-width: 90%; max-height: 75vh; border-radius: 8px; object-fit: contain; }
+        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 14px; }
+        .hidden { display: none !important; }
+        .suggest-item { background: #eef7ff; color: var(--primary); padding: 10px 12px; border-radius: 12px; margin-top: 8px; cursor: pointer; border: 1px solid #d0e7ff; font-size: 14px; }
 
-    // Video phần riêng
-    if(data.youtube_links && data.youtube_links.length > 0) {
-        const vTitle = document.createElement('div');
-        vTitle.innerHTML = '<b style="font-size:16px;">🎥 Video khám phá thực tế (2023-2026):</b>';
-        vTitle.style.margin = '25px 0 15px 0';
-        div.appendChild(vTitle);
+        @media (max-width: 768px) {
+            main { flex-direction: column; }
+            #map-side { height: 40%; }
+            #chat-side { width: 100%; height: 60%; }
+            footer { flex-direction: column; gap: 8px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="logo">
+        <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
+        <span>VIET NAM TRAVEL AI GUIDE 2026</span>
+    </div>
+    <i class="fa fa-sync-alt" onclick="location.reload()" style="cursor:pointer; font-size: 20px; color: white;"></i>
+</header>
+<main>
+    <div id="map-side">
+        <div class="map-tools">
+            <div class="tool-box">
+                <b onclick="toggleMinimize('s-content', 's-icon')">TÌM ĐỊA DANH <i id="s-icon" class="fa fa-minus-square"></i></b>
+                <div id="s-content">
+                    <input type="text" id="s-input" placeholder="Nhập địa danh...">
+                    <button class="btn-map" style="background: var(--primary);" onclick="findLoc()">Cắm mốc</button>
+                    <button class="btn-map" style="background: #e74c3c; margin-top:5px;" onclick="clearMap()">Xóa Marker</button>
+                </div>
+            </div>
+        </div>
+        <div id="map"></div>
+    </div>
+    <div id="chat-side">
+        <div class="tab-bar">
+            <div class="tab active" id="t-chat" onclick="setTab('chat')">HỘI THOẠI</div>
+            <div class="tab" id="t-hist" onclick="setTab('history')">LỊCH SỬ</div>
+            <div class="tab" onclick="clearHistory()" style="color:#e74c3c;">XÓA HẾT</div>
+        </div>
+        <div id="chat-box" class="chat-box">
+            <div class="msg bot">Chào bạn! Tôi là AI hướng dẫn du lịch Việt Nam. Hãy hỏi tôi về bất kỳ địa danh nào nhé! 🇻🇳</div>
+        </div>
+        <div id="pdf-area" class="pdf-btn-container hidden">
+            <button class="btn-pdf" onclick="window.location.href='/export_pdf'">
+                <i class="fa fa-file-pdf"></i> Xuất Lịch Trình PDF
+            </button>
+        </div>
+        <div class="input-area">
+            <input type="text" id="user-input" placeholder="Hỏi AI du lịch..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
+        </div>
+    </div>
+</main>
+<footer>
+    <div><span class="footer-label">Developer:</span><span class="tri-style">Lại Nguyễn Minh Trí</span></div>
+    <div><span class="footer-label">Hotline:</span><a href="tel:0908083566" class="tri-style">84.908.08.35.66</a></div>
+</footer>
 
-        const vCon = document.createElement('div');
-        vCon.className = 'video-container';
-        data.youtube_links.forEach(link => {
-            const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-            if(match) {
-                vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
-            } else {
-                vCon.innerHTML += `<a href="${link}" target="_blank" style="display:block;margin:12px 0;color:#c4302b;font-size:14px;"><i class="fab fa-youtube"></i> ${link}</a>`;
+<div id="img-modal" class="hidden" onclick="closeImg()">
+    <img id="modal-img" src="">
+    <span id="modal-caption"></span>
+    <button style="margin-top:20px; padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:5px; font-weight:bold;">ĐÓNG</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.762, 106.660], 13);
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
+    let markers = [];
+
+    function toggleMinimize(cId, iId) {
+        const c = document.getElementById(cId);
+        c.classList.toggle('hidden');
+        document.getElementById(iId).className = c.classList.contains('hidden') ? 'fa fa-plus-square' : 'fa fa-minus-square';
+    }
+
+    function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
+
+    async function findLoc() {
+        const q = document.getElementById('s-input').value.trim();
+        if(!q) return;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}, Vietnam`);
+        const data = await res.json();
+        if(data[0]) {
+            const pos = [data[0].lat, data[0].lon];
+            map.setView(pos, 14);
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="cursor:pointer; margin-top:5px; padding:5px; border-radius:4px; border:none; background:#0066cc; color:white;">Hỏi AI Review</button>`).openPopup();
+            markers.push(m);
+        }
+    }
+
+    function askAI(loc) {
+        setTab('chat');
+        document.getElementById('user-input').value = `Review chi tiết lịch sử, văn hóa, ẩm thực tại ${loc}`;
+        sendMessage();
+    }
+
+    function createMessageElement(role, content) {
+        const div = document.createElement('div');
+        div.className = `msg ${role}`;
+        if(role === 'user') { 
+            div.textContent = content; 
+            return div; 
+        }
+
+        let data = (typeof content === 'string') ? JSON.parse(content) : content;
+
+        const contentDiv = document.createElement('div');
+
+        // Xử lý text + chèn ảnh inline theo placeholder [HÌNH X]
+        let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        const parts = htmlText.split(/(\[HÌNH \d+\])/g);
+
+        parts.forEach(part => {
+            if (part.match(/\[HÌNH \d+\]/)) {
+                const idx = parseInt(part.match(/\d+/)[0]) - 1;
+                if (data.images && data.images[idx]) {
+                    const wrapper = document.createElement('div');
+                    wrapper.style.margin = '18px 0';
+                    wrapper.style.textAlign = 'center';
+
+                    const img = document.createElement('img');
+                    img.src = data.images[idx].url;
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                    img.style.borderRadius = '14px';
+                    img.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
+                    img.style.cursor = 'pointer';
+                    img.onclick = () => showImg(data.images[idx].url, data.images[idx].caption || '');
+
+                    wrapper.appendChild(img);
+
+                    if (data.images[idx].caption) {
+                        const cap = document.createElement('div');
+                        cap.textContent = data.images[idx].caption;
+                        cap.style.fontSize = '13px';
+                        cap.style.color = '#555';
+                        cap.style.marginTop = '8px';
+                        cap.style.fontStyle = 'italic';
+                        wrapper.appendChild(cap);
+                    }
+
+                    contentDiv.appendChild(wrapper);
+                }
+            } else if (part.trim()) {
+                const textP = document.createElement('div');
+                textP.innerHTML = part;
+                textP.style.marginBottom = '12px';
+                textP.style.lineHeight = '1.6';
+                contentDiv.appendChild(textP);
             }
         });
-        div.appendChild(vCon);
+
+        div.appendChild(contentDiv);
+
+        // Video phần riêng
+        if(data.youtube_links && data.youtube_links.length > 0) {
+            const vTitle = document.createElement('div');
+            vTitle.innerHTML = '<b style="font-size:16px;">🎥 Video khám phá thực tế (2023-2026):</b>';
+            vTitle.style.margin = '25px 0 15px 0';
+            div.appendChild(vTitle);
+
+            const vCon = document.createElement('div');
+            vCon.className = 'video-container';
+            data.youtube_links.forEach(link => {
+                const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+                if(match) {
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                } else {
+                    vCon.innerHTML += `<a href="${link}" target="_blank" style="display:block;margin:12px 0;color:#c4302b;font-size:14px;"><i class="fab fa-youtube"></i> ${link}</a>`;
+                }
+            });
+            div.appendChild(vCon);
+        }
+
+        // Suggestions
+        if(data.suggestions && data.suggestions.length > 0) {
+            const sTitle = document.createElement('div');
+            sTitle.innerHTML = '<b style="font-size:16px;">💡 Gợi ý tiếp theo:</b>';
+            sTitle.style.margin = '25px 0 15px 0';
+            div.appendChild(sTitle);
+
+            data.suggestions.forEach(s => {
+                const btn = document.createElement('div');
+                btn.className = 'suggest-item';
+                btn.textContent = s;
+                btn.onclick = () => { 
+                    document.getElementById('user-input').value = s; 
+                    sendMessage(); 
+                };
+                div.appendChild(btn);
+            });
+        }
+
+        return div;
     }
 
-    // Suggestions
-    if(data.suggestions && data.suggestions.length > 0) {
-        const sTitle = document.createElement('div');
-        sTitle.innerHTML = '<b style="font-size:16px;">💡 Gợi ý tiếp theo:</b>';
-        sTitle.style.margin = '25px 0 15px 0';
-        div.appendChild(sTitle);
+    async function sendMessage() {
+        const inp = document.getElementById('user-input');
+        const msg = inp.value.trim();
+        if(!msg) return;
+        const box = document.getElementById('chat-box');
+        box.appendChild(createMessageElement('user', msg));
+        inp.value = '';
+        box.scrollTop = box.scrollHeight;
 
-        data.suggestions.forEach(s => {
-            const btn = document.createElement('div');
-            btn.className = 'suggest-item';
-            btn.textContent = s;
-            btn.onclick = () => { 
-                document.getElementById('user-input').value = s; 
-                sendMessage(); 
-            };
-            div.appendChild(btn);
+        const res = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ msg: msg })
         });
+        const data = await res.json();
+        box.appendChild(createMessageElement('bot', data));
+        box.scrollTop = box.scrollHeight;
     }
 
-    return div;
-}
+    function setTab(t) {
+        document.getElementById('t-chat').classList.toggle('active', t === 'chat');
+        document.getElementById('t-hist').classList.toggle('active', t === 'history');
+        document.getElementById('pdf-area').classList.toggle('hidden', t !== 'history');
+        if(t === 'history') loadHistory();
+    }
+
+    async function loadHistory() {
+        const res = await fetch('/history');
+        const data = await res.json();
+        const box = document.getElementById('chat-box');
+        box.innerHTML = '';
+        data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function clearHistory() {
+        if(confirm("Xóa sạch toàn bộ lịch sử trò chuyện?")) {
+            await fetch('/clear_history', { method: 'POST' });
+            location.reload();
+        }
+    }
+
+    function showImg(u, c) {
+        document.getElementById('modal-img').src = u;
+        document.getElementById('modal-caption').textContent = c || '';
+        document.getElementById('img-modal').classList.remove('hidden');
+    }
+
+    function closeImg() {
+        document.getElementById('img-modal').classList.add('hidden');
+    }
+</script>
+</body>
+</html>
