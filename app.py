@@ -16,19 +16,19 @@ app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026")
 CORS(app)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-SERPER_API_KEY = os.environ.get("SERPER_API_KEY")  # Key Serper.dev bạn đã set trên Render
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
-# Prompt chỉ lấy text chi tiết từ Groq, ảnh + video lấy realtime từ Serper
+# Prompt yêu cầu text sạch, không có ### thừa cho video/gợi ý
 SYSTEM_PROMPT = """
-Bạn là chuyên gia du lịch Việt Nam. Trả về JSON chỉ chứa text chi tiết (>1200 từ), hấp dẫn, cấu trúc rõ ràng.
+Bạn là chuyên gia du lịch Việt Nam. Trả về JSON chỉ chứa text chi tiết (>1200 từ), hấp dẫn, cấu trúc rõ ràng với markdown.
 
-Cấu trúc JSON bắt buộc:
+Cấu trúc JSON:
 {
-  "text": "# [Tên địa danh]\\n\\n[Mô tả mở đầu sống động]\\n\\n## ⏳ Lịch sử hình thành\\n[chi tiết]\\n\\n## 🎭 Văn hóa đặc trưng\\n[chi tiết]\\n\\n## 🍲 Ẩm thực tiêu biểu\\n[chi tiết]\\n\\n## 📅 Lịch trình gợi ý\\n[chi tiết]\\n\\n### 🎥 Video khám phá thực tế\\n[Mô tả ngắn]\\n\\n### 💡 Gợi ý tiếp theo:\\n- Gợi ý 1\\n- Gợi ý 2..."
+  "text": "# [Tên địa danh]\\n\\n[Mô tả mở đầu sống động]\\n\\n## ⏳ Lịch sử hình thành\\n[chi tiết]\\n\\n## 🎭 Văn hóa đặc trưng\\n[chi tiết]\\n\\n## 🍲 Ẩm thực tiêu biểu\\n[chi tiết]\\n\\n## 📅 Lịch trình gợi ý\\n[chi tiết lịch trình]\\n\\nGợi ý tiếp theo (viết dạng danh sách - không dùng tiêu đề ###):\\n- Gợi ý 1\\n- Gợi ý 2..."
 }
 
-Chỉ trả về JSON thuần, không thêm text nào khác!
+Nội dung tự nhiên, mượt mà, KHÔNG dùng bất kỳ tiêu đề ### nào cho phần video hoặc gợi ý. Chỉ trả về JSON thuần!
 """
 
 def init_db():
@@ -42,62 +42,53 @@ def init_db():
                 created_at TEXT
             )
         """)
-
 init_db()
 
-# Hàm search ảnh realtime bằng Serper.dev
-def search_serper_images(query, num=12):
+# Ưu tiên ảnh chất lượng cao
+def search_serper_images(query, num=5):
     if not SERPER_API_KEY:
         return []
     url = "https://google.serper.dev/images"
     payload = json.dumps({
-        "q": f"{query} Vietnam travel high quality",
+        "q": f"{query} du lịch Việt Nam chất lượng cao đẹp",
         "num": num,
         "gl": "vn"
     })
-    headers = {
-        'X-API-KEY': SERPER_API_KEY,
-        'Content-Type': 'application/json'
-    }
+    headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
     try:
         response = requests.post(url, headers=headers, data=payload, timeout=12)
         if response.status_code == 200:
-            results = response.json().get('images', [])
-            images = []
-            for item in results[:num]:
-                img_url = item.get('imageUrl') or item.get('link', '')
-                if img_url:
-                    caption = item.get('title', f"Hình ảnh đẹp về {query}")
-                    images.append({"url": img_url, "caption": caption})
-            return images
+            results = response.json().get('images', [])[:num]
+            return [{"url": item.get('imageUrl') or item.get('link', ''), "caption": item.get('title', f"Ảnh đẹp về {query}")} for item in results if item.get('imageUrl') or item.get('link')]
     except Exception as e:
         print(f"Serper images error: {e}")
     return []
 
-# Hàm search video YouTube realtime
-def search_serper_videos(query, num=6):
+# ƯU TIÊN VIDEO TIẾNG VIỆT - tìm kiếm nghiêm ngặt
+def search_serper_videos(query, num=5):
     if not SERPER_API_KEY:
         return []
     url = "https://google.serper.dev/videos"
     payload = json.dumps({
-        "q": f"{query} Vietnam travel vlog 2023 OR 2024 OR 2025 OR 2026",
-        "num": num,
+        "q": f"{query} du lịch Việt Nam tiếng Việt vlog OR review OR hướng dẫn OR khám phá 2023 OR 2024 OR 2025 OR 2026 site:youtube.com",
+        "num": num * 2,  # Lấy gấp đôi để lọc tốt hơn
         "gl": "vn"
     })
-    headers = {
-        'X-API-KEY': SERPER_API_KEY,
-        'Content-Type': 'application/json'
-    }
+    headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
     try:
         response = requests.post(url, headers=headers, data=payload, timeout=12)
         if response.status_code == 200:
             results = response.json().get('videos', [])
             videos = []
-            for item in results[:num]:
+            for item in results:
                 link = item.get('link', '')
-                if 'youtube.com' in link or 'youtu.be' in link:
+                title = item.get('title', '').lower()
+                # Ưu tiên video tiếng Việt (có từ khóa tiếng Việt phổ biến)
+                if ('youtube.com' in link or 'youtu.be' in link) and any(keyword in title for keyword in ["du lịch", "đà lạt", "hội an", "phú quốc", "việt nam", "vlog", "review", "khám phá", "hướng dẫn"]):
                     videos.append(link)
-            return videos
+                if len(videos) >= num:
+                    break
+            return videos[:num]
     except Exception as e:
         print(f"Serper videos error: {e}")
     return []
@@ -125,29 +116,34 @@ def chat():
             max_tokens=4096,
             response_format={"type": "json_object"}
         )
-        ai_text = json.loads(completion.choices[0].message.content).get("text", "Xin lỗi, có lỗi xảy ra.")
+        ai_text = json.loads(completion.choices[0].message.content).get("text", "Xin lỗi, có lỗi.")
     except Exception as e:
-        ai_text = f"Lỗi Groq API: {str(e)}"
+        ai_text = f"Lỗi Groq: {str(e)}"
 
-    # Trích xuất địa danh để search realtime
-    location = msg.lower()
-    for word in ["tại", "ở", "về", "du lịch", "review", "chi tiết"]:
-        location = location.replace(word, "")
-    location = location.strip() or "Việt Nam"
+    # Trích xuất địa danh chính xác hơn
+    words = msg.lower().split()
+    location_words = [w for w in words if w not in ["tại", "ở", "về", "du lịch", "review", "chi tiết", "cho", "tôi", "hỏi", "về"]]
+    location = " ".join(location_words).strip() or "Việt Nam"
 
-    # Lấy ảnh + video realtime từ Serper
-    images = search_serper_images(location)
-    youtube_links = search_serper_videos(location)
+    # Lấy 5 ảnh + 5 video (ưu tiên tiếng Việt)
+    images = search_serper_images(location, 5)
+    youtube_links = search_serper_videos(location, 5)
 
-    # Extract suggestions từ text
+    # Extract gợi ý từ text (AI viết dạng danh sách -)
     suggestions = []
-    if "Gợi ý tiếp theo" in ai_text:
-        part = ai_text.split("Gợi ý tiếp theo:")[-1]
-        for line in part.split("\n"):
-            if line.strip().startswith("-"):
-                suggestions.append(line.strip()[1:].strip())
+    lines = ai_text.split("\n")
+    collecting = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("Gợi ý tiếp theo") or "gợi ý" in stripped.lower():
+            collecting = True
+            continue
+        if collecting and stripped.startswith("-"):
+            suggestions.append(stripped[1:].strip())
+        elif collecting and stripped and not stripped.startswith("-"):
+            break
     if len(suggestions) < 3:
-        suggestions = ["Lịch trình chi tiết 4 ngày?", "Khách sạn đẹp giá tốt?", "Món ăn phải thử?", "Địa điểm check-in mới?"]
+        suggestions = ["Lịch trình chi tiết 4 ngày tự túc?", "Top quán ăn ngon nhất?", "Khách sạn view đẹp giá tốt?", "Địa điểm check-in mới nhất?", "Mùa nào đẹp nhất để đi?"]
 
     ai_data = {
         "text": ai_text,
@@ -156,7 +152,6 @@ def chat():
         "suggestions": suggestions
     }
 
-    # Lưu lịch sử
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                      (sid, "user", msg, datetime.now().strftime("%H:%M")))
@@ -222,32 +217,30 @@ def export_pdf():
                     pdf.multi_cell(0, 7, text)
                     pdf.ln(8)
 
-                for img in images[:6]:
+                # 5 ảnh trong PDF
+                for img in images[:5]:
                     url = img['url']
                     caption = img.get('caption', 'Hình ảnh du lịch')
                     try:
                         response = requests.get(url, timeout=15)
                         if response.status_code == 200:
                             img_data = BytesIO(response.content)
-                            img_pil = Image.open(img_data)
-                            w, h = img_pil.size
-                            max_w = 170
-                            ratio = max_w / w
-                            new_h = h * ratio
-                            pdf.image(url, w=max_w)
+                            Image.open(img_data)  # Kiểm tra ảnh hợp lệ
+                            pdf.image(url, w=170)
                             pdf.set_font("DejaVu", size=9) if os.path.exists(font_path) else pdf.set_font("Arial", size=9)
                             pdf.multi_cell(0, 5, caption)
                             pdf.ln(8)
                     except:
                         continue
 
+                # 5 video tiếng Việt trong PDF
                 if youtube_links:
                     pdf.set_font("DejaVu", size=11) if os.path.exists(font_path) else pdf.set_font("Arial", size=11)
                     pdf.set_text_color(200, 0, 0)
-                    pdf.cell(0, 8, "Video tham khảo thực tế:", ln=True)
+                    pdf.cell(0, 8, "Video khám phá thực tế bằng tiếng Việt:", ln=True)
                     pdf.set_font("DejaVu", size=10) if os.path.exists(font_path) else pdf.set_font("Arial", size=10)
                     pdf.set_text_color(0, 0, 180)
-                    for link in youtube_links[:6]:
+                    for link in youtube_links[:5]:
                         pdf.cell(0, 7, link, ln=True, link=link)
                     pdf.ln(10)
 
