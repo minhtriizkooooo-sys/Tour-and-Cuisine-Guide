@@ -1,5 +1,3 @@
-# app.py
-
 import os
 import uuid
 import sqlite3
@@ -32,7 +30,7 @@ DB_PATH = "chat_history.db"
 # === SYSTEM INSTRUCTION MẠNH MẼ - TỐI ƯU TRIỆT ĐỂ MEDIA LẦN CUỐI ===
 system_instruction = """
 Bạn là AI Hướng dẫn Du lịch Việt Nam chuyên nghiệp (VIET NAM TRAVEL AI GUIDE 2026).
-Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn về địa điểm người dùng hỏi.
+Nhiệm vụ: Cung cấp thông tin du lịch chi tiết, hấp dẫn bằng Tiếng Việt chuẩn.
 
 BẮT BUỘT TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa):
 {
@@ -42,16 +40,14 @@ BẮT BUỘT TRẢ VỀ JSON THUẦN (không có ```json```, không text thừa)
   "suggestions": ["Gợi ý câu hỏi 1", "Gợi ý câu hỏi 2"]
 }
 
-YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (TUÂN THỦ 100% VÀ KIỂM TRA CHẶT CHẼ):
-• TÍNH CHÍNH XÁC: Media (Ảnh/Video) PHẢI liên quan **TRỰC TIẾP VÀ CHÍNH XÁC TUYỆT ĐỐI** với nội dung người dùng hỏi. Caption phải mô tả **CHI TIẾT** nội dung ảnh (ví dụ: "Cầu Vàng tại Đà Nẵng lúc hoàng hôn, nhìn từ trên cao").
-• Tối đa 3 ảnh và 2 video.
-• NGUỒN IMAGES: CHỈ được lấy từ các miền sau: pexels.com, pixabay.com, unsplash.com. TUYỆT ĐỐI KHÔNG dùng bất kỳ miền nào khác. URL phải là link trực tiếp đến file ảnh.
-• NGUỒN YOUTUBE: 
-  - Video phải là **FULL URL HỢP LỆ** (ví dụ: https://www.youtube.com/watch?v=XXXXXXXXXXX).
-  - **NGHIÊM CẤM** trả về URL trang chủ (https://youtube.com) hoặc các link không đầy đủ.
-  - Video phải CHẤT LƯỢNG CAO (HD/4K), là vlog/review du lịch CÓ NGÀY TẢI GẦN ĐÂY (Năm 2024 hoặc 2025).
-
-Nếu bạn không tìm thấy bất kỳ liên kết hình ảnh hay video nào đáp ứng tất cả tiêu chí trên, bạn phải để mảng rỗng [].
+YÊU CẦU NGHIÊM NGẶT VỀ MEDIA (CHÍNH XÁC 100%):
+• IMAGES: Để đảm bảo ảnh chính xác, hãy sử dụng Unsplash Source theo cấu trúc: 
+  https://images.unsplash.com/featured/?{tên_địa_danh_tiếng_anh},vietnam,travel
+  (Ví dụ hỏi về Đà Lạt: https://images.unsplash.com/featured/?DaLat,vietnam,travel)
+• Caption ảnh phải mô tả CHI TIẾT địa danh trong câu trả lời.
+• YOUTUBE: CHỈ trả về link video vlog/review thực tế về đúng địa điểm đó. 
+• Nếu không tìm thấy link video hoặc ảnh CHẮC CHẮN liên quan, hãy để mảng rỗng []. 
+• TUYỆT ĐỐI không trả về link YouTube trang chủ hoặc link lỗi.
 """
 # --- HẾT SYSTEM INSTRUCTION ---
 
@@ -143,21 +139,20 @@ def get_ai_response(session_id, user_msg):
             
             # === LỌC MEDIA LẠI LẦN CUỐI (Tập trung vào Domain và Cú pháp) ===
             if 'images' in ai_data:
-                valid_domains = ['pexels.com', 'pixabay.com', 'unsplash.com']
+                valid_domains = ['pexels.com', 'pixabay.com', 'unsplash.com', 'images.unsplash.com']
                 valid_images = []
                 for img in ai_data.get('images', []):
                     url = img.get('url', '')
-                    # CHỈ KIỂM TRA DOMAIN VÀ ĐỘ DÀI TỐI THIỂU (>30 ký tự)
+                    # CHỈ KIỂM TRA DOMAIN VÀ ĐỘ DÀI TỐI THIỂU (>25 ký tự)
                     is_valid_domain = any(domain in url.lower() for domain in valid_domains)
                     
-                    if is_valid_domain and len(url) > 30: 
+                    if is_valid_domain and len(url) > 25: 
                         valid_images.append(img)
                 ai_data['images'] = valid_images[:3]
 
             if 'youtube_links' in ai_data:
                 valid_links = []
                 for link in ai_data['youtube_links']:
-                    # Sử dụng hàm get_youtube_id đã được tăng cường để loại bỏ link trang chủ/link kênh
                     if get_youtube_id(link):
                         valid_links.append(link)
 
