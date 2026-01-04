@@ -29,31 +29,38 @@
         .msg { padding: 12px 16px; border-radius: 18px; max-width: 88%; font-size: 15px; line-height: 1.5; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
+        
+        /* Markdown Style */
+        .bot h3 { color: var(--primary-dark); margin: 10px 0 5px 0; font-size: 18px; border-bottom: 2px solid var(--sky-blue); display: inline-block; }
+        .bot b { color: #2c3e50; }
+        
         .bot .image-gallery { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; justify-content: flex-start; }
         .bot .image-item { flex: 1 1 150px; max-width: 100%; text-align: center; background: #e0e6eb; padding: 5px; border-radius: 8px;}
         .bot .image-item img { width: 100%; height: 120px; object-fit: cover; border-radius: 8px; cursor: zoom-in; margin-bottom: 5px; }
         .bot .image-item .caption { font-size: 12px; color: #555; display: block; margin-top: 5px; }
-        .bot .video-container { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; }
-        .bot .video-frame { flex: 1 1 100%; max-width: 400px; height: 220px; border-radius: 10px; overflow: hidden; background: #333;}
-        .bot .video-frame iframe { width: 100%; height: 100%; border: none; }
+        
+        /* YouTube Button Style */
+        .youtube-btn { display: inline-flex; align-items: center; gap: 8px; background: #ff0000; color: white !important; padding: 10px 15px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 10px; font-size: 14px; }
+        .video-container { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .video-frame { width: 100%; height: 220px; border-radius: 10px; overflow: hidden; background: #333; }
+        .video-frame iframe { width: 100%; height: 100%; border: none; }
+
         .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; width: 100%; }
         #user-input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
         .send-btn { background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         footer { background: var(--sky-blue); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; font-size: 16px; z-index: 2005; border-top: 1px solid #74b9ff; }
         .dev-text { color: #FFFFFF !important; font-weight: bold; }
         .tri-style { color: #FF0000 !important; font-weight: 900; text-shadow: 1px 1px 0 #FFFF00, -1px -1px 0 #FFFF00, 1px -1px 0 #FFFF00, -1px 1px 0 #FFFF00; text-decoration: none; margin-left: 5px; }
+        
         @media (max-width: 768px) {
             main { flex-direction: column; }
-            #map-side { height: 45%; flex: none; border-bottom: 2px solid #ddd; }
-            #chat-side { width: 100%; height: 55%; }
-            footer { flex-direction: column; gap: 8px; text-align: center; font-size: 14px; padding: 10px 15px; }
+            #map-side { height: 40%; flex: none; }
+            #chat-side { width: 100%; height: 60%; }
         }
         .hidden { display: none !important; }
         .suggest-item { background: #eef7ff; color: var(--primary); padding: 10px; border-radius: 10px; margin-top: 8px; cursor: pointer; font-size: 13px; border: 1px solid #d0e7ff; font-weight: 500; text-align: center; }
-        .pdf-btn-container { padding: 10px; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: center; }
-        .btn-pdf { background: #27ae60; color: white; border: none; padding: 8px 15px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; }
-        #img-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        #modal-img { max-width: 95%; max-height: 70vh; border-radius: 12px; object-fit: contain; }
+        #img-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #modal-img { max-width: 95%; max-height: 80vh; border-radius: 12px; }
     </style>
 </head>
 <body>
@@ -70,10 +77,11 @@
     <div id="map-side">
         <div class="map-tools">
             <div class="tool-box">
-                <b onclick="toggleMinimize('s-content', 's-icon')">TÌM ĐỊA DANH <i id="s-icon" class="fa fa-minus-square"></i></b>
+                <b onclick="toggleMinimize('s-content', 's-icon')">BẢN ĐỒ & ĐỊA DANH <i id="s-icon" class="fa fa-minus-square"></i></b>
                 <div id="s-content">
-                    <input type="text" id="s-input" placeholder="Nhập địa danh...">
+                    <input type="text" id="s-input" placeholder="Tìm địa danh du lịch...">
                     <button class="btn-map" style="background: var(--primary);" onclick="findLoc()">Cắm mốc</button>
+                    <button class="btn-map" style="background: #e74c3c; margin-top: 8px;" onclick="clearMarkers()">Xóa tất cả mốc</button>
                 </div>
             </div>
         </div>
@@ -81,20 +89,15 @@
     </div>
     <div id="chat-side">
         <div class="tab-bar">
-            <div class="tab active" id="t-chat" onclick="setTab('chat')">HỘI THOẠI</div>
-            <div class="tab" id="t-hist" onclick="loadHistory()">LỊCH SỬ</div>
-            <div class="tab" onclick="clearHistory()" style="color:#e74c3c;">XÓA HẾT</div>
+            <div class="tab active" id="t-chat" onclick="loadHistory(true)">HỘI THOẠI</div>
+            <div class="tab" id="t-hist" onclick="loadHistory(false)">LỊCH SỬ</div>
+            <div class="tab" onclick="clearHistory()" style="color:#e74c3c;">XÓA CHAT</div>
         </div>
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào bạn! Tôi là AI Guide. Bạn muốn khám phá nơi nào? 🇻🇳</div>
-        </div>
-        <div id="pdf-area" class="pdf-btn-container hidden">
-            <button class="btn-pdf" onclick="window.location.href='/export_pdf'">
-                <i class="fa fa-file-pdf"></i> Tải Lịch Trình PDF
-            </button>
+            <div class="msg bot">Chào bạn! Tôi là AI hướng dẫn du lịch chuyên sâu. Bạn muốn tìm hiểu về lịch sử, văn hóa hay ẩm thực vùng miền nào? 🇻🇳</div>
         </div>
         <div class="input-area">
-            <input type="text" id="user-input" placeholder="Hỏi AI du lịch..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="user-input" placeholder="Hỏi AI về lịch sử, văn hóa, món ăn..." onkeypress="if(event.key==='Enter') sendMessage()">
             <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
@@ -105,15 +108,17 @@
 </footer>
 
 <div id="img-modal" class="hidden">
-    <img id="modal-img" src=""><span id="modal-caption" style="color:white; margin:10px;"></span>
-    <button onclick="closeImg()" style="padding:10px 20px; background:#e74c3c; color:white; border:none; border-radius:5px; cursor:pointer;">Đóng</button>
+    <img id="modal-img" src="">
+    <span id="modal-caption" style="color:white; margin:15px; font-size: 18px;"></span>
+    <button onclick="closeImg()" style="padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:30px; cursor:pointer; font-weight:bold;">ĐÓNG</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.762, 106.660], 13);
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([15.8, 108.3], 6);
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
-    let markers = [];
+    
+    let markersLayer = L.layerGroup().addTo(map);
 
     function toggleMinimize(cId, iId) {
         const c = document.getElementById(cId);
@@ -129,11 +134,19 @@
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 14);
-            L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')">Hỏi AI</button>`).openPopup();
+            const marker = L.marker(pos).addTo(markersLayer);
+            marker.bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px; cursor:pointer;">Hỏi AI về nơi này</button>`).openPopup();
         }
     }
 
-    function askAI(loc) { document.getElementById('user-input').value = `Review du lịch tại ${loc}`; sendMessage(); }
+    function clearMarkers() {
+        markersLayer.clearLayers();
+    }
+
+    function askAI(loc) { 
+        document.getElementById('user-input').value = `Kể cho tôi chi tiết về lịch sử, văn hóa và ẩm thực tại ${loc}`; 
+        sendMessage(); 
+    }
 
     function getYouTubeId(url) {
         const m = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
@@ -147,36 +160,47 @@
 
         let data;
         try {
-            // Logic xử lý JSON từ Groq/Gemma 2
             const cleanText = typeof content === 'string' ? content.replace(/```json|```/g, '').trim() : content;
             data = typeof cleanText === 'string' ? JSON.parse(cleanText) : cleanText;
         } catch (e) {
-            data = { text: typeof content === 'string' ? content : "Lỗi định dạng" };
+            data = { text: typeof content === 'string' ? content : "Đang tải dữ liệu..." };
         }
 
-        const text = document.createElement('div');
-        text.innerHTML = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        div.appendChild(text);
+        // Nội dung chữ
+        const textPart = document.createElement('div');
+        textPart.innerHTML = (data.text || "")
+            .replace(/^# (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<br><b>$1</b>')
+            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+            .replace(/\n/g, '<br>');
+        div.appendChild(textPart);
 
+        // Ảnh thực tế
         if(data.images) {
             const gal = document.createElement('div'); gal.className = 'image-gallery';
             data.images.forEach(img => {
                 const item = document.createElement('div'); item.className = 'image-item';
-                item.innerHTML = `<img src="${img.url}" onclick="showImg('${img.url}','${img.caption}')"><span class="caption">${img.caption}</span>`;
+                item.innerHTML = `<img src="${img.url}" onerror="this.src='https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=400'" onclick="showImg('${img.url}','${img.caption}')"><span class="caption">${img.caption}</span>`;
                 gal.appendChild(item);
             });
             div.appendChild(gal);
         }
 
+        // Video YouTube
         if(data.youtube_links) {
             const vCon = document.createElement('div'); vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
                 const id = getYouTubeId(link);
-                if(id) vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${id}"></iframe></div>`;
+                if(id) {
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe></div>`;
+                } else {
+                    vCon.innerHTML += `<a href="${link}" target="_blank" class="youtube-btn"><i class="fab fa-youtube"></i> Xem Video Review thực tế</a>`;
+                }
             });
             div.appendChild(vCon);
         }
 
+        // Gợi ý
         if(data.suggestions) {
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div'); btn.className = 'suggest-item';
@@ -195,6 +219,7 @@
         const box = document.getElementById('chat-box');
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
+        box.scrollTop = box.scrollHeight;
         
         try {
             const res = await fetch('/chat', {
@@ -208,24 +233,20 @@
         } catch (e) { console.error(e); }
     }
 
-    function setTab(t) {
-        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
-        if(t === 'chat') document.getElementById('t-chat').classList.add('active');
-        else document.getElementById('t-hist').classList.add('active');
-    }
-
-    async function loadHistory(isChat = false) {
-        setTab(isChat ? 'chat' : 'history');
+    async function loadHistory(isChatTab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(isChatTab ? 't-chat' : 't-hist').classList.add('active');
+        
         const res = await fetch('/history');
         const data = await res.json();
         const box = document.getElementById('chat-box');
-        box.innerHTML = '';
+        box.innerHTML = isChatTab ? '' : '<div style="text-align:center; color:#999; font-size:12px; margin-bottom:10px;">--- Lịch sử hội thoại ---</div>';
         data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
-        document.getElementById('pdf-area').classList.toggle('hidden', isChat);
+        box.scrollTop = box.scrollHeight;
     }
 
     async function clearHistory() {
-        if(confirm("Xóa sạch hội thoại?")) {
+        if(confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử chat không?")) {
             await fetch('/clear_history', { method: 'POST' });
             location.reload();
         }
@@ -238,7 +259,7 @@
     }
     function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
     
-    // Khởi tạo
+    // Auto-load chat
     loadHistory(true);
 </script>
 </body>
