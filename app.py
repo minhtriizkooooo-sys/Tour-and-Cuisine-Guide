@@ -2,134 +2,113 @@ import os
 import uuid
 import sqlite3
 import json
-import time
-import random
 import re
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template, make_response, Response
+from flask import Flask, request, jsonify, render_template, make_response
 from flask_cors import CORS
-from google import genai
-from google.genai import types
+from groq import Groq  # Thư viện mới để dùng Gemma
+import random
 
 app = Flask(__name__)
-app.secret_key = "trip_smart_2026_final_emergency" 
+app.secret_key = "trip_smart_gemma_2026"
 CORS(app)
 
-# --- CẤU HÌNH API KEYS ---
-API_KEYS = []
-for key, value in os.environ.items():
-    if "API_KEY" in key.upper() and value:
-        parts = [k.strip() for k in value.split(',') if k.strip().startswith("AIza")]
-        API_KEYS.extend(parts)
+# --- CẤU HÌNH GROQ API KEYS ---
+GROQ_KEYS = []
+raw_keys = os.environ.get("GROQ_API_KEY", "")
+if raw_keys:
+    GROQ_KEYS = [k.strip() for k in raw_keys.split(",") if k.strip()]
 
-API_KEYS = list(set(API_KEYS))
-# Nếu không có key nào trong biến môi trường, dùng danh sách rỗng để tránh crash
-if not API_KEYS:
-    print("[CRITICAL] Không tìm thấy API Key nào!")
-
-# SỬ DỤNG MODEL 1.5-FLASH-8B VỚI VERSION ỔN ĐỊNH
-model_id = "gemini-1.5-flash-8b" 
 DB_PATH = "chat_history.db"
 
-# Rút gọn System Instruction để tiết kiệm Token (giảm khả năng bị 429)
-system_instruction = "Bạn là AI du lịch VN. Trả về JSON: {text: str, images: [{url, caption}], youtube_links: [str], suggestions: [str]}"
+# System Instruction cho Gemma 2 (Cần ghi rõ hơn để ép trả về JSON chuẩn)
+system_instruction = """
+Bạn là AI hướng dẫn du lịch Việt Nam chuyên nghiệp. 
+BẮT BUỘC trả về dữ liệu dưới dạng JSON nguyên bản, không nằm trong tag ```json```:
+{
+  "text": "Nội dung Markdown tiếng Việt chi tiết.",
+  "images": [{"url": "https://images.unsplash.com/featured/?{keyword},vietnam", "caption": "Mô tả ảnh"}],
+  "youtube_links": ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+  "suggestions": ["Câu hỏi gợi ý 1", "Câu hỏi gợi ý 2"]
+}
+"""
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, created_at TEXT)")
 init_db()
 
-def get_ai_response(session_id, user_msg):
-    if not API_KEYS:
-        return {"text": "Lỗi: Hệ thống chưa có Key.", "images": [], "youtube_links": []}
+def get_ai_response(user_msg):
+    if not GROQ_KEYS:
+        return {"text": "Lỗi: Chưa cấu hình GROQ_API_KEY.", "images": [], "youtube_links": []}
 
-    # CHỈ LẤY 2 CÂU HỘI THOẠI GẦN NHẤT (Cực kỳ quan trọng để tránh bị chặn IP)
-    history_contents = []
+    # Chọn ngẫu nhiên 1 Key Groq
+    key = random.choice(GROQ_KEYS)
+    client = Groq(api_key=key)
+
     try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 2", (session_id,)).fetchall()
-            for r in reversed(rows):
-                role = "user" if r['role'] == 'user' else "model"
-                txt = r['content']
-                if role == "model":
-                    try: txt = json.loads(txt).get('text', '...')
-                    except: pass
-                history_contents.append(types.Content(role=role, parts=[types.Part(text=txt)]))
-    except: pass
-
-    contents = history_contents + [types.Content(role="user", parts=[types.Part(text=user_msg)])]
-
-    # Thử ngẫu nhiên 1 key, nếu lỗi thì dừng ngay để tránh bị Google khóa IP máy chủ
-    selected_keys = random.sample(API_KEYS, min(len(API_KEYS), 5)) # Chỉ thử tối đa 5 key mỗi lần nhắn
-
-    for key in selected_keys:
-        try:
-            client = genai.Client(api_key=key)
-            response = client.models.generate_content(
-                model=model_id,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction, 
-                    response_mime_type="application/json",
-                    temperature=0.1 # Thấp nhất để xử lý nhanh nhất
-                )
-            )
-            
-            if response and response.text:
-                return json.loads(response.text)
-                
-        except Exception as e:
-            err = str(e)
-            print(f"[DEBUG] Thử key thất bại, lỗi: {err[:30]}")
-            # Nếu gặp 429, nghỉ lâu hơn một chút
-            if "429" in err:
-                time.sleep(3) 
-            continue
-
-    return {
-        "text": "⚠️ Máy chủ Google đang tạm chặn kết nối từ Render. Hãy thử lại sau 2 phút hoặc đổi câu hỏi ngắn hơn.",
-        "images": [], "youtube_links": [], "suggestions": ["Thử lại câu hỏi khác"]
-    }
+        # Gọi mô hình Gemma 2 9B (Rất mạnh và hỗ trợ tiếng Việt khá tốt)
+        completion = client.chat.completions.create(
+            model="gemma2-9b-it",
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_msg}
+            ],
+            temperature=0.5,
+            max_tokens=2048,
+            # Chế độ JSON cực kỳ ổn định trên Groq
+            response_format={"type": "json_object"}
+        )
+        
+        return json.loads(completion.choices[0].message.content)
+        
+    except Exception as e:
+        print(f"[GROQ ERROR] {str(e)}")
+        return {
+            "text": "⚠️ Gemma đang bận xử lý. Vui lòng thử lại sau giây lát.",
+            "images": [],
+            "youtube_links": [],
+            "suggestions": ["Thử lại"]
+        }
 
 @app.route("/")
 def index():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
     resp = make_response(render_template("index.html"))
-    resp.set_cookie("session_id", sid, httponly=True) 
+    resp.set_cookie("session_id", sid, httponly=True)
     return resp
 
 @app.route("/chat", methods=["POST"])
 def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
-    if not msg: return jsonify({"text": "..."})
+    if not msg: return jsonify({"text": "Hãy nhập tin nhắn."})
+
+    ai_data = get_ai_response(msg)
     
-    ai_data = get_ai_response(sid, msg) 
+    # Lưu vào DB
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                     (sid, "user", msg, datetime.now().strftime("%H:%M")))
+        conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                     (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
     
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-                         (sid, "user", msg, datetime.now().strftime("%H:%M")))
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-                         (sid, "bot", json.dumps(ai_data, ensure_ascii=False), datetime.now().strftime("%H:%M")))
-    except: pass
     return jsonify(ai_data)
 
-# --- GIỮ CÁC ROUTE KHÁC (HISTORY, CLEAR...) ---
+# Route lấy lịch sử để hiển thị lại khi F5
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
     res = []
-    try:
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-            for r in rows:
-                try: content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
-                except: content = r['content']
-                res.append({"role": r['role'], "content": content})
-    except: pass
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
+        for r in rows:
+            try:
+                content = json.loads(r['content']) if r['role'] == 'bot' else r['content']
+            except:
+                content = r['content']
+            res.append({"role": r['role'], "content": content})
     return jsonify(res)
 
 if __name__ == "__main__":
