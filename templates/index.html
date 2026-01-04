@@ -7,34 +7,34 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f4f7f9; --accent: #f39c12; --sky-blue: #87CEEB; }
+        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f4f7f9; --accent: #f39c12; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Arial; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+        body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
         header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 0 15px; height: 75px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
         .logo { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 22px; }
         .logo img { height: 65px; width: auto; background: transparent !important; }
         main { flex: 1; display: flex; position: relative; overflow: hidden; }
         #map-side { flex: 1; position: relative; z-index: 1; }
         #map { height: 100%; width: 100%; }
-       
+
         /* MAP TOOLS */
         .map-tools { position: absolute; top: 15px; left: 15px; z-index: 1001; width: 280px; display: flex; flex-direction: column; gap: 10px; }
         .tool-box { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.05); }
         .tool-box b { color: var(--primary); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; text-transform: uppercase; }
         .tool-box input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
         .btn-map { border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; color: white; margin-top: 5px; }
-       
+
         /* CHAT SIDEBAR */
         #chat-side { width: 420px; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; z-index: 1002; }
         .tab-bar { display: flex; background: #f8f9fa; border-bottom: 1px solid #eee; }
         .tab { flex: 1; padding: 15px 5px; text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; color: #666; }
         .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); background: white; }
-       
+
         .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; background: #fff; }
         .msg { padding: 12px 16px; border-radius: 18px; max-width: 88%; font-size: 15px; line-height: 1.5; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
-       
+
         /* MEDIA */
         .bot .image-gallery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .bot .image-item { flex: 1 1 140px; text-align: center; background: #fff; padding: 3px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -45,10 +45,10 @@
         .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
         #user-input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; }
         .send-btn { background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; }
-       
-        /* FOOTER MỚI - XANH DA TRỜI ĐẬM */
+
+        /* FOOTER - XANH DA TRỜI ĐẬM, CHỮ VIẾT HOA ĐẦU */
         footer {
-            background: #006699; /* Xanh da trời đậm */
+            background: #006699;
             padding: 12px 25px;
             display: flex;
             justify-content: space-between;
@@ -60,11 +60,10 @@
             color: #ffffff;
             font-weight: bold;
             font-size: 14px;
-            text-transform: lowercase; /* viết thường */
             letter-spacing: 0.5px;
         }
         .tri-style {
-            color: #ffdd59 !important; /* Vàng nổi bật */
+            color: #ffdd59 !important;
             font-weight: 900;
             font-size: 16px;
             text-shadow: 1px 1px 0px #000;
@@ -76,15 +75,15 @@
             color: #ffffff !important;
             text-shadow: 1px 1px 0px #000, 0px 0px 8px rgba(255, 255, 255, 0.8);
         }
-       
+
         .pdf-btn-container { padding: 12px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; justify-content: center; }
         .btn-pdf { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
         #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         #modal-img { max-width: 90%; max-height: 75vh; border-radius: 8px; object-fit: contain; }
-        #modal-caption { color: white; margin-top: 15px; text-align: center; }
+        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 14px; }
         .hidden { display: none !important; }
         .suggest-item { background: #eef7ff; color: var(--primary); padding: 8px; border-radius: 8px; margin-top: 5px; cursor: pointer; border: 1px solid #d0e7ff; font-size: 13px; }
-        
+
         @media (max-width: 768px) {
             main { flex-direction: column; }
             #map-side { height: 40%; }
@@ -139,6 +138,7 @@
     <div><span class="footer-label">Developer:</span><span class="tri-style">Lại Nguyễn Minh Trí</span></div>
     <div><span class="footer-label">Hotline:</span><a href="tel:0908083566" class="tri-style">84.908.08.35.66</a></div>
 </footer>
+
 <div id="img-modal" class="hidden" onclick="closeImg()">
     <img id="modal-img" src="">
     <span id="modal-caption"></span>
@@ -160,9 +160,9 @@
     function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
 
     async function findLoc() {
-        const q = document.getElementById('s-input').value;
+        const q = document.getElementById('s-input').value.trim();
         if(!q) return;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}, Vietnam`);
         const data = await res.json();
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
@@ -182,6 +182,7 @@
         const div = document.createElement('div');
         div.className = `msg ${role}`;
         if(role === 'user') { div.textContent = content; return div; }
+
         let data = (typeof content === 'string') ? JSON.parse(content) : content;
         const txt = document.createElement('div');
         txt.innerHTML = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
@@ -201,8 +202,11 @@
             const vCon = document.createElement('div'); vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-                if(match) vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
-                else vCon.innerHTML += `<a href="${link}" target="_blank" style="font-size:12px; color:#c4302b;"><i class="fab fa-youtube"></i> Xem video thực tế</a>`;
+                if(match) {
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                } else {
+                    vCon.innerHTML += `<a href="${link}" target="_blank" style="font-size:12px; color:#c4302b;"><i class="fab fa-youtube"></i> Xem video thực tế</a>`;
+                }
             });
             div.appendChild(vCon);
         }
@@ -210,7 +214,8 @@
         if(data.suggestions) {
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div'); btn.className = 'suggest-item';
-                btn.textContent = s; btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
+                btn.textContent = s;
+                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
                 div.appendChild(btn);
             });
         }
@@ -225,7 +230,12 @@
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
         box.scrollTop = box.scrollHeight;
-        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg: msg }) });
+
+        const res = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ msg: msg })
+        });
         const data = await res.json();
         box.appendChild(createMessageElement('bot', data));
         box.scrollTop = box.scrollHeight;
@@ -248,7 +258,7 @@
     }
 
     async function clearHistory() {
-        if(confirm("Xóa sạch toàn bộ dữ liệu?")) {
+        if(confirm("Xóa sạch toàn bộ lịch sử trò chuyện?")) {
             await fetch('/clear_history', { method: 'POST' });
             location.reload();
         }
@@ -256,11 +266,13 @@
 
     function showImg(u, c) {
         document.getElementById('modal-img').src = u;
-        document.getElementById('modal-caption').textContent = c;
+        document.getElementById('modal-caption').textContent = c || '';
         document.getElementById('img-modal').classList.remove('hidden');
     }
 
-    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
+    function closeImg() {
+        document.getElementById('img-modal').classList.add('hidden');
+    }
 </script>
 </body>
 </html>
