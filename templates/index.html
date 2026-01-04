@@ -17,71 +17,55 @@
         #map-side { flex: 1; position: relative; z-index: 1; }
         #map { height: 100%; width: 100%; }
 
-        /* MAP TOOLS */
         .map-tools { position: absolute; top: 15px; left: 15px; z-index: 1001; width: 280px; display: flex; flex-direction: column; gap: 10px; }
         .tool-box { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.05); }
         .tool-box b { color: var(--primary); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; text-transform: uppercase; }
         .tool-box input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
         .btn-map { border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; color: white; margin-top: 5px; }
 
-        /* CHAT SIDEBAR */
         #chat-side { width: 420px; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; z-index: 1002; }
         .tab-bar { display: flex; background: #f8f9fa; border-bottom: 1px solid #eee; }
         .tab { flex: 1; padding: 15px 5px; text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; color: #666; }
         .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); background: white; }
 
         .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; background: #fff; }
-        .msg { padding: 12px 16px; border-radius: 18px; max-width: 88%; font-size: 15px; line-height: 1.6; }
-        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg { padding: 16px 20px; border-radius: 20px; max-width: 90%; font-size: 15.5px; line-height: 1.7; }
+        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .bot { background: #f8f9fa; color: #222; align-self: flex-start; border-bottom-left-radius: 4px; }
 
         .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
-        #user-input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; }
-        .send-btn { background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; }
+        #user-input { flex: 1; padding: 14px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
+        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; }
 
-        /* FOOTER */
         footer {
             background: #006699;
-            padding: 12px 25px;
+            padding: 14px 25px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 2005;
             border-top: 2px solid var(--accent);
         }
-        .footer-label {
-            color: #ffffff;
-            font-weight: bold;
-            font-size: 14px;
-            letter-spacing: 0.5px;
-        }
-        .tri-style {
-            color: #ffdd59 !important;
-            font-weight: 900;
-            font-size: 16px;
-            text-shadow: 1px 1px 0px #000;
-            text-decoration: none;
-            margin-left: 8px;
-            transition: 0.3s;
-        }
-        .tri-style:hover {
-            color: #ffffff !important;
-            text-shadow: 1px 1px 0px #000, 0px 0px 8px rgba(255, 255, 255, 0.8);
-        }
+        .footer-label { color: #fff; font-weight: bold; font-size: 14.5px; letter-spacing: 0.5px; }
+        .tri-style { color: #ffdd59 !important; font-weight: 900; font-size: 17px; text-shadow: 1px 1px 0 #000; margin-left: 8px; transition: 0.3s; }
+        .tri-style:hover { color: #fff !important; text-shadow: 0 0 10px #fff; }
 
         .pdf-btn-container { padding: 12px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; justify-content: center; }
-        .btn-pdf { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        #modal-img { max-width: 90%; max-height: 75vh; border-radius: 8px; object-fit: contain; }
-        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 14px; }
+        .btn-pdf { background: #27ae60; color: white; border: none; padding: 12px 24px; border-radius: 25px; font-weight: bold; cursor: pointer; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+
+        #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #modal-img { max-width: 95%; max-height: 80vh; border-radius: 12px; object-fit: contain; }
+        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 15px; max-width: 90%; }
+
         .hidden { display: none !important; }
-        .suggest-item { background: #eef7ff; color: var(--primary); padding: 10px 12px; border-radius: 12px; margin-top: 8px; cursor: pointer; border: 1px solid #d0e7ff; font-size: 14px; }
+        .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 14px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
+        .suggest-item:hover { background: #bbdefb; }
 
         @media (max-width: 768px) {
             main { flex-direction: column; }
-            #map-side { height: 40%; }
-            #chat-side { width: 100%; height: 60%; }
-            footer { flex-direction: column; gap: 8px; text-align: center; }
+            #map-side { height: 45%; }
+            #chat-side { width: 100%; height: 55%; }
+            footer { flex-direction: column; gap: 10px; text-align: center; }
         }
     </style>
 </head>
@@ -91,7 +75,7 @@
         <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
         <span>VIET NAM TRAVEL AI GUIDE 2026</span>
     </div>
-    <i class="fa fa-sync-alt" onclick="location.reload()" style="cursor:pointer; font-size: 20px; color: white;"></i>
+    <i class="fa fa-sync-alt" onclick="location.reload()" style="cursor:pointer; font-size: 22px; color: white;"></i>
 </header>
 <main>
     <div id="map-side">
@@ -114,7 +98,7 @@
             <div class="tab" onclick="clearHistory()" style="color:#e74c3c;">XÓA HẾT</div>
         </div>
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào bạn! Tôi là AI hướng dẫn du lịch Việt Nam. Hãy hỏi tôi về bất kỳ địa danh nào nhé! 🇻🇳</div>
+            <div class="msg bot">Chào bạn! Tôi là AI hướng dẫn du lịch Việt Nam chuyên sâu. Hãy hỏi về bất kỳ địa danh nào bạn muốn khám phá! 🇻🇳</div>
         </div>
         <div id="pdf-area" class="pdf-btn-container hidden">
             <button class="btn-pdf" onclick="window.location.href='/export_pdf'">
@@ -122,7 +106,7 @@
             </button>
         </div>
         <div class="input-area">
-            <input type="text" id="user-input" placeholder="Hỏi AI du lịch..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="user-input" placeholder="Hỏi về địa danh du lịch..." onkeypress="if(event.key==='Enter') sendMessage()">
             <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
@@ -134,13 +118,13 @@
 
 <div id="img-modal" class="hidden" onclick="closeImg()">
     <img id="modal-img" src="">
-    <span id="modal-caption"></span>
-    <button style="margin-top:20px; padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:5px; font-weight:bold;">ĐÓNG</button>
+    <div id="modal-caption"></div>
+    <button style="margin-top:25px; padding:12px 35px; background:#e74c3c; color:white; border:none; border-radius:8px; font-weight:bold; font-size:16px;">ĐÓNG</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.762, 106.660], 13);
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([16.047, 108.206], 6);
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
 
@@ -155,19 +139,19 @@
     async function findLoc() {
         const q = document.getElementById('s-input').value.trim();
         if(!q) return;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}, Vietnam`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
         const data = await res.json();
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 14);
-            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="cursor:pointer; margin-top:5px; padding:5px; border-radius:4px; border:none; background:#0066cc; color:white;">Hỏi AI Review</button>`).openPopup();
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:8px;padding:8px 12px;border-radius:6px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI chi tiết</button>`).openPopup();
             markers.push(m);
         }
     }
 
     function askAI(loc) {
         setTab('chat');
-        document.getElementById('user-input').value = `Review chi tiết lịch sử, văn hóa, ẩm thực tại ${loc}`;
+        document.getElementById('user-input').value = `Cho tôi thông tin chi tiết về du lịch ${loc}`;
         sendMessage();
     }
 
@@ -180,10 +164,8 @@
         }
 
         let data = (typeof content === 'string') ? JSON.parse(content) : content;
-
         const contentDiv = document.createElement('div');
 
-        // Xử lý text + chèn ảnh inline theo placeholder [HÌNH X]
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         const parts = htmlText.split(/(\[HÌNH \d+\])/g);
 
@@ -192,15 +174,15 @@
                 const idx = parseInt(part.match(/\d+/)[0]) - 1;
                 if (data.images && data.images[idx]) {
                     const wrapper = document.createElement('div');
-                    wrapper.style.margin = '18px 0';
+                    wrapper.style.margin = '20px 0';
                     wrapper.style.textAlign = 'center';
 
                     const img = document.createElement('img');
                     img.src = data.images[idx].url;
                     img.style.maxWidth = '100%';
                     img.style.height = 'auto';
-                    img.style.borderRadius = '14px';
-                    img.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
+                    img.style.borderRadius = '16px';
+                    img.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
                     img.style.cursor = 'pointer';
                     img.onclick = () => showImg(data.images[idx].url, data.images[idx].caption || '');
 
@@ -209,9 +191,9 @@
                     if (data.images[idx].caption) {
                         const cap = document.createElement('div');
                         cap.textContent = data.images[idx].caption;
-                        cap.style.fontSize = '13px';
-                        cap.style.color = '#555';
-                        cap.style.marginTop = '8px';
+                        cap.style.fontSize = '14px';
+                        cap.style.color = '#444';
+                        cap.style.marginTop = '10px';
                         cap.style.fontStyle = 'italic';
                         wrapper.appendChild(cap);
                     }
@@ -221,19 +203,18 @@
             } else if (part.trim()) {
                 const textP = document.createElement('div');
                 textP.innerHTML = part;
-                textP.style.marginBottom = '12px';
-                textP.style.lineHeight = '1.6';
+                textP.style.marginBottom = '14px';
+                textP.style.lineHeight = '1.7';
                 contentDiv.appendChild(textP);
             }
         });
 
         div.appendChild(contentDiv);
 
-        // Video phần riêng
         if(data.youtube_links && data.youtube_links.length > 0) {
             const vTitle = document.createElement('div');
-            vTitle.innerHTML = '<b style="font-size:16px;">🎥 Video khám phá thực tế (2023-2026):</b>';
-            vTitle.style.margin = '25px 0 15px 0';
+            vTitle.innerHTML = '<b style="font-size:17px;">🎥 Video khám phá thực tế hay nhất</b>';
+            vTitle.style.margin = '30px 0 18px 0';
             div.appendChild(vTitle);
 
             const vCon = document.createElement('div');
@@ -243,27 +224,23 @@
                 if(match) {
                     vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
                 } else {
-                    vCon.innerHTML += `<a href="${link}" target="_blank" style="display:block;margin:12px 0;color:#c4302b;font-size:14px;"><i class="fab fa-youtube"></i> ${link}</a>`;
+                    vCon.innerHTML += `<a href="${link}" target="_blank" style="display:block;margin:15px 0;color:#c4302b;font-size:15px;"><i class="fab fa-youtube"></i> ${link}</a>`;
                 }
             });
             div.appendChild(vCon);
         }
 
-        // Suggestions
         if(data.suggestions && data.suggestions.length > 0) {
             const sTitle = document.createElement('div');
-            sTitle.innerHTML = '<b style="font-size:16px;">💡 Gợi ý tiếp theo:</b>';
-            sTitle.style.margin = '25px 0 15px 0';
+            sTitle.innerHTML = '<b style="font-size:17px;">💡 Gợi ý tiếp theo:</b>';
+            sTitle.style.margin = '30px 0 18px 0';
             div.appendChild(sTitle);
 
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
                 btn.textContent = s;
-                btn.onclick = () => { 
-                    document.getElementById('user-input').value = s; 
-                    sendMessage(); 
-                };
+                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
                 div.appendChild(btn);
             });
         }
@@ -280,11 +257,7 @@
         inp.value = '';
         box.scrollTop = box.scrollHeight;
 
-        const res = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ msg: msg })
-        });
+        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
         const data = await res.json();
         box.appendChild(createMessageElement('bot', data));
         box.scrollTop = box.scrollHeight;
@@ -307,7 +280,7 @@
     }
 
     async function clearHistory() {
-        if(confirm("Xóa sạch toàn bộ lịch sử trò chuyện?")) {
+        if(confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
             await fetch('/clear_history', { method: 'POST' });
             location.reload();
         }
