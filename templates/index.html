@@ -16,25 +16,25 @@
         main { flex: 1; display: flex; position: relative; overflow: hidden; }
         #map-side { flex: 1; position: relative; z-index: 1; }
         #map { height: 100%; width: 100%; }
-        
+       
         /* MAP TOOLS */
         .map-tools { position: absolute; top: 15px; left: 15px; z-index: 1001; width: 280px; display: flex; flex-direction: column; gap: 10px; }
         .tool-box { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.05); }
         .tool-box b { color: var(--primary); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; text-transform: uppercase; }
         .tool-box input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
         .btn-map { border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; color: white; margin-top: 5px; }
-        
+       
         /* CHAT SIDEBAR */
         #chat-side { width: 420px; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; z-index: 1002; }
         .tab-bar { display: flex; background: #f8f9fa; border-bottom: 1px solid #eee; }
         .tab { flex: 1; padding: 15px 5px; text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; color: #666; }
         .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); background: white; }
-        
+       
         .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; background: #fff; }
         .msg { padding: 12px 16px; border-radius: 18px; max-width: 88%; font-size: 15px; line-height: 1.5; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         .bot { background: #f0f2f5; color: #333; align-self: flex-start; border-bottom-left-radius: 2px; }
-        
+       
         /* MEDIA */
         .bot .image-gallery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
         .bot .image-item { flex: 1 1 140px; text-align: center; background: #fff; padding: 3px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -42,33 +42,49 @@
         .bot .video-container { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
         .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 10px; background: #000; }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-
         .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
         #user-input { flex: 1; padding: 12px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; }
         .send-btn { background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; }
-        
-        /* --- FOOTER ĐÃ ĐƯỢC CẢI TIẾN --- */
-        footer { background: #1e272e; padding: 12px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 2005; border-top: 2px solid var(--accent); }
-        .footer-label { color: #dcdde1; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .tri-style { 
-            color: #ff3f34 !important; 
-            font-weight: 900; 
+       
+        /* FOOTER MỚI - XANH DA TRỜI ĐẬM */
+        footer {
+            background: #006699; /* Xanh da trời đậm */
+            padding: 12px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 2005;
+            border-top: 2px solid var(--accent);
+        }
+        .footer-label {
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: lowercase; /* viết thường */
+            letter-spacing: 0.5px;
+        }
+        .tri-style {
+            color: #ffdd59 !important; /* Vàng nổi bật */
+            font-weight: 900;
             font-size: 16px;
-            text-shadow: 1px 1px 0px #000, 0px 0px 8px rgba(255, 63, 52, 0.5); 
-            text-decoration: none; 
+            text-shadow: 1px 1px 0px #000;
+            text-decoration: none;
             margin-left: 8px;
             transition: 0.3s;
         }
-        .tri-style:hover { color: #ffdd59 !important; text-shadow: 1px 1px 0px #000; }
-        /* ------------------------------ */
-        
+        .tri-style:hover {
+            color: #ffffff !important;
+            text-shadow: 1px 1px 0px #000, 0px 0px 8px rgba(255, 255, 255, 0.8);
+        }
+       
         .pdf-btn-container { padding: 12px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; justify-content: center; }
         .btn-pdf { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px; }
         #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         #modal-img { max-width: 90%; max-height: 75vh; border-radius: 8px; object-fit: contain; }
+        #modal-caption { color: white; margin-top: 15px; text-align: center; }
         .hidden { display: none !important; }
         .suggest-item { background: #eef7ff; color: var(--primary); padding: 8px; border-radius: 8px; margin-top: 5px; cursor: pointer; border: 1px solid #d0e7ff; font-size: 13px; }
-
+        
         @media (max-width: 768px) {
             main { flex-direction: column; }
             #map-side { height: 40%; }
@@ -119,21 +135,18 @@
         </div>
     </div>
 </main>
-
 <footer>
     <div><span class="footer-label">Developer:</span><span class="tri-style">Lại Nguyễn Minh Trí</span></div>
     <div><span class="footer-label">Hotline:</span><a href="tel:0908083566" class="tri-style">84.908.08.35.66</a></div>
 </footer>
-
 <div id="img-modal" class="hidden" onclick="closeImg()">
     <img id="modal-img" src="">
-    <span id="modal-caption" style="color:white; margin-top:15px; text-align:center;"></span>
+    <span id="modal-caption"></span>
     <button style="margin-top:20px; padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:5px; font-weight:bold;">ĐÓNG</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Toàn bộ logic JavaScript giữ nguyên 100% như bản trước
     const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.762, 106.660], 13);
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
@@ -159,10 +172,10 @@
         }
     }
 
-    function askAI(loc) { 
-        setTab('chat'); 
-        document.getElementById('user-input').value = `Review chi tiết lịch sử, văn hóa, ẩm thực tại ${loc}`; 
-        sendMessage(); 
+    function askAI(loc) {
+        setTab('chat');
+        document.getElementById('user-input').value = `Review chi tiết lịch sử, văn hóa, ẩm thực tại ${loc}`;
+        sendMessage();
     }
 
     function createMessageElement(role, content) {
@@ -173,6 +186,7 @@
         const txt = document.createElement('div');
         txt.innerHTML = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         div.appendChild(txt);
+
         if(data.images && data.images.length > 0) {
             const gal = document.createElement('div'); gal.className = 'image-gallery';
             data.images.forEach(img => {
@@ -182,6 +196,7 @@
             });
             div.appendChild(gal);
         }
+
         if(data.youtube_links && data.youtube_links.length > 0) {
             const vCon = document.createElement('div'); vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
@@ -191,6 +206,7 @@
             });
             div.appendChild(vCon);
         }
+
         if(data.suggestions) {
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div'); btn.className = 'suggest-item';
@@ -243,6 +259,7 @@
         document.getElementById('modal-caption').textContent = c;
         document.getElementById('img-modal').classList.remove('hidden');
     }
+
     function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 </script>
 </body>
