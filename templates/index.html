@@ -37,15 +37,7 @@
         #user-input { flex: 1; padding: 14px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
         .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; }
 
-        footer {
-            background: #006699;
-            padding: 14px 25px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 2005;
-            border-top: 2px solid var(--accent);
-        }
+        footer { background: #006699; padding: 14px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 2005; border-top: 2px solid var(--accent); }
         .footer-label { color: #fff; font-weight: bold; font-size: 14.5px; letter-spacing: 0.5px; }
         .tri-style { color: #ffdd59 !important; font-weight: 900; font-size: 17px; text-shadow: 1px 1px 0 #000; margin-left: 8px; transition: 0.3s; }
         .tri-style:hover { color: #fff !important; text-shadow: 0 0 10px #fff; }
@@ -102,7 +94,7 @@
             <div class="tab" onclick="clearHistory()" style="color:#e74c3c;">XÓA HẾT</div>
         </div>
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào bạn! Tôi là AI hướng dẫn du lịch Việt Nam chuyên sâu. Hãy hỏi về bất kỳ địa danh nào bạn muốn khám phá! 🇻🇳</div>
+            <div class="msg bot">Chào bạn! Tôi là AI chuyên biệt về du lịch <b>TP.HCM, Vũng Tàu và Bình Dương</b>. Hãy hỏi tôi về 3 địa điểm này nhé! 🇻🇳</div>
         </div>
         <div id="pdf-area" class="pdf-btn-container hidden">
             <button class="btn-pdf" onclick="window.location.href='/export_pdf'">
@@ -110,7 +102,7 @@
             </button>
         </div>
         <div class="input-area">
-            <input type="text" id="user-input" placeholder="Hỏi về địa danh du lịch..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="user-input" placeholder="Hỏi về Sài Gòn, Vũng Tàu, Bình Dương..." onkeypress="if(event.key==='Enter') sendMessage()">
             <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
@@ -128,7 +120,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([16.047, 108.206], 6);
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.776, 106.701], 10);
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
 
@@ -162,64 +154,39 @@
     function createMessageElement(role, content) {
         const div = document.createElement('div');
         div.className = `msg ${role}`;
-        if(role === 'user') { 
-            div.textContent = content; 
-            return div; 
-        }
+        if(role === 'user') { div.textContent = content; return div; }
 
         let data = (typeof content === 'string') ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
 
-        // Text sạch
+        // Text Content
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         const textP = document.createElement('div');
         textP.innerHTML = htmlText;
-        textP.style.lineHeight = '1.7';
-        textP.style.marginBottom = '20px';
         contentDiv.appendChild(textP);
 
-        // 5 ảnh inline đẹp
+        // Ảnh (Chỉ hiện khi có)
         if(data.images && data.images.length > 0) {
-            data.images.slice(0, 5).forEach(img => {
-                const wrapper = document.createElement('div');
-                wrapper.style.margin = '20px 0';
-                wrapper.style.textAlign = 'center';
-
+            const imgTitle = document.createElement('div');
+            imgTitle.innerHTML = '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
+            contentDiv.appendChild(imgTitle);
+            data.images.forEach(img => {
                 const image = document.createElement('img');
                 image.src = img.url;
-                image.style.maxWidth = '100%';
-                image.style.height = 'auto';
-                image.style.borderRadius = '16px';
-                image.style.boxShadow = '0 8px 25px rgba(0,0,0,0.2)';
-                image.style.cursor = 'pointer';
-                image.onclick = () => showImg(img.url, img.caption || '');
-
-                wrapper.appendChild(image);
-
-                if (img.caption) {
-                    const cap = document.createElement('div');
-                    cap.textContent = img.caption;
-                    cap.style.fontSize = '14px';
-                    cap.style.color = '#444';
-                    cap.style.marginTop = '10px';
-                    cap.style.fontStyle = 'italic';
-                    wrapper.appendChild(cap);
-                }
-
-                contentDiv.appendChild(wrapper);
+                image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
+                image.onclick = () => showImg(img.url, img.caption);
+                contentDiv.appendChild(image);
             });
         }
 
-        // 5 video tiếng Việt ưu tiên
+        // Video (Chỉ hiện khi có)
         if(data.youtube_links && data.youtube_links.length > 0) {
             const vTitle = document.createElement('div');
-            vTitle.innerHTML = '<b style="font-size:17px;">🎥 Video khám phá thực tế bằng tiếng Việt</b>';
-            vTitle.style.margin = '30px 0 18px 0';
+            vTitle.innerHTML = '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế:</b>';
             contentDiv.appendChild(vTitle);
-
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
-            data.youtube_links.slice(0, 5).forEach(link => {
+            data.youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if(match) {
                     vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
@@ -228,13 +195,11 @@
             contentDiv.appendChild(vCon);
         }
 
-        // Gợi ý sạch
+        // Suggestions
         if(data.suggestions && data.suggestions.length > 0) {
             const sTitle = document.createElement('div');
-            sTitle.innerHTML = '<b style="font-size:17px;">💡 Gợi ý tiếp theo:</b>';
-            sTitle.style.margin = '30px 0 18px 0';
+            sTitle.innerHTML = '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
             contentDiv.appendChild(sTitle);
-
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
@@ -292,9 +257,7 @@
         document.getElementById('img-modal').classList.remove('hidden');
     }
 
-    function closeImg() {
-        document.getElementById('img-modal').classList.add('hidden');
-    }
+    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 </script>
 </body>
 </html>
