@@ -15,7 +15,7 @@
             background: linear-gradient(135deg, var(--primary-dark), var(--primary)); 
             color: white; padding: 0 15px; height: 55px; 
             display: flex; justify-content: space-between; align-items: center; 
-            z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); position: relative;
+            z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
         .logo { display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 16px; }
         .logo img { height: 40px; width: auto; }
@@ -27,22 +27,16 @@
             border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); 
             width: 220px; display: none; flex-direction: column; z-index: 2100;
         }
-        .dropdown-menu div { 
-            padding: 12px 15px; color: #333; border-bottom: 1px solid #eee; 
-            cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 10px; 
-        }
-        .dropdown-menu div:hover { background: #f0f7ff; color: var(--primary); }
+        .dropdown-menu div { padding: 12px 15px; color: #333; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 10px; }
 
-        .search-overlay {
-            position: absolute; top: 55px; left: 0; right: 0; background: white; 
-            padding: 10px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1999; gap: 8px;
-        }
+        .search-overlay { position: absolute; top: 55px; left: 0; right: 0; background: white; padding: 10px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1999; gap: 8px; }
         .search-overlay input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; outline: none; }
         .search-overlay button { background: var(--primary); color: white; border: none; padding: 0 15px; border-radius: 5px; cursor: pointer; }
 
         main { flex: 1; position: relative; overflow: hidden; }
         #map { height: 100%; width: 100%; z-index: 1; }
 
+        /* CHATBOT OVERLAY FIX */
         #chat-side { 
             position: absolute; right: 15px; top: 15px; bottom: 15px; 
             width: 450px; background: white; border-radius: 12px;
@@ -50,36 +44,39 @@
             z-index: 1500; overflow: hidden; border: 1px solid #ccc;
         }
 
-        .chat-menu-left {
-            width: 50px; background: #f1f3f5; border-right: 1px solid #ddd;
-            display: flex; flex-direction: column; align-items: center; padding-top: 15px; gap: 20px;
-        }
-        .chat-menu-left i { font-size: 18px; color: #666; cursor: pointer; padding: 10px; transition: 0.2s; }
-        .chat-menu-left i:hover, .chat-menu-left i.active { color: var(--primary); }
-        .chat-menu-left i.btn-pdf { color: #27ae60; }
-        .chat-menu-left i.btn-delete { color: #e74c3c; }
+        .chat-menu-left { width: 50px; background: #f1f3f5; border-right: 1px solid #ddd; display: flex; flex-direction: column; align-items: center; padding-top: 15px; gap: 20px; }
+        .chat-menu-left i { font-size: 18px; color: #666; cursor: pointer; padding: 10px; }
+        .chat-menu-left i.active { color: var(--primary); }
 
-        .chat-main-area { flex: 1; display: flex; flex-direction: column; background: white; }
-        .chat-box { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-        .msg { padding: 10px 15px; border-radius: 15px; max-width: 85%; font-size: 14.5px; line-height: 1.5; }
+        .chat-main-area { flex: 1; display: flex; flex-direction: column; height: 100%; background: white; }
+        
+        /* CHAT BOX CÓ SCROLLBAR */
+        .chat-box { 
+            flex: 1; overflow-y: auto; padding: 15px; 
+            display: flex; flex-direction: column; gap: 12px;
+            scrollbar-width: thin; scrollbar-color: #ccc transparent;
+        }
+        .chat-box::-webkit-scrollbar { width: 6px; }
+        .chat-box::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+
+        .msg { padding: 12px 16px; border-radius: 15px; max-width: 90%; font-size: 14.5px; line-height: 1.6; word-wrap: break-word; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
         .bot { background: #f1f3f5; color: #222; align-self: flex-start; border-bottom-left-radius: 2px; }
 
-        .input-area { padding: 8px 12px; border-top: 1px solid #eee; display: flex; gap: 8px; align-items: center; }
-        #user-input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 14px; }
-        .send-btn { background: var(--primary); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; }
+        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; margin: 10px 0; }
+        .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        .img-item { width: 100%; border-radius: 8px; margin: 5px 0; cursor: pointer; }
+        .suggest-item { background: #e3f2fd; color: #0066cc; padding: 8px 12px; border-radius: 8px; margin-top: 5px; cursor: pointer; font-size: 13px; border: 1px solid #bbdefb; }
 
-        footer { background: #006699; padding: 5px 15px; height: 30px; display: flex; justify-content: center; z-index: 2005; border-top: 1px solid var(--accent); }
-        .footer-info { display: flex; align-items: center; gap: 15px; color: white; font-size: 11px; }
-        .tri-style { color: #ffdd59; font-weight: bold; text-decoration: none; }
+        .input-area { padding: 10px; border-top: 1px solid #eee; display: flex; gap: 8px; background: #fff; }
+        #user-input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 25px; outline: none; }
+        .send-btn { background: var(--primary); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; }
 
+        footer { background: #006699; height: 30px; display: flex; justify-content: center; align-items: center; z-index: 2005; }
+        .footer-info { color: white; font-size: 11px; }
         .hidden { display: none !important; }
 
-        @media (max-width: 768px) {
-            #chat-side { inset: 10px; width: auto; height: auto; flex-direction: column; }
-            .chat-menu-left { width: 100%; height: 50px; flex-direction: row; justify-content: space-around; padding: 0; border-right: none; border-bottom: 1px solid #ddd; }
-            .footer-info { font-size: 10px; gap: 8px; }
-        }
+        @media (max-width: 768px) { #chat-side { inset: 5px; width: auto; flex-direction: column; } .chat-menu-left { width: 100%; height: 45px; flex-direction: row; justify-content: space-around; padding: 0; } }
     </style>
 </head>
 <body>
@@ -98,40 +95,37 @@
             <div onclick="confirmRefresh()"><i class="fa fa-sync-alt"></i> Khởi động lại</div>
         </div>
     </div>
-    <div id="search-bar" class="search-overlay">
-        <input type="text" id="s-input" placeholder="Tìm địa danh...">
-        <button onclick="findLoc()">TÌM</button>
-    </div>
 </header>
 
 <main>
     <div id="map"></div>
     <div id="chat-side">
         <div class="chat-menu-left">
-            <i class="fa fa-comments active" id="btn-chat" title="Hội thoại" onclick="setTab('chat')"></i>
-            <i class="fa fa-history" id="btn-hist" title="Lịch sử" onclick="setTab('history')"></i>
-            <i class="fa fa-trash-alt btn-delete" title="Xóa lịch sử" onclick="clearHistory()"></i>
-            <i class="fa fa-file-pdf btn-pdf" title="Xuất PDF" onclick="window.location.href='/export_pdf'"></i>
-            <i class="fa fa-times-circle" style="margin-top: auto; margin-bottom: 15px; color: #999;" onclick="toggleChat()"></i>
+            <i class="fa fa-comments active" id="btn-chat" onclick="setTab('chat')"></i>
+            <i class="fa fa-history" id="btn-hist" onclick="setTab('history')"></i>
+            <i class="fa fa-trash-alt" style="color:#e74c3c" onclick="clearHistory()"></i>
+            <i class="fa fa-file-pdf" style="color:#27ae60" onclick="window.location.href='/export_pdf'"></i>
+            <i class="fa fa-times-circle" style="margin-top:auto; margin-bottom:10px" onclick="toggleChat()"></i>
         </div>
         <div class="chat-main-area">
             <div id="chat-box" class="chat-box">
-                <div id="welcome-msg" class="msg bot">Chào bạn! Tôi là AI chuyên biệt du lịch <b>TP.HCM, Vũng Tàu và Bình Dương</b>.🇻🇳</div>
+                <div id="welcome-msg" class="msg bot">Chào bạn! Tôi là AI chuyên về <b>TP.HCM, Vũng Tàu và Bình Dương</b>. Hãy đặt câu hỏi nhé! 🇻🇳</div>
                 <div id="chat-content"></div>
             </div>
             <div class="input-area">
-                <input type="text" id="user-input" placeholder="Nhập câu hỏi..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <input type="text" id="user-input" placeholder="Hỏi về lịch sử, ẩm thực, con người..." onkeypress="if(event.key==='Enter') sendMessage()">
                 <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
             </div>
         </div>
     </div>
+    <div id="search-bar" class="search-overlay">
+        <input type="text" id="s-input" placeholder="Địa danh cần tìm...">
+        <button onclick="findLoc()">TÌM</button>
+    </div>
 </main>
 
 <footer>
-    <div class="footer-info">
-        <div>Dev: <span class="tri-style">Lại Nguyễn Minh Trí</span></div>
-        <div>Hotline: <a href="tel:0908083566" class="tri-style">0908.08.35.66</a></div>
-    </div>
+    <div class="footer-info">Dev: <b>Lại Nguyễn Minh Trí</b> - Hotline: <b>0908.08.35.66</b></div>
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -140,95 +134,99 @@
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
 
-    function toggleMenu(e) {
-        e.stopPropagation();
-        const m = document.getElementById('main-menu');
-        m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
-    }
+    function toggleMenu(e) { e.stopPropagation(); const m = document.getElementById('main-menu'); m.style.display = (m.style.display==='flex')?'none':'flex'; }
+    function showSearch() { document.getElementById('main-menu').style.display='none'; document.getElementById('search-bar').style.display='flex'; }
+    function toggleChat() { document.getElementById('chat-side').style.display = (document.getElementById('chat-side').style.display==='flex')?'none':'flex'; }
+    function confirmRefresh() { if(confirm("Khởi động lại?")) location.reload(); }
 
-    function showSearch() {
-        document.getElementById('main-menu').style.display = 'none';
-        document.getElementById('chat-side').style.display = 'none';
-        const s = document.getElementById('search-bar');
-        s.style.display = (s.style.display === 'flex') ? 'none' : 'flex';
-    }
-
-    function toggleChat() {
-        document.getElementById('main-menu').style.display = 'none';
-        document.getElementById('search-bar').style.display = 'none';
-        const c = document.getElementById('chat-side');
-        c.style.display = (c.style.display === 'flex') ? 'none' : 'flex';
-        if(c.style.display === 'flex') document.getElementById('user-input').focus();
-    }
-
-    // SỬA LỖI XÓA MỐC
     function confirmClearMarkers() {
-        document.getElementById('main-menu').style.display = 'none';
-        if(confirm("Bạn muốn xóa tất cả các mốc trên bản đồ?")) {
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-        }
+        if(confirm("Xóa tất cả mốc?")) { markers.forEach(m => map.removeLayer(m)); markers = []; }
     }
 
-    function confirmRefresh() {
-        if(confirm("Khởi động lại chương trình?")) location.reload();
-    }
-
-    // GIỮ NGUYÊN LOGIC CẮM MỐC CŨ CỦA BẠN
     async function findLoc() {
-        const q = document.getElementById('s-input').value.trim();
-        if(!q) return;
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
+        const q = document.getElementById('s-input').value;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`);
         const data = await res.json();
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 14);
-            // Tạo marker và thêm vào mảng markers để quản lý việc xóa
-            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:8px;padding:8px 12px;border-radius:6px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="background:#0066cc;color:white;border:none;padding:5px 10px;margin-top:5px;cursor:pointer;border-radius:4px">Hỏi AI</button>`).openPopup();
             markers.push(m);
-            document.getElementById('search-bar').style.display = 'none';
+            document.getElementById('search-bar').style.display='none';
         }
     }
 
-    // HÀM HỎI AI TỪ POPUP
     function askAI(loc) {
-        if (document.getElementById('chat-side').style.display !== 'flex') {
-            toggleChat();
-        }
-        setTab('chat');
-        document.getElementById('user-input').value = `Cho tôi thông tin chi tiết về du lịch ${loc}`;
+        toggleChat();
+        document.getElementById('user-input').value = `Thông tin du lịch lịch sử, ẩm thực, con người tại ${loc}`;
         sendMessage();
     }
 
-    function createMessageElement(role, content) {
-        const div = document.createElement('div');
-        div.className = `msg ${role}`;
-        if(role === 'user') { div.textContent = content; return div; }
-        let data = (typeof content === 'string') ? JSON.parse(content) : content;
-        div.innerHTML = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        return div;
+    // LOGIC HIỂN THỊ ĐẦY ĐỦ MEDIA
+    function renderBotMessage(data) {
+        const container = document.createElement('div');
+        container.className = 'msg bot';
+        
+        // 1. Phần Text (Lịch sử, văn hóa...)
+        let txt = data.text || "";
+        const textDiv = document.createElement('div');
+        textDiv.innerHTML = txt.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        container.appendChild(textDiv);
+
+        // 2. Phần Hình ảnh
+        if(data.images && data.images.length > 0) {
+            container.innerHTML += '<p style="margin-top:10px">📸 <b>Hình ảnh thực tế:</b></p>';
+            data.images.forEach(img => {
+                container.innerHTML += `<img src="${img.url}" class="img-item" title="${img.caption}">`;
+            });
+        }
+
+        // 3. Phần Video
+        if(data.youtube_links && data.youtube_links.length > 0) {
+            container.innerHTML += '<p style="margin-top:10px">🎥 <b>Video liên quan:</b></p>';
+            data.youtube_links.forEach(link => {
+                const vid = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+                if(vid) container.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${vid[1]}" allowfullscreen></iframe></div>`;
+            });
+        }
+
+        // 4. Phần Gợi ý
+        if(data.suggestions && data.suggestions.length > 0) {
+            container.innerHTML += '<p style="margin-top:10px">💡 <b>Gợi ý thêm:</b></p>';
+            data.suggestions.forEach(s => {
+                const btn = document.createElement('div');
+                btn.className = 'suggest-item';
+                btn.textContent = s;
+                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
+                container.appendChild(btn);
+            });
+        }
+        return container;
     }
 
     async function sendMessage() {
         const inp = document.getElementById('user-input');
-        const msg = inp.value.trim();
-        if(!msg) return;
+        const val = inp.value.trim(); if(!val) return;
         const cont = document.getElementById('chat-content');
-        cont.appendChild(createMessageElement('user', msg));
-        inp.value = '';
-        document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
-        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
+        
+        const uMsg = document.createElement('div'); uMsg.className = 'msg user'; uMsg.textContent = val;
+        cont.appendChild(uMsg); inp.value = '';
+        
+        const res = await fetch('/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({msg:val}) });
         const data = await res.json();
-        cont.appendChild(createMessageElement('bot', data));
-        document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+        cont.appendChild(renderBotMessage(data));
+        
+        const box = document.getElementById('chat-box');
+        box.scrollTop = box.scrollHeight;
     }
 
     function setTab(t) {
-        document.getElementById('btn-chat').classList.toggle('active', t === 'chat');
-        document.getElementById('btn-hist').classList.toggle('active', t === 'history');
         const cont = document.getElementById('chat-content');
         const welcome = document.getElementById('welcome-msg');
-        if(t === 'history') {
+        document.getElementById('btn-chat').className = (t==='chat')?'fa fa-comments active':'fa fa-comments';
+        document.getElementById('btn-hist').className = (t==='history')?'fa fa-history active':'fa fa-history';
+        
+        if(t==='history') {
             welcome.classList.add('hidden');
             loadHistory();
         } else {
@@ -242,19 +240,18 @@
         const data = await res.json();
         const cont = document.getElementById('chat-content');
         cont.innerHTML = '';
-        data.forEach(i => cont.appendChild(createMessageElement(i.role, i.content)));
+        data.forEach(item => {
+            if(item.role === 'user') {
+                const d = document.createElement('div'); d.className = 'msg user'; d.textContent = item.content;
+                cont.appendChild(d);
+            } else {
+                cont.appendChild(renderBotMessage(item.content));
+            }
+        });
     }
 
-    async function clearHistory() {
-        if(confirm("Xóa lịch sử trò chuyện?")) {
-            await fetch('/clear_history', { method: 'POST' });
-            location.reload();
-        }
-    }
-
-    document.addEventListener('click', (e) => {
-        if(!e.target.closest('.menu-container')) document.getElementById('main-menu').style.display = 'none';
-    });
+    async function clearHistory() { if(confirm("Xóa hết lịch sử?")) { await fetch('/clear_history', {method:'POST'}); location.reload(); } }
+    document.addEventListener('click', (e) => { if(!e.target.closest('.menu-container')) document.getElementById('main-menu').style.display='none'; });
 </script>
 </body>
 </html>
