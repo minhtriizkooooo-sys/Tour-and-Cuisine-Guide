@@ -4,8 +4,7 @@ from flask import Flask, request, jsonify, render_template, make_response, send_
 from flask_cors import CORS
 from groq import Groq
 from fpdf import FPDF
-from PIL import Image
-from io import BytesIO
+import os
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro")
@@ -28,7 +27,6 @@ init_db()
 
 def search_serper(query, type="images"):
     if not SERPER_API_KEY: return []
-    # Lọc video rác bằng toán tử loại trừ của Google (-)
     q = f"{query} du lịch review thực tế -nhạc -karaoke -news -scandal" if type == "videos" else f"{query} du lịch chất lượng cao"
     url = f"https://google.serper.dev/{type}"
     try:
@@ -60,7 +58,6 @@ def chat():
         )
         ai_res = json.loads(chat_completion.choices[0].message.content)
         
-        # Nếu địa danh hợp lệ mới tìm ảnh/video, ngược lại để trống
         images, videos = (search_serper(msg, "images"), search_serper(msg, "videos")) if ai_res.get("is_valid") else ([], [])
         
         data = {"text": ai_res.get("text"), "images": images, "youtube_links": videos, 
@@ -83,23 +80,64 @@ def get_history():
 
 @app.route("/export_pdf")
 def export_pdf():
-    # Giữ nguyên logic PDF nhưng viết gọn lại
-    sid, pdf = request.cookies.get("session_id"), FPDF()
-    pdf.add_page()
-    # (Tự động thêm font DejaVuSans tại đây nếu có file ttf trong static)
-    pdf.set_font("Arial", size=12) 
-    with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ?", (sid,)).fetchall()
-        for role, content in rows:
-            text = json.loads(content).get('text') if role == 'bot' else content
-            pdf.multi_cell(0, 10, f"{'AI' if role=='bot' else 'Bạn'}: {text}")
-    pdf.output("lich_trinh.pdf")
-    return send_file("lich_trinh.pdf", as_attachment=True)
+    try:
+        sid = request.cookies.get("session_id")
+        pdf = FPDF()
+        pdf.add_page()
+
+        # ĐĂNG KÝ FONT ĐỂ ĐỌC TIẾNG VIỆT
+        font_path = os.path.join(app.root_path, 'static', 'DejaVuSans.ttf')
+        if not os.path.exists(font_path):
+            return "Lỗi: Không tìm thấy file font DejaVuSans.ttf trong thư mục static", 500
+        
+        pdf.add_font('DejaVu', '', font_path, uni=True)
+        pdf.set_font('DejaVu', '', 14)
+
+        # Tiêu đề PDF
+        pdf.cell(0, 10, txt="LỊCH TRÌNH DU LỊCH CHI TIẾT 2026", ln=True, align='C')
+        pdf.ln(10)
+        pdf.set_font('DejaVu', '', 11)
+
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
+            
+            for row in rows:
+                role_label = "BẠN: " if row['role'] == 'user' else "AI: "
+                raw_content = row['content']
+                
+                # Trích xuất text từ JSON của Bot
+                if row['role'] == 'bot':
+                    try:
+                        data = json.loads(raw_content)
+                        text = data.get('text', '')
+                    except:
+                        text = raw_content
+                else:
+                    text = raw_content
+
+                # In Vai trò
+                pdf.set_text_color(200, 0, 0) if row['role'] == 'user' else pdf.set_text_color(0, 100, 0)
+                pdf.write(8, role_label)
+                
+                # In Nội dung (Làm sạch ký tự Markdown cơ bản)
+                pdf.set_text_color(0, 0, 0)
+                clean_text = text.replace('**', '').replace('#', '')
+                pdf.multi_cell(0, 8, txt=clean_text)
+                pdf.ln(5)
+
+        output_path = "lich_trinh_du_lich.pdf"
+        pdf.output(output_path)
+        return send_file(output_path, as_attachment=True)
+
+    except Exception as e:
+        return f"Lỗi hệ thống PDF: {str(e)}", 500
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
+    sid = request.cookies.get("session_id")
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM messages WHERE session_id = ?", (request.cookies.get("session_id"),))
+        conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
     return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
