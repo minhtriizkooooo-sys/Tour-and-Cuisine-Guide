@@ -11,32 +11,40 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
         
-        /* HEADER TỐI ƯU: GIỮ CHỮ VIET NAM VÀ CHỨA THANH TÌM KIẾM */
+        /* HEADER THU GỌN */
         header { 
             background: linear-gradient(135deg, var(--primary-dark), var(--primary)); 
-            color: white; padding: 0 20px; min-height: 80px; 
+            color: white; padding: 0 15px; height: 65px; 
             display: flex; justify-content: space-between; align-items: center; 
-            z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); 
-            gap: 20px;
+            z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); position: relative;
         }
-        .logo { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 22px; flex-shrink: 0; }
-        .logo img { height: 60px; width: auto; background: transparent !important; }
+        .logo { display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 19px; }
+        .logo img { height: 50px; width: auto; background: transparent !important; }
 
-        /* THANH TÌM KIẾM TRÊN HEADER */
-        .header-search { 
-            display: flex; gap: 8px; flex: 1; max-width: 500px; 
-            background: rgba(255,255,255,0.1); padding: 5px; border-radius: 30px;
+        /* MENU HAMBURGER & DROPDOWN */
+        .menu-container { position: relative; }
+        .menu-icon { font-size: 24px; cursor: pointer; padding: 10px; }
+        .dropdown-menu { 
+            position: absolute; top: 55px; right: 0; background: white; 
+            border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); 
+            width: 230px; display: none; flex-direction: column; overflow: hidden; z-index: 2100;
         }
-        .header-search input { 
-            flex: 1; padding: 10px 18px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.2); 
-            outline: none; font-size: 14px; background: white;
+        .dropdown-menu div { 
+            padding: 14px 18px; color: #333; border-bottom: 1px solid #eee; 
+            cursor: pointer; font-size: 14.5px; display: flex; align-items: center; gap: 12px; 
         }
-        .header-search button { 
-            background: var(--accent); color: white; border: none; 
-            padding: 0 20px; border-radius: 25px; cursor: pointer; font-weight: bold;
-            transition: 0.2s;
+        .dropdown-menu div:hover { background: #f0f7ff; color: var(--primary); }
+        .dropdown-menu div i { width: 20px; text-align: center; color: var(--primary); }
+
+        /* SEARCH BAR OVERLAY */
+        .search-overlay {
+            position: absolute; top: 65px; left: 0; right: 0; background: white; 
+            padding: 12px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1999;
+            gap: 8px; animation: slideDown 0.3s ease;
         }
-        .header-search button:hover { opacity: 0.9; transform: scale(1.05); }
+        @keyframes slideDown { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .search-overlay input { flex: 1; padding: 12px 15px; border: 1px solid #ddd; border-radius: 8px; outline: none; font-size: 14px; }
+        .search-overlay button { background: var(--primary); color: white; border: none; padding: 0 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
         main { flex: 1; display: flex; position: relative; overflow: hidden; }
         #map-side { flex: 1; position: relative; z-index: 1; }
@@ -47,41 +55,35 @@
         .tab { flex: 1; padding: 15px 5px; text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; color: #666; }
         .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); background: white; }
 
-        .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; background: #fff; }
+        .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
         .msg { padding: 16px 20px; border-radius: 20px; max-width: 90%; font-size: 15.5px; line-height: 1.7; }
         .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .bot { background: #f8f9fa; color: #222; align-self: flex-start; border-bottom-left-radius: 4px; }
+        .bot { background: #f1f3f5; color: #222; align-self: flex-start; border-bottom-left-radius: 4px; }
 
         .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
         #user-input { flex: 1; padding: 14px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
         .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; }
 
-        footer { background: #006699; padding: 14px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 2005; border-top: 2px solid var(--accent); }
-        .footer-label { color: #fff; font-weight: bold; font-size: 14.5px; letter-spacing: 0.5px; }
-        .tri-style { color: #ffdd59 !important; font-weight: 900; font-size: 17px; text-shadow: 1px 1px 0 #000; margin-left: 8px; text-decoration: none; }
-        
-        .pdf-btn-container { padding: 12px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; justify-content: center; }
-        .btn-pdf { background: #27ae60; color: white; border: none; padding: 12px 24px; border-radius: 25px; font-weight: bold; cursor: pointer; font-size: 15px; display: flex; align-items: center; gap: 10px; }
-
-        #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        #modal-img { max-width: 95%; max-height: 80vh; border-radius: 12px; object-fit: contain; }
-        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 15px; }
+        /* FOOTER TỐI ƯU MOBILE */
+        footer { background: #006699; padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2005; border-top: 2px solid var(--accent); }
+        .footer-info { display: flex; align-items: center; gap: 15px; width: 100%; justify-content: space-between; }
+        .footer-label { color: #fff; font-weight: bold; font-size: 13px; }
+        .tri-style { color: #ffdd59 !important; font-weight: 900; font-size: 14px; text-shadow: 1px 1px 0 #000; text-decoration: none; }
 
         .hidden { display: none !important; }
-        .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 14px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
-        .video-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
-        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; }
+        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; margin-top: 10px; }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
 
         @media (max-width: 768px) {
-            header { flex-direction: column; padding: 10px; height: auto; gap: 10px; }
-            .logo { font-size: 18px; }
-            .logo img { height: 45px; }
-            .header-search { max-width: 100%; width: 100%; }
+            header { height: 55px; padding: 0 10px; }
+            .logo { font-size: 15px; }
+            .logo img { height: 40px; }
             main { flex-direction: column; }
             #map-side { height: 35%; }
             #chat-side { width: 100%; height: 65%; }
-            footer { flex-direction: column; gap: 10px; text-align: center; }
+            footer { padding: 5px 10px; }
+            .footer-info { justify-content: center; gap: 10px; }
+            .footer-label, .tri-style { font-size: 11.5px; }
         }
     </style>
 </head>
@@ -92,46 +94,46 @@
         <span>VIET NAM TRAVEL AI GUIDE 2026</span>
     </div>
     
-    <div class="header-search">
-        <input type="text" id="s-input" placeholder="Tìm địa danh & cắm mốc...">
-        <button onclick="findLoc()"><i class="fa fa-map-marker-alt"></i></button>
-        <button onclick="clearMap()" style="background: #e74c3c;"><i class="fa fa-trash"></i></button>
+    <div class="menu-container">
+        <i class="fa fa-bars menu-icon" onclick="toggleMenu(event)"></i>
+        <div id="main-menu" class="dropdown-menu">
+            <div onclick="showSearch()"><i class="fa fa-search"></i> Tìm địa danh</div>
+            <div onclick="confirmClearMarkers()"><i class="fa fa-eraser"></i> Xóa cắm mốc</div>
+            <div onclick="focusChat()"><i class="fa fa-comment-dots"></i> Chatbot AI</div>
+            <div onclick="confirmRefresh()"><i class="fa fa-sync-alt"></i> Khởi động lại</div>
+        </div>
     </div>
 
-    <i class="fa fa-sync-alt" onclick="location.reload()" style="cursor:pointer; font-size: 22px; color: white;"></i>
+    <div id="search-bar" class="search-overlay">
+        <input type="text" id="s-input" placeholder="Nhập địa danh & cắm mốc..." onkeypress="if(event.key==='Enter') findLoc()">
+        <button onclick="findLoc()">TÌM KIẾM</button>
+    </div>
 </header>
+
 <main>
     <div id="map-side"><div id="map"></div></div>
     <div id="chat-side">
         <div class="tab-bar">
             <div class="tab active" id="t-chat" onclick="setTab('chat')">HỘI THOẠI</div>
             <div class="tab" id="t-hist" onclick="setTab('history')">LỊCH SỬ</div>
-            <div class="tab" onclick="clearHistory()" style="color:#e74c3c;">XÓA HẾT</div>
         </div>
         <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào bạn! Tôi là AI chuyên biệt về du lịch <b>TP.HCM, Vũng Tàu và Bình Dương</b>. Hãy dùng thanh tìm kiếm ở trên để cắm mốc hoặc hỏi tôi trực tiếp! 🇻🇳</div>
-        </div>
-        <div id="pdf-area" class="pdf-btn-container hidden">
-            <button class="btn-pdf" onclick="window.location.href='/export_pdf'">
-                <i class="fa fa-file-pdf"></i> Xuất Lịch Trình PDF
-            </button>
+            <div id="welcome-msg" class="msg bot">Chào bạn! Tôi là AI chuyên biệt về du lịch <b>TP.HCM, Vũng Tàu và Bình Dương</b>. Hãy dùng thanh tìm kiếm ở trên để cắm mốc hoặc hỏi tôi trực tiếp! 🇻🇳</div>
+            <div id="chat-content" style="display: flex; flex-direction: column; gap: 15px;"></div>
         </div>
         <div class="input-area">
-            <input type="text" id="user-input" placeholder="Nhập câu hỏi tại đây..." onkeypress="if(event.key==='Enter') sendMessage()">
+            <input type="text" id="user-input" placeholder="Hỏi AI thông tin du lịch..." onkeypress="if(event.key==='Enter') sendMessage()">
             <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
 </main>
-<footer>
-    <div><span class="footer-label">Developer:</span><span class="tri-style">Lại Nguyễn Minh Trí</span></div>
-    <div><span class="footer-label">Hotline:</span><a href="tel:0908083566" class="tri-style">84.908.08.35.66</a></div>
-</footer>
 
-<div id="img-modal" class="hidden" onclick="closeImg()">
-    <img id="modal-img" src="">
-    <div id="modal-caption"></div>
-    <button style="margin-top:20px; padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:8px; cursor:pointer;">ĐÓNG</button>
-</div>
+<footer>
+    <div class="footer-info">
+        <div><span class="footer-label">Dev:</span><span class="tri-style">Lại Nguyễn Minh Trí</span></div>
+        <div><span class="footer-label">Hotline:</span><a href="tel:0908083566" class="tri-style">0908.08.35.66</a></div>
+    </div>
+</footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -139,7 +141,45 @@
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
 
-    function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
+    // TOGGLE MENU
+    function toggleMenu(e) {
+        e.stopPropagation();
+        const m = document.getElementById('main-menu');
+        const isVisible = m.style.display === 'flex';
+        m.style.display = isVisible ? 'none' : 'flex';
+    }
+
+    // SEARCH OVERLAY
+    function showSearch() {
+        document.getElementById('main-menu').style.display = 'none';
+        const s = document.getElementById('search-bar');
+        s.style.display = (s.style.display === 'flex') ? 'none' : 'flex';
+        if(s.style.display === 'flex') document.getElementById('s-input').focus();
+    }
+
+    // XÓA MỐC CÓ XÁC NHẬN
+    function confirmClearMarkers() {
+        document.getElementById('main-menu').style.display = 'none';
+        if(confirm("Bạn có thật sự muốn xóa các mốc đã cắm trên bản đồ không?")) {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+        }
+    }
+
+    // CHATBOT FOCUS
+    function focusChat() {
+        document.getElementById('main-menu').style.display = 'none';
+        setTab('chat');
+        document.getElementById('user-input').focus();
+    }
+
+    // REFRESH CÓ XÁC NHẬN
+    function confirmRefresh() {
+        document.getElementById('main-menu').style.display = 'none';
+        if(confirm("Bạn có chắc chắn muốn khởi động lại chương trình không?")) {
+            location.reload();
+        }
+    }
 
     async function findLoc() {
         const q = document.getElementById('s-input').value.trim();
@@ -149,13 +189,13 @@
         if(data[0]) {
             const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 14);
-            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:8px;padding:8px 12px;border-radius:6px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:8px;padding:6px 12px;border-radius:6px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
             markers.push(m);
+            document.getElementById('search-bar').style.display = 'none';
         }
     }
 
     function askAI(loc) {
-        setTab('chat');
         document.getElementById('user-input').value = `Cho tôi thông tin chi tiết về du lịch ${loc}`;
         sendMessage();
     }
@@ -164,55 +204,8 @@
         const div = document.createElement('div');
         div.className = `msg ${role}`;
         if(role === 'user') { div.textContent = content; return div; }
-
         let data = (typeof content === 'string') ? JSON.parse(content) : content;
-        const contentDiv = document.createElement('div');
-
-        let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        const textP = document.createElement('div');
-        textP.innerHTML = htmlText;
-        contentDiv.appendChild(textP);
-
-        if(data.images && data.images.length > 0) {
-            const imgTitle = document.createElement('div');
-            imgTitle.innerHTML = '<b style="display:block; margin:15px 0 8px 0; color:#0066cc;">📸 Ảnh địa điểm:</b>';
-            contentDiv.appendChild(imgTitle);
-            data.images.forEach(img => {
-                const image = document.createElement('img');
-                image.src = img.url;
-                image.style = "width:100%; border-radius:10px; margin-bottom:10px; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,0.1);";
-                image.onclick = () => showImg(img.url, img.caption);
-                contentDiv.appendChild(image);
-            });
-        }
-
-        if(data.youtube_links && data.youtube_links.length > 0) {
-            const vTitle = document.createElement('div');
-            vTitle.innerHTML = '<b style="display:block; margin:15px 0 8px 0; color:#c0392b;">🎥 Video liên quan:</b>';
-            contentDiv.appendChild(vTitle);
-            const vCon = document.createElement('div');
-            vCon.className = 'video-container';
-            data.youtube_links.forEach(link => {
-                const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-                if(match) vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
-            });
-            contentDiv.appendChild(vCon);
-        }
-
-        if(data.suggestions && data.suggestions.length > 0) {
-            const sTitle = document.createElement('div');
-            sTitle.innerHTML = '<b style="display:block; margin:15px 0 8px 0;">💡 Gợi ý:</b>';
-            contentDiv.appendChild(sTitle);
-            data.suggestions.forEach(s => {
-                const btn = document.createElement('div');
-                btn.className = 'suggest-item';
-                btn.textContent = s;
-                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
-                contentDiv.appendChild(btn);
-            });
-        }
-
-        div.appendChild(contentDiv);
+        div.innerHTML = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         return div;
     }
 
@@ -220,44 +213,43 @@
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
         if(!msg) return;
-        const box = document.getElementById('chat-box');
-        box.appendChild(createMessageElement('user', msg));
-        inp.value = ''; box.scrollTop = box.scrollHeight;
-
+        const cont = document.getElementById('chat-content');
+        cont.appendChild(createMessageElement('user', msg));
+        inp.value = '';
+        document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
         const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
         const data = await res.json();
-        box.appendChild(createMessageElement('bot', data));
-        box.scrollTop = box.scrollHeight;
+        cont.appendChild(createMessageElement('bot', data));
+        document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
     }
 
     function setTab(t) {
         document.getElementById('t-chat').classList.toggle('active', t === 'chat');
         document.getElementById('t-hist').classList.toggle('active', t === 'history');
-        document.getElementById('pdf-area').classList.toggle('hidden', t !== 'history');
-        if(t === 'history') loadHistory();
+        const cont = document.getElementById('chat-content');
+        const welcome = document.getElementById('welcome-msg');
+        
+        if(t === 'history') {
+            welcome.classList.add('hidden'); // Ẩn khi xem lịch sử
+            loadHistory();
+        } else {
+            welcome.classList.remove('hidden'); // Luôn hiện khi quay lại Hội thoại
+            cont.innerHTML = ''; 
+        }
     }
 
     async function loadHistory() {
         const res = await fetch('/history');
         const data = await res.json();
-        const box = document.getElementById('chat-box'); box.innerHTML = '';
-        data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
-        box.scrollTop = box.scrollHeight;
+        const cont = document.getElementById('chat-content');
+        cont.innerHTML = '';
+        data.forEach(i => cont.appendChild(createMessageElement(i.role, i.content)));
     }
 
-    async function clearHistory() {
-        if(confirm("Xóa lịch sử trò chuyện?")) {
-            await fetch('/clear_history', { method: 'POST' });
-            location.reload();
-        }
-    }
-
-    function showImg(u, c) {
-        document.getElementById('modal-img').src = u;
-        document.getElementById('modal-caption').textContent = c || '';
-        document.getElementById('img-modal').classList.remove('hidden');
-    }
-    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
+    // Đóng menu khi bấm ra ngoài
+    document.addEventListener('click', () => {
+        document.getElementById('main-menu').style.display = 'none';
+    });
 </script>
 </body>
 </html>
