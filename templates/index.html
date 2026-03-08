@@ -20,7 +20,10 @@
         #sidebar.open { right: 0; }
         #close-sidebar { cursor: pointer; font-size: 20px; color: var(--primary); position: absolute; top: 10px; right: 15px; }
         .sidebar-section { margin-bottom: 20px; }
-        .sidebar-section h3 { color: var(--primary); font-size: 16px; margin-bottom: 10px; }
+        .sidebar-section h3 { color: var(--primary); font-size: 16px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-section h3 i { transition: transform 0.3s; }
+        .sidebar-section.collapsed .content { display: none; }
+        .sidebar-section.collapsed h3 i { transform: rotate(180deg); }
         .btn-sidebar { display: block; width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; text-align: left; }
         .btn-primary { background: var(--primary); }
         .btn-danger { background: #e74c3c; }
@@ -35,8 +38,12 @@
         .send-btn { background: var(--primary); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
         footer { background: #006699; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 13px; border-top: 2px solid var(--accent); }
         #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        #modal-img { max-width: 95%; max-height: 80vh; border-radius: 12px; object-fit: contain; }
+        #modal-content { position: relative; max-width: 95%; max-height: 80vh; display: flex; align-items: center; justify-content: center; }
+        #modal-img { max-width: 100%; max-height: 80vh; border-radius: 12px; object-fit: contain; }
         #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 14px; max-width: 90%; }
+        .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.3); border: none; color: white; font-size: 24px; padding: 10px; cursor: pointer; border-radius: 50%; }
+        #prev-img { left: 10px; }
+        #next-img { right: 10px; }
         .hidden { display: none !important; }
         .suggest-item { background: #e3f2fd; color: var(--primary); padding: 10px 14px; border-radius: 12px; margin-top: 8px; cursor: pointer; border: 1px solid #bbdefb; font-size: 13px; transition: 0.2s; }
         .suggest-item:hover { background: #bbdefb; }
@@ -49,6 +56,7 @@
             .logo img { height: 35px; }
             header { height: 55px; padding: 10px 15px; }
             footer { flex-direction: column; gap: 5px; text-align: center; padding: 8px 15px; font-size: 12px; }
+            #modal-nav { font-size: 20px; padding: 8px; }
         }
     </style>
 </head>
@@ -64,18 +72,22 @@
     <div id="map"></div>
     <div id="sidebar">
         <i id="close-sidebar" class="fa fa-times"></i>
-        <div class="sidebar-section">
-            <h3>Công cụ Bản đồ</h3>
-            <input type="text" id="s-input" placeholder="Nhập địa danh...">
-            <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc</button>
-            <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa Marker</button>
+        <div class="sidebar-section" id="map-tools">
+            <h3>Công cụ Bản đồ <i class="fa fa-chevron-down"></i></h3>
+            <div class="content">
+                <input type="text" id="s-input" placeholder="Nhập địa danh...">
+                <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc</button>
+                <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa Marker</button>
+            </div>
         </div>
-        <div class="sidebar-section">
-            <h3>Chat & Lịch sử</h3>
-            <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Hội Thoại</button>
-            <button class="btn-sidebar btn-primary" onclick="toggleChat('history')">Lịch Sử</button>
-            <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF</button>
-            <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa Hết</button>
+        <div class="sidebar-section" id="chat-tools">
+            <h3>Chat & Lịch sử <i class="fa fa-chevron-down"></i></h3>
+            <div class="content">
+                <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Hội Thoại</button>
+                <button class="btn-sidebar btn-primary" onclick="toggleChat('history')">Lịch Sử</button>
+                <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF</button>
+                <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa Hết</button>
+            </div>
         </div>
         <div id="chat-container">
             <div id="chat-box"></div>
@@ -90,10 +102,14 @@
     <div>Developer: <span style="color:#ffdd59; font-weight:900;">Lại Nguyễn Minh Trí</span></div>
     <div>Hotline: <a href="tel:0908083566" style="color:#ffdd59; font-weight:900; text-decoration:none;">84.908.08.35.66</a></div>
 </footer>
-<div id="img-modal" class="hidden" onclick="closeImg()">
-    <img id="modal-img" src="">
+<div id="img-modal" class="hidden">
+    <div id="modal-content">
+        <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
+        <img id="modal-img" src="">
+        <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
+    </div>
     <div id="modal-caption"></div>
-    <button style="margin-top:20px; padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:6px; font-weight:bold; font-size:14px;">ĐÓNG</button>
+    <button style="margin-top:20px; padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:6px; font-weight:bold; font-size:14px;" onclick="closeImg()">ĐÓNG</button>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -102,10 +118,20 @@
     let markers = [];
     let currentTab = 'chat';  // Mặc định chat
     let chatHistoryLoaded = false;  // Để tránh load lại nhiều lần
+    let currentImages = [];  // Để lưu list images cho navigation
+    let currentImgIndex = 0;  // Index ảnh hiện tại trong modal
 
     const sidebar = document.getElementById('sidebar');
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
+
+    // Minimize/expand sections
+    document.querySelectorAll('.sidebar-section h3').forEach(h3 => {
+        h3.onclick = () => {
+            const section = h3.parentElement;
+            section.classList.toggle('collapsed');
+        };
+    });
 
     function toggleChat(tab) {
         currentTab = tab;
@@ -114,7 +140,7 @@
         const box = document.getElementById('chat-box');
         if (tab === 'chat') {
             if (box.innerHTML === '') box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
-        } else if (tab === 'history' && !chatHistoryLoaded) {
+        } else if (tab === 'history') {
             loadHistory();
             chatHistoryLoaded = true;
         }
@@ -151,11 +177,11 @@
         contentDiv.innerHTML = htmlText;
         if (data.images && data.images.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px; color:#0066cc;">📸 Hình ảnh:</b>';
-            data.images.forEach(img => {
+            data.images.forEach((img, index) => {
                 const image = document.createElement('img');
                 image.src = img.url;
                 image.style = "width:100%; border-radius:10px; margin-bottom:8px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.1);";
-                image.onclick = () => showImg(img.url, img.caption);
+                image.onclick = () => showImg(data.images, index);
                 contentDiv.appendChild(image);
             });
         }
@@ -218,11 +244,30 @@
         }
     }
 
-    function showImg(u, c) {
-        document.getElementById('modal-img').src = u;
-        document.getElementById('modal-caption').textContent = c || '';
+    function showImg(images, index) {
+        currentImages = images;
+        currentImgIndex = index;
+        updateModalImg();
         document.getElementById('img-modal').classList.remove('hidden');
     }
+
+    function updateModalImg() {
+        const img = currentImages[currentImgIndex];
+        document.getElementById('modal-img').src = img.url;
+        document.getElementById('modal-caption').textContent = img.caption || '';
+        document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
+        document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
+    }
+
+    document.getElementById('prev-img').onclick = () => {
+        if (currentImgIndex > 0) currentImgIndex--;
+        updateModalImg();
+    };
+
+    document.getElementById('next-img').onclick = () => {
+        if (currentImgIndex < currentImages.length - 1) currentImgIndex++;
+        updateModalImg();
+    };
 
     function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 </script>
