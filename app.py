@@ -38,10 +38,9 @@ def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
         return []
     
-    # Tối ưu query để video và ảnh liên quan cao nhất
     base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
     if search_type == "videos":
-        q = f"{query} du lịch review youtube"  # Query đơn giản hơn, tập trung YouTube để tăng khả năng lấy video phù hợp
+        q = f"{query} du lịch review youtube"  # Tập trung YouTube
     else:
         q = f"{base_q} hình ảnh đẹp check-in thực tế"
 
@@ -55,8 +54,7 @@ def search_serper(query, search_type="images"):
         ).json()
 
         if search_type == "images":
-            images = [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10]]
-            return images
+            return [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10]]
         else:
             videos = []
             for i in res.get('videos', [])[:10]:
