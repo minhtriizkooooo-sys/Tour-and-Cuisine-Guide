@@ -14,9 +14,14 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
 CORS(app)
 
+# Lấy API keys
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
+
+# Debug ngay lúc khởi động
+print(f"[STARTUP] GROQ_API_KEY prefix: {GROQ_API_KEY[:6] if GROQ_API_KEY else 'NOT SET'}...")
+print(f"[STARTUP] SERPER_API_KEY prefix: {SERPER_API_KEY[:6] if SERPER_API_KEY else 'NOT SET'}...")
 
 VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
@@ -34,17 +39,17 @@ Chỉ trả JSON thuần, không thêm text ngoài."""
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, created_at TEXT)")
+
 init_db()
 
 def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
+        print("[DEBUG] SERPER_API_KEY not set, returning empty")
         return []
-   
+    
     base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
-    if search_type == "videos":
-        q = f"{query} du lịch review youtube trải nghiệm địa danh"
-    else:
-        q = f"{base_q} hình ảnh đẹp check-in thực tế địa danh"
+    q = f"{query} du lịch review youtube trải nghiệm địa danh" if search_type == "videos" else base_q + " hình ảnh đẹp check-in thực tế địa danh"
+    
     url = f"https://google.serper.dev/{search_type}"
     try:
         res = requests.post(
@@ -53,18 +58,15 @@ def search_serper(query, search_type="images"):
             json={"q": q, "gl": "vn", "hl": "vi", "num": 25},
             timeout=15
         ).json()
+        
         if search_type == "images":
             return [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10]]
         else:
-            videos = []
-            for i in res.get('videos', [])[:10]:
-                link = i.get('link', '')
-                if 'youtube.com' in link.lower() or 'youtu.be' in link.lower():
-                    videos.append(link)
+            videos = [i.get('link', '') for i in res.get('videos', [])[:10] if 'youtube' in i.get('link', '').lower()]
             print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} videos")
             return videos
     except Exception as e:
-        print(f"Serper error ({search_type}): {e}")
+        print(f"[Serper error {search_type}]: {e}")
         return []
 
 @app.route("/")
@@ -80,41 +82,55 @@ def chat():
     msg = request.json.get("msg", "").strip()
     if not msg:
         return jsonify({"text": "Bạn chưa nhập gì cả...", "images": [], "youtube_links": []})
+
+    if not GROQ_API_KEY:
+        print("[ERROR] GROQ_API_KEY is not set in environment variables!")
+        return jsonify({"text": "Lỗi hệ thống: API key Groq chưa được cấu hình trên server.", "images": [], "youtube_links": []})
+
     client = Groq(api_key=GROQ_API_KEY)
-   
+
     try:
+        print(f"[DEBUG] Gửi yêu cầu Groq: msg='{msg[:80]}...' | model=llama-3.1-8b-instant | tokens max=2048")
+        
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",          # ← Model nhẹ để test nhanh, đổi lại 70b khi ổn
             messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": msg}],
             response_format={"type": "json_object"},
             temperature=0.75,
-            max_tokens=4500
+            max_tokens=2048,                       # ← Giảm để tiết kiệm quota khi test
         )
-       
-        ai_res = json.loads(completion.choices[0].message.content)
-       
-        images, videos = [], []
-        if ai_res.get("is_valid", False):
-            images = search_serper(msg, "images")
-            videos = search_serper(msg, "videos")
-       
+
+        raw_response = completion.choices[0].message.content
+        print(f"[DEBUG] Groq raw response (first 300 chars): {raw_response[:300]}...")
+
+        ai_res = json.loads(raw_response)
+
+        images = search_serper(msg, "images") if ai_res.get("is_valid", False) else []
+        videos = search_serper(msg, "videos") if ai_res.get("is_valid", False) else []
+
         data = {
             "text": ai_res.get("text", "Không có nội dung."),
             "images": images,
             "youtube_links": videos,
             "suggestions": ai_res.get("suggestions", ["Du lịch Landmark 81", "Review Vũng Tàu", "Bình Dương có gì chơi"])
         }
-       
+
         now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)", (sid, "user", msg, now_vn))
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)", (sid, "bot", json.dumps(data, ensure_ascii=False), now_vn))
-       
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "user", msg, now_vn))
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "bot", json.dumps(data, ensure_ascii=False), now_vn))
+
+        print("[DEBUG] Chat response sent successfully")
         return jsonify(data)
-   
+
     except Exception as e:
-        print(f"Groq error: {e}")
-        return jsonify({"text": f"Lỗi: {str(e)}", "images": [], "youtube_links": []})
+        error_str = f"Groq error: {type(e).__name__} - {str(e)}"
+        print(error_str)
+        if 'completion' in locals():
+            print(f"[DEBUG] Raw Groq content (if available): {completion.choices[0].message.content[:500]}...")
+        return jsonify({"text": f"Lỗi khi gọi Groq: {error_str}", "images": [], "youtube_links": []})
 
 @app.route("/history")
 def get_history():
