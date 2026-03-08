@@ -17,7 +17,6 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
-# System prompt – đảm bảo nội dung chính xác, liên quan câu hỏi, tập trung lịch sử, văn hóa, con người, ẩm thực, gợi ý du lịch
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi tiếng như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương. Nếu là địa điểm trong TP.HCM, thử mô tả rõ hơn nhé!"}
 2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1200 từ, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi: 
@@ -39,10 +38,10 @@ def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
         return []
     
-    # Tối ưu query để liên quan cao hơn: Sử dụng từ khóa chính xác từ query
+    # Tối ưu query để video và ảnh liên quan cao nhất
     base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
     if search_type == "videos":
-        q = f"{base_q} video youtube khám phá trải nghiệm -nhạc -karaoke -tin tức -scandal -shorts -vlog"  # Tối ưu thêm để lấy video chất lượng, liên quan du lịch
+        q = f"{query} du lịch review youtube"  # Query đơn giản hơn, tập trung YouTube để tăng khả năng lấy video phù hợp
     else:
         q = f"{base_q} hình ảnh đẹp check-in thực tế"
 
@@ -51,21 +50,20 @@ def search_serper(query, search_type="images"):
         res = requests.post(
             url,
             headers={'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'},
-            json={"q": q, "gl": "vn", "hl": "vi", "num": 25},  # Tăng num để có nhiều lựa chọn hơn
+            json={"q": q, "gl": "vn", "hl": "vi", "num": 25},
             timeout=15
         ).json()
 
         if search_type == "images":
-            images = [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10] if query.lower() in i.get('title', '').lower() or 'du lịch' in i.get('title', '').lower()]
-            return images or [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:6]]  # Fallback với filter nhẹ
+            images = [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10]]
+            return images
         else:
             videos = []
             for i in res.get('videos', [])[:10]:
                 link = i.get('link', '')
-                title = i.get('title', '').lower()
-                if ('youtube.com' in link.lower() or 'youtu.be' in link.lower()) and (query.lower() in title or any(word in title for word in ['du lịch', 'review', 'khám phá', 'thực tế', 'trải nghiệm'])):
+                if 'youtube.com' in link.lower() or 'youtu.be' in link.lower():
                     videos.append(link)
-            print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} relevant videos")  # Debug
+            print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} videos")
             return videos
     except Exception as e:
         print(f"Serper error ({search_type}): {e}")
