@@ -7,49 +7,47 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f4f7f9; --accent: #f39c12; }
+        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f4f7f9; --accent: #f39c12; --text-color: #222; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
-        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 0 15px; height: 75px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-        .logo { display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 22px; }
-        .logo img { height: 65px; width: auto; }
-        main { flex: 1; display: flex; overflow: hidden; }
-        #map-side { flex: 1; position: relative; }
+        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 12px 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 18px; }
+        .logo img { height: 40px; width: auto; }
+        #hamburger { cursor: pointer; font-size: 24px; color: white; }
+        main { flex: 1; position: relative; overflow: hidden; }
         #map { height: 100%; width: 100%; }
-        .map-tools { position: absolute; top: 15px; left: 15px; z-index: 1001; width: 280px; display: flex; flex-direction: column; gap: 10px; }
-        .tool-box { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.05); }
-        .tool-box b { color: var(--primary); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 14px; text-transform: uppercase; }
-        .tool-box input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; outline: none; }
-        .btn-map { border: none; padding: 10px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; color: white; margin-top: 5px; }
-        #chat-side { width: 420px; background: white; display: flex; flex-direction: column; border-left: 1px solid #ddd; z-index: 1002; }
-        .tab-bar { display: flex; background: #f8f9fa; border-bottom: 1px solid #eee; }
-        .tab { flex: 1; padding: 15px 5px; text-align: center; cursor: pointer; font-size: 11px; font-weight: bold; color: #666; }
-        .tab.active { color: var(--primary); border-bottom: 4px solid var(--primary); background: white; }
-        .chat-box { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; background: #fff; }
-        .msg { padding: 16px 20px; border-radius: 20px; max-width: 90%; font-size: 15.5px; line-height: 1.7; word-wrap: break-word; }
-        .user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
-        .bot { background: #f8f9fa; color: #222; align-self: flex-start; border-bottom-left-radius: 4px; }
-        .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background: white; }
-        #user-input { flex: 1; padding: 14px 20px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
-        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; }
-        footer { background: #006699; padding: 14px 25px; display: flex; justify-content: space-between; align-items: center; z-index: 2005; border-top: 2px solid var(--accent); font-size: 14px; color: white; }
-        .pdf-btn-container { padding: 12px; background: #f8f9fa; border-top: 1px solid #eee; display: flex; justify-content: center; }
-        .btn-pdf { background: #27ae60; color: white; border: none; padding: 12px 24px; border-radius: 25px; font-weight: bold; cursor: pointer; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+        #sidebar { position: fixed; top: 60px; right: -350px; width: 350px; height: calc(100% - 120px); background: white; transition: right 0.3s ease; z-index: 1001; box-shadow: -2px 0 10px rgba(0,0,0,0.2); padding: 15px; overflow-y: auto; }
+        #sidebar.open { right: 0; }
+        .sidebar-section { margin-bottom: 20px; }
+        .sidebar-section h3 { color: var(--primary); font-size: 16px; margin-bottom: 10px; }
+        .btn-sidebar { display: block; width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; text-align: left; }
+        .btn-primary { background: var(--primary); }
+        .btn-danger { background: #e74c3c; }
+        .btn-success { background: #27ae60; }
+        #chat-container { display: none; flex-direction: column; height: 100%; }
+        #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg { padding: 12px 16px; border-radius: 16px; max-width: 85%; font-size: 14px; line-height: 1.6; word-wrap: break-word; }
+        .user { background: var(--primary); color: white; align-self: flex-end; }
+        .bot { background: #f8f9fa; color: var(--text-color); align-self: flex-start; }
+        .input-area { padding: 10px 0; display: flex; gap: 8px; border-top: 1px solid #eee; }
+        #user-input { flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 14px; }
+        .send-btn { background: var(--primary); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+        footer { background: #006699; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 13px; border-top: 2px solid var(--accent); }
         #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         #modal-img { max-width: 95%; max-height: 80vh; border-radius: 12px; object-fit: contain; }
-        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 15px; max-width: 90%; }
+        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 14px; max-width: 90%; }
         .hidden { display: none !important; }
-        .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 14px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
+        .suggest-item { background: #e3f2fd; color: var(--primary); padding: 10px 14px; border-radius: 12px; margin-top: 8px; cursor: pointer; border: 1px solid #bbdefb; font-size: 13px; transition: 0.2s; }
         .suggest-item:hover { background: #bbdefb; }
-        .video-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
-        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; }
+        .video-container { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 10px; background: #000; }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        @media (max-width: 1024px) { #chat-side { width: 360px; } .map-tools { width: 240px; } }
         @media (max-width: 768px) {
-            main { flex-direction: column; }
-            #map-side { height: 45vh; }
-            #chat-side { width: 100%; height: 55vh; }
-            footer { flex-direction: column; gap: 8px; text-align: center; }
+            #sidebar { width: 100%; right: -100%; height: calc(100% - 120px); }
+            .logo { font-size: 16px; }
+            .logo img { height: 35px; }
+            header { height: 55px; padding: 10px 15px; }
+            footer { flex-direction: column; gap: 5px; text-align: center; padding: 8px 15px; font-size: 12px; }
         }
     </style>
 </head>
@@ -59,185 +57,161 @@
         <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
         <span>VIET NAM TRAVEL AI GUIDE 2026</span>
     </div>
-    <i class="fa fa-sync-alt" onclick="location.reload()" style="cursor:pointer; font-size: 22px; color: white;"></i>
+    <i id="hamburger" class="fa fa-bars"></i>
 </header>
 <main>
-    <div id="map-side">
-        <div class="map-tools">
-            <div class="tool-box">
-                <b onclick="toggleMinimize('s-content', 's-icon')">TÌM ĐỊA DANH <i id="s-icon" class="fa fa-minus-square"></i></b>
-                <div id="s-content">
-                    <input type="text" id="s-input" placeholder="Nhập địa danh...">
-                    <button class="btn-map" style="background: var(--primary);" onclick="findLoc()">Cắm mốc</button>
-                    <button class="btn-map" style="background: #e74c3c; margin-top:5px;" onclick="clearMap()">Xóa Marker</button>
-                </div>
+    <div id="map"></div>
+    <div id="sidebar">
+        <div class="sidebar-section">
+            <h3>Công cụ Bản đồ</h3>
+            <input type="text" id="s-input" placeholder="Nhập địa danh...">
+            <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc</button>
+            <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa Marker</button>
+        </div>
+        <div class="sidebar-section">
+            <h3>Chat & Lịch sử</h3>
+            <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Hội Thoại</button>
+            <button class="btn-sidebar btn-primary" onclick="toggleChat('history')">Lịch Sử</button>
+            <button class="btn-sidebar btn-success" onclick="window.location.href='/export_pdf'">Xuất PDF</button>
+            <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa Hết</button>
+        </div>
+        <div id="chat-container">
+            <div id="chat-box"></div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Hỏi về địa danh..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
             </div>
-        </div>
-        <div id="map"></div>
-    </div>
-    <div id="chat-side">
-        <div class="tab-bar">
-            <div class="tab active" id="t-chat" onclick="setTab('chat')">HỘI THOẠI</div>
-            <div class="tab" id="t-hist" onclick="setTab('history')">LỊCH SỬ</div>
-            <div class="tab" onclick="clearHistory()" style="color:#e74c3c;">XÓA HẾT</div>
-        </div>
-        <div id="chat-box" class="chat-box">
-            <div class="msg bot">Chào bạn! Tôi là AI chuyên biệt về du lịch <b>TP.HCM, Vũng Tàu và Bình Dương</b>. Hỏi mình về 3 địa điểm này nhé! 🇻🇳</div>
-        </div>
-        <div id="pdf-area" class="pdf-btn-container hidden">
-            <button class="btn-pdf" onclick="window.location.href='/export_pdf'">
-                <i class="fa fa-file-pdf"></i> Xuất Lịch Trình PDF
-            </button>
-        </div>
-        <div class="input-area">
-            <input type="text" id="user-input" placeholder="Hỏi về Sài Gòn, Vũng Tàu, Bình Dương..." onkeypress="if(event.key==='Enter') sendMessage()">
-            <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
         </div>
     </div>
 </main>
 <footer>
-    <div><span class="footer-label">Developer:</span> <span style="color:#ffdd59; font-weight:900;">Lại Nguyễn Minh Trí</span></div>
-    <div><span class="footer-label">Hotline:</span> <a href="tel:0908083566" style="color:#ffdd59; font-weight:900; text-decoration:none;">84.908.08.35.66</a></div>
+    <div>Developer: <span style="color:#ffdd59; font-weight:900;">Lại Nguyễn Minh Trí</span></div>
+    <div>Hotline: <a href="tel:0908083566" style="color:#ffdd59; font-weight:900; text-decoration:none;">84.908.08.35.66</a></div>
 </footer>
-
 <div id="img-modal" class="hidden" onclick="closeImg()">
     <img id="modal-img" src="">
     <div id="modal-caption"></div>
-    <button style="margin-top:25px; padding:12px 35px; background:#e74c3c; color:white; border:none; border-radius:8px; font-weight:bold; font-size:16px;">ĐÓNG</button>
+    <button style="margin-top:20px; padding:10px 30px; background:#e74c3c; color:white; border:none; border-radius:6px; font-weight:bold; font-size:14px;">ĐÓNG</button>
 </div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.776, 106.701], 10);
-L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
-let markers = [];
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.7769, 106.7009], 12);  // Focus TP.HCM
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
+    let markers = [];
+    let currentTab = 'chat';  // Mặc định chat
 
-function toggleMinimize(cId, iId) {
-    const c = document.getElementById(cId);
-    c.classList.toggle('hidden');
-    document.getElementById(iId).className = c.classList.contains('hidden') ? 'fa fa-plus-square' : 'fa fa-minus-square';
-}
+    document.getElementById('hamburger').onclick = () => {
+        document.getElementById('sidebar').classList.toggle('open');
+    };
 
-function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
-
-async function findLoc() {
-    const q = document.getElementById('s-input').value.trim();
-    if(!q) return;
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
-    const data = await res.json();
-    if(data[0]) {
-        const pos = [data[0].lat, data[0].lon];
-        map.setView(pos, 14);
-        const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:8px;padding:8px 12px;border-radius:6px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI chi tiết</button>`).openPopup();
-        markers.push(m);
-    }
-}
-
-function askAI(loc) {
-    setTab('chat');
-    document.getElementById('user-input').value = `Cho tôi thông tin chi tiết về du lịch ${loc}`;
-    sendMessage();
-}
-
-function createMessageElement(role, content) {
-    const div = document.createElement('div');
-    div.className = `msg ${role}`;
-    if(role === 'user') { div.textContent = content; return div; }
-    let data = (typeof content === 'string') ? JSON.parse(content) : content;
-    const contentDiv = document.createElement('div');
-    let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    const textP = document.createElement('div');
-    textP.innerHTML = htmlText;
-    contentDiv.appendChild(textP);
-
-    if(data.images && data.images.length > 0) {
-        const imgTitle = document.createElement('div');
-        imgTitle.innerHTML = '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
-        contentDiv.appendChild(imgTitle);
-        data.images.forEach(img => {
-            const image = document.createElement('img');
-            image.src = img.url;
-            image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
-            image.onclick = () => showImg(img.url, img.caption);
-            contentDiv.appendChild(image);
-        });
+    function toggleChat(tab) {
+        currentTab = tab;
+        const chatContainer = document.getElementById('chat-container');
+        chatContainer.style.display = 'flex';
+        if (tab === 'history') loadHistory();
+        else if (tab === 'chat') document.getElementById('chat-box').innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
     }
 
-    if(data.youtube_links && data.youtube_links.length > 0) {
-        const vTitle = document.createElement('div');
-        vTitle.innerHTML = '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế:</b>';
-        contentDiv.appendChild(vTitle);
-        const vCon = document.createElement('div');
-        vCon.className = 'video-container';
-        data.youtube_links.forEach(link => {
-            const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-            if(match) {
-                vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
-            }
-        });
-        contentDiv.appendChild(vCon);
+    function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
+
+    async function findLoc() {
+        const q = document.getElementById('s-input').value.trim();
+        if (!q) return;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
+        const data = await res.json();
+        if (data[0]) {
+            const pos = [data[0].lat, data[0].lon];
+            map.setView(pos, 15);
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
+            markers.push(m);
+        }
     }
 
-    if(data.suggestions && data.suggestions.length > 0) {
-        const sTitle = document.createElement('div');
-        sTitle.innerHTML = '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
-        contentDiv.appendChild(sTitle);
-        data.suggestions.forEach(s => {
-            const btn = document.createElement('div');
-            btn.className = 'suggest-item';
-            btn.textContent = s;
-            btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
-            contentDiv.appendChild(btn);
-        });
+    function askAI(loc) {
+        toggleChat('chat');
+        document.getElementById('user-input').value = `Thông tin du lịch ${loc}`;
+        sendMessage();
     }
-    div.appendChild(contentDiv);
-    return div;
-}
 
-async function sendMessage() {
-    const inp = document.getElementById('user-input');
-    const msg = inp.value.trim();
-    if(!msg) return;
-    const box = document.getElementById('chat-box');
-    box.appendChild(createMessageElement('user', msg));
-    inp.value = '';
-    box.scrollTop = box.scrollHeight;
-    const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
-    const data = await res.json();
-    box.appendChild(createMessageElement('bot', data));
-    box.scrollTop = box.scrollHeight;
-}
-
-function setTab(t) {
-    document.getElementById('t-chat').classList.toggle('active', t === 'chat');
-    document.getElementById('t-hist').classList.toggle('active', t === 'history');
-    document.getElementById('pdf-area').classList.toggle('hidden', t !== 'history');
-    if(t === 'history') loadHistory();
-}
-
-async function loadHistory() {
-    const res = await fetch('/history');
-    const data = await res.json();
-    const box = document.getElementById('chat-box');
-    box.innerHTML = '';
-    data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
-    box.scrollTop = box.scrollHeight;
-}
-
-async function clearHistory() {
-    if(confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
-        await fetch('/clear_history', { method: 'POST' });
-        location.reload();
+    function createMessageElement(role, content) {
+        const div = document.createElement('div');
+        div.className = `msg ${role}`;
+        if (role === 'user') { div.textContent = content; return div; }
+        let data = typeof content === 'string' ? JSON.parse(content) : content;
+        const contentDiv = document.createElement('div');
+        let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        contentDiv.innerHTML = htmlText;
+        if (data.images && data.images.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px; color:#0066cc;">📸 Hình ảnh:</b>';
+            data.images.forEach(img => {
+                const image = document.createElement('img');
+                image.src = img.url;
+                image.style = "width:100%; border-radius:10px; margin-bottom:8px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.1);";
+                image.onclick = () => showImg(img.url, img.caption);
+                contentDiv.appendChild(image);
+            });
+        }
+        if (data.youtube_links && data.youtube_links.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px; color:#c0392b;">🎥 Video:</b>';
+            const vCon = document.createElement('div');
+            vCon.className = 'video-container';
+            data.youtube_links.forEach(link => {
+                const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+                if (match) vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+            });
+            contentDiv.appendChild(vCon);
+        }
+        if (data.suggestions && data.suggestions.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px;">💡 Gợi ý:</b>';
+            data.suggestions.forEach(s => {
+                const btn = document.createElement('div');
+                btn.className = 'suggest-item';
+                btn.textContent = s;
+                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
+                contentDiv.appendChild(btn);
+            });
+        }
+        div.appendChild(contentDiv);
+        return div;
     }
-}
 
-function showImg(u, c) {
-    document.getElementById('modal-img').src = u;
-    document.getElementById('modal-caption').textContent = c || '';
-    document.getElementById('img-modal').classList.remove('hidden');
-}
+    async function sendMessage() {
+        const inp = document.getElementById('user-input');
+        const msg = inp.value.trim();
+        if (!msg) return;
+        const box = document.getElementById('chat-box');
+        box.appendChild(createMessageElement('user', msg));
+        inp.value = '';
+        box.scrollTop = box.scrollHeight;
+        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
+        const data = await res.json();
+        box.appendChild(createMessageElement('bot', data));
+        box.scrollTop = box.scrollHeight;
+    }
 
-function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
+    async function loadHistory() {
+        const res = await fetch('/history');
+        const data = await res.json();
+        const box = document.getElementById('chat-box');
+        box.innerHTML = '';
+        data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function clearHistory() {
+        if (confirm("Xóa toàn bộ lịch sử?")) {
+            await fetch('/clear_history', { method: 'POST' });
+            location.reload();
+        }
+    }
+
+    function showImg(u, c) {
+        document.getElementById('modal-img').src = u;
+        document.getElementById('modal-caption').textContent = c || '';
+        document.getElementById('img-modal').classList.remove('hidden');
+    }
+
+    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 </script>
 </body>
 </html>
