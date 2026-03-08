@@ -17,19 +17,19 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
-# System prompt – yêu cầu nội dung rất chi tiết bằng tiếng Việt
-SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM, Vũng Tàu và Bình Dương.
-1. Nếu địa danh KHÔNG thuộc 3 nơi này hoặc không rõ ràng: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ thông tin du lịch về TP.HCM, Vũng Tàu và Bình Dương thôi nhé!"}
+# System prompt – mở rộng để hỗ trợ chi tiết hơn về địa điểm ở TP.HCM, Vũng Tàu, Bình Dương, bao gồm các tòa nhà, địa danh nổi tiếng
+SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận huyện, địa danh, tòa nhà nổi tiếng như Bitexco, Landmark 81, chợ Bến Thành, phố đi bộ Nguyễn Huệ,...), Vũng Tàu và Bình Dương.
+1. Nếu địa danh KHÔNG thuộc 3 nơi này hoặc không rõ ràng: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ thông tin du lịch về TP.HCM, Vũng Tàu và Bình Dương thôi nhé! Nếu là địa điểm trong TP.HCM, hãy thử mô tả chi tiết hơn."}
 2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài trên 1200 từ, bao gồm các phần sau một cách logic và hấp dẫn: 
-- Lịch sử hình thành và phát triển của địa danh
-- Văn hóa đặc trưng, lễ hội, phong tục
-- Con người địa phương, tính cách, lối sống
-- Ẩm thực nổi bật, món ăn đặc sản, địa chỉ gợi ý
-- Các địa điểm du lịch chính (check-in, tham quan)
+- Lịch sử hình thành và phát triển của địa danh/toà nhà
+- Văn hóa đặc trưng, lễ hội, phong tục liên quan
+- Con người địa phương, tính cách, lối sống xung quanh
+- Ẩm thực nổi bật gần đó, món ăn đặc sản, địa chỉ gợi ý
+- Các địa điểm du lịch chính gần kề (check-in, tham quan)
 - Hoạt động trải nghiệm (ăn chơi, nghỉ dưỡng, khám phá)
-- Cách di chuyển, phương tiện, lộ trình gợi ý
-- Lưu ý về thời tiết, an toàn, chi phí tham khảo
-Viết sinh động, gần gũi, khuyến khích du lịch.", "suggestions": ["3 câu hỏi gợi ý liên quan đến địa danh vừa hỏi, bằng tiếng Việt"]}
+- Cách di chuyển, phương tiện, lộ trình gợi ý từ trung tâm
+- Lưu ý về thời tiết, an toàn, chi phí tham khảo, giờ mở cửa
+Viết sinh động, gần gũi, khuyến khích du lịch, sử dụng thông tin chính xác từ kiến thức của bạn.", "suggestions": ["3 câu hỏi gợi ý liên quan đến địa danh vừa hỏi, bằng tiếng Việt"]}
 Chỉ trả về JSON thuần túy, không thêm text thừa."""
 
 def init_db():
@@ -52,7 +52,7 @@ def search_serper(query, search_type="images"):
     
     q = query
     if search_type == "videos":
-        q += " du lịch review thực tế Việt Nam -nhạc nền -karaoke -tin tức -scandal -youtube shorts"
+        q += " du lịch review thực tế Việt Nam -nhạc nền -karaoke -tin tức -scandal"  # Giảm lọc để lấy nhiều video hơn, bỏ 'youtube shorts' nếu cần
     else:
         q += " du lịch Việt Nam hình ảnh đẹp thực tế địa danh"
 
@@ -61,16 +61,16 @@ def search_serper(query, search_type="images"):
         res = requests.post(
             url,
             headers={'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'},
-            json={"q": q, "gl": "vn", "hl": "vi", "num": 10},
+            json={"q": q, "gl": "vn", "hl": "vi", "num": 15},  # Tăng num để lấy nhiều kết quả hơn
             timeout=12
         ).json()
 
         if search_type == "images":
             return [{"url": i.get('imageUrl'), "caption": i.get('title', 'Hình ảnh du lịch')} 
-                    for i in res.get('images', [])[:6]]
+                    for i in res.get('images', [])[:8]]  # Tăng số lượng ảnh
         else:  # videos
             return [i.get('link') for i in res.get('videos', []) 
-                    if 'youtube.com' in i.get('link', '').lower() or 'youtu.be' in i.get('link', '').lower()][:5]
+                    if 'youtube.com' in i.get('link', '').lower() or 'youtu.be' in i.get('link', '').lower()][:8]  # Tăng số lượng video, đảm bảo lấy nhiều hơn
     except Exception as e:
         print(f"Serper error: {e}")
         return []
@@ -166,7 +166,7 @@ def export_pdf():
         pdf.add_font("DejaVu", "", font_path, uni=True)
         pdf.set_font("DejaVu", "", 12)
     else:
-        pdf.set_font("Arial", "", 12)  # fallback nếu không có font
+        pdf.set_font("Arial", "", 12)  # fallback
     
     pdf.cell(0, 10, "LỊCH TRÌNH DU LỊCH - VIET NAM TRAVEL AI GUIDE", ln=True, align="C")
     pdf.ln(10)
