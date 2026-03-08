@@ -18,6 +18,7 @@
         #map { height: 100%; width: 100%; }
         #sidebar { position: fixed; top: 60px; right: -350px; width: 350px; height: calc(100% - 120px); background: white; transition: right 0.3s ease; z-index: 1001; box-shadow: -2px 0 10px rgba(0,0,0,0.2); padding: 15px; overflow-y: auto; }
         #sidebar.open { right: 0; }
+        #close-sidebar { cursor: pointer; font-size: 20px; color: var(--primary); position: absolute; top: 10px; right: 15px; }
         .sidebar-section { margin-bottom: 20px; }
         .sidebar-section h3 { color: var(--primary); font-size: 16px; margin-bottom: 10px; }
         .btn-sidebar { display: block; width: 100%; padding: 12px; margin: 5px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; text-align: left; }
@@ -62,6 +63,7 @@
 <main>
     <div id="map"></div>
     <div id="sidebar">
+        <i id="close-sidebar" class="fa fa-times"></i>
         <div class="sidebar-section">
             <h3>Công cụ Bản đồ</h3>
             <input type="text" id="s-input" placeholder="Nhập địa danh...">
@@ -72,7 +74,7 @@
             <h3>Chat & Lịch sử</h3>
             <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Hội Thoại</button>
             <button class="btn-sidebar btn-primary" onclick="toggleChat('history')">Lịch Sử</button>
-            <button class="btn-sidebar btn-success" onclick="window.location.href='/export_pdf'">Xuất PDF</button>
+            <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF</button>
             <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa Hết</button>
         </div>
         <div id="chat-container">
@@ -99,17 +101,23 @@
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
     let currentTab = 'chat';  // Mặc định chat
+    let chatHistoryLoaded = false;  // Để tránh load lại nhiều lần
 
-    document.getElementById('hamburger').onclick = () => {
-        document.getElementById('sidebar').classList.toggle('open');
-    };
+    const sidebar = document.getElementById('sidebar');
+    document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
+    document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
     function toggleChat(tab) {
         currentTab = tab;
         const chatContainer = document.getElementById('chat-container');
         chatContainer.style.display = 'flex';
-        if (tab === 'history') loadHistory();
-        else if (tab === 'chat') document.getElementById('chat-box').innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
+        const box = document.getElementById('chat-box');
+        if (tab === 'chat') {
+            if (box.innerHTML === '') box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
+        } else if (tab === 'history' && !chatHistoryLoaded) {
+            loadHistory();
+            chatHistoryLoaded = true;
+        }
     }
 
     function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
@@ -187,6 +195,7 @@
         const data = await res.json();
         box.appendChild(createMessageElement('bot', data));
         box.scrollTop = box.scrollHeight;
+        chatHistoryLoaded = false;  // Reset để load lại lịch sử khi cần
     }
 
     async function loadHistory() {
@@ -196,6 +205,10 @@
         box.innerHTML = '';
         data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
         box.scrollTop = box.scrollHeight;
+    }
+
+    function exportPdf() {
+        window.location.href = '/export_pdf';
     }
 
     async function clearHistory() {
