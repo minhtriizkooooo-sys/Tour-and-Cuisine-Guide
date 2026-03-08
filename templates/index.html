@@ -63,6 +63,11 @@
         .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.3); border: none; color: white; font-size: 28px; padding: 12px 16px; cursor: pointer; border-radius: 50%; z-index: 10; }
         #prev-img { left: 10px; }
         #next-img { right: 10px; }
+        #close-modal { 
+            position: absolute; top: 10px; right: 10px; background: #e74c3c; 
+            color: white; font-size: 20px; padding: 8px 12px; border-radius: 50%; 
+            border: none; cursor: pointer; z-index: 11; 
+        }
         .hidden { display: none !important; }
         .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14px; transition: 0.2s; }
         .suggest-item:hover { background: #bbdefb; }
@@ -309,7 +314,9 @@
         updateModalImg();
     };
 
-    document.getElementById('close-modal')?.addEventListener('click', closeImg);
+    document.getElementById('close-modal').addEventListener('click', () => {
+        document.getElementById('img-modal').classList.add('hidden');
+    });
 
     function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 
