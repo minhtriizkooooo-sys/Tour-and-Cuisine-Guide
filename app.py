@@ -17,9 +17,16 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
-SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi tiếng như Bitexco Financial Tower, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
+# System prompt – đảm bảo nội dung chính xác, liên quan câu hỏi, tập trung lịch sử, văn hóa, con người, ẩm thực, gợi ý du lịch
+SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi tiếng như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương. Nếu là địa điểm trong TP.HCM, thử mô tả rõ hơn nhé!"}
-2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1200 từ, cấu trúc rõ ràng: lịch sử & phát triển, văn hóa & lễ hội, con người địa phương, ẩm thực đặc sản & địa chỉ gợi ý, địa điểm gần đó, hoạt động trải nghiệm, cách di chuyển/lộ trình, lưu ý thời tiết/an toàn/chi phí/giờ mở cửa. Viết hấp dẫn, thực tế.", "suggestions": ["3 câu hỏi gợi ý liên quan bằng tiếng Việt"]}
+2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1200 từ, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi: 
+- Lịch sử hình thành và phát triển địa danh
+- Văn hóa đặc trưng, lễ hội, phong tục liên quan
+- Con người địa phương: tính cách, lối sống, tương tác với du khách
+- Ẩm thực nổi bật: món ăn đặc sản, địa chỉ quán ăn gần đó, cách thưởng thức
+- Gợi ý du lịch: địa điểm check-in gần, hoạt động trải nghiệm, lộ trình mẫu, lưu ý thời tiết/an toàn/chi phí/giờ mở cửa.
+Viết hấp dẫn, chính xác, sinh động, dựa trên kiến thức thực tế.", "suggestions": ["3 câu hỏi gợi ý liên quan trực tiếp đến địa danh hỏi, bằng tiếng Việt"]}
 Chỉ trả JSON thuần, không thêm text ngoài."""
 
 def init_db():
@@ -32,30 +39,34 @@ def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
         return []
     
-    base_q = f"{query} du lịch Việt Nam"
+    # Tối ưu query để liên quan cao: Thêm "du lịch [query] thực tế" + địa danh cụ thể nếu có
+    base_q = f"{query} du lịch Việt Nam thực tế review chi tiết"
     if search_type == "videos":
-        q = f"{base_q} review thực tế trải nghiệm -nhạc nền -karaoke -shorts -tin tức"  # Tối ưu query cho video chất lượng
+        q = f"{base_q} video khám phá địa danh -nhạc -karaoke -tin tức -scandal -shorts"  # Tối ưu cho video liên quan du lịch
     else:
-        q = f"{base_q} hình ảnh đẹp thực tế địa danh check-in"
+        q = f"{base_q} hình ảnh đẹp check-in địa danh"
 
     url = f"https://google.serper.dev/{search_type}"
     try:
         res = requests.post(
             url,
             headers={'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'},
-            json={"q": q, "gl": "vn", "hl": "vi", "num": 15},
+            json={"q": q, "gl": "vn", "hl": "vi", "num": 20},  # Tăng num để có nhiều lựa chọn
             timeout=12
         ).json()
 
         if search_type == "images":
-            return [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:8]]
+            # Lọc caption liên quan đến query
+            images = [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:8] if any(word in i.get('title', '').lower() for word in query.lower().split())]
+            return images or [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:5]]  # Fallback nếu lọc quá chặt
         else:
             videos = []
             for i in res.get('videos', [])[:8]:
                 link = i.get('link', '')
-                if 'youtube.com' in link.lower() or 'youtu.be' in link.lower():
+                title = i.get('title', '').lower()
+                if ('youtube.com' in link.lower() or 'youtu.be' in link.lower()) and any(word in title for word in ['du lịch', 'review', 'khám phá', 'thực tế']):
                     videos.append(link)
-            print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} videos")  # Debug để bạn xem console
+            print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} relevant videos")  # Debug
             return videos
     except Exception as e:
         print(f"Serper error ({search_type}): {e}")
@@ -110,8 +121,6 @@ def chat():
     except Exception as e:
         print(f"Groq error: {e}")
         return jsonify({"text": f"Lỗi: {str(e)}", "images": [], "youtube_links": []})
-
-# Các route khác giữ nguyên như trước (history, export_pdf, clear_history)
 
 @app.route("/history")
 def get_history():
