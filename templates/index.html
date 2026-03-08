@@ -18,7 +18,7 @@
         #map { height: 100%; width: 100%; }
         #sidebar { position: fixed; top: 60px; right: -100%; width: 100%; height: calc(100% - 120px); background: white; transition: right 0.3s ease; z-index: 1001; box-shadow: -2px 0 10px rgba(0,0,0,0.2); padding: 15px; overflow-y: auto; }
         #sidebar.open { right: 0; }
-        #close-sidebar { cursor: pointer; font-size: 24px; color: var(--primary); position: absolute; top: 10px; right: 15px; }
+        #close-sidebar { position: absolute; top: 10px; right: 15px; font-size: 28px; color: var(--primary); cursor: pointer; z-index: 1002; }
         .sidebar-section { margin-bottom: 25px; }
         .sidebar-section h3 { color: var(--primary); font-size: 17px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
         .sidebar-section h3 i { transition: transform 0.3s; }
@@ -56,8 +56,9 @@
             .logo img { height: 35px; }
             footer { padding: 10px 15px; font-size: 13px; flex-direction: column; gap: 6px; text-align: center; }
             .btn-sidebar { font-size: 14px; padding: 12px; }
-            #modal-nav { font-size: 24px; padding: 10px 12px; }
+            .sidebar-section h3 { font-size: 18px; }
             #sidebar { padding: 20px 15px; }
+            #modal-nav { font-size: 24px; padding: 10px 12px; }
         }
     </style>
 </head>
@@ -152,15 +153,27 @@
 
     async function findLoc() {
         const q = document.getElementById('s-input').value.trim();
-        if (!q) return;
+        if (!q) return alert("Vui lòng nhập địa danh!");
+
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
         const data = await res.json();
-        if (data[0]) {
-            const pos = [data[0].lat, data[0].lon];
-            map.setView(pos, 15);
-            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
-            markers.push(m);
+
+        if (!data[0]) return alert("Không tìm thấy địa danh!");
+
+        const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+        const displayName = data[0].display_name.toLowerCase();
+
+        // Giới hạn chỉ TP.HCM (lat 10.6-10.9, lon 106.5-107.0 hoặc tên chứa "ho chi minh", "tp.hcm", "sài gòn")
+        const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
+                         displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn") || displayName.includes("thành phố hồ chí minh");
+
+        if (!isInHCMC) {
+            return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
         }
+
+        map.setView(pos, 15);
+        const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
+        markers.push(m);
     }
 
     function askAI(loc) {
@@ -177,7 +190,6 @@
         const contentDiv = document.createElement('div');
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         contentDiv.innerHTML = htmlText;
-
         if (data.images && data.images.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px; color:#0066cc;">📸 Hình ảnh:</b>';
             data.images.forEach((img, idx) => {
@@ -188,7 +200,6 @@
                 contentDiv.appendChild(image);
             });
         }
-
         if (data.youtube_links && data.youtube_links.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px; color:#c0392b;">🎥 Video:</b>';
             const vCon = document.createElement('div');
@@ -199,7 +210,6 @@
             });
             contentDiv.appendChild(vCon);
         }
-
         if (data.suggestions && data.suggestions.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px;">💡 Gợi ý:</b>';
             data.suggestions.forEach(s => {
@@ -210,7 +220,6 @@
                 contentDiv.appendChild(btn);
             });
         }
-
         div.appendChild(contentDiv);
         return div;
     }
