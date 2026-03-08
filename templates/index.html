@@ -19,24 +19,28 @@
         #sidebar { 
             position: fixed; top: 60px; right: -350px; width: 350px; height: calc(100% - 120px); 
             background: white; transition: right 0.3s ease; z-index: 1001; 
-            box-shadow: -4px 0 12px rgba(0,0,0,0.15); overflow-y: auto; padding: 20px; 
+            box-shadow: -4px 0 12px rgba(0,0,0,0.15); overflow-y: auto; padding: 60px 20px 20px 20px; 
         }
         #sidebar.open { right: 0; }
         #close-sidebar { 
-            position: absolute; top: 10px; right: 15px; font-size: 28px; 
-            color: var(--primary); cursor: pointer; 
+            position: absolute; top: 15px; right: 15px; font-size: 32px; 
+            color: var(--primary); cursor: pointer; background: white; 
+            border-radius: 50%; width: 44px; height: 44px; 
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1002; 
         }
-        .sidebar-section { margin-bottom: 25px; }
+        .sidebar-section { margin-bottom: 30px; }
         .sidebar-section h3 { 
-            color: var(--primary); font-size: 17px; margin-bottom: 12px; 
+            color: var(--primary); font-size: 17px; margin-bottom: 15px; 
             cursor: pointer; display: flex; justify-content: space-between; 
-            align-items: center; font-weight: bold; 
+            align-items: center; font-weight: bold; padding: 10px 0; 
+            border-bottom: 1px solid #eee; 
         }
         .sidebar-section h3 i { transition: transform 0.3s; }
         .sidebar-section.collapsed .content { display: none; }
         .sidebar-section.collapsed h3 i { transform: rotate(180deg); }
         .btn-sidebar { 
-            display: block; width: 100%; padding: 14px; margin: 6px 0; 
+            display: block; width: 100%; padding: 14px; margin: 8px 0; 
             border: none; border-radius: 8px; cursor: pointer; 
             font-weight: bold; color: white; font-size: 15px; text-align: center; 
         }
@@ -66,13 +70,14 @@
         .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         @media (max-width: 768px) {
-            #sidebar { width: 80%; right: -80%; height: calc(100% - 120px); top: 55px; }
+            #sidebar { width: 80%; right: -80%; height: calc(100% - 120px); top: 55px; padding: 60px 15px 20px 15px; }
             header { height: 55px; padding: 10px 15px; }
             .logo { font-size: 16px; }
             .logo img { height: 35px; }
             footer { padding: 10px 15px; font-size: 13px; flex-direction: column; gap: 6px; text-align: center; }
             .btn-sidebar { font-size: 14px; padding: 12px; }
             .sidebar-section h3 { font-size: 18px; }
+            #close-sidebar { top: 10px; right: 15px; font-size: 28px; }
         }
     </style>
 </head>
@@ -131,15 +136,8 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { 
-        zoomControl: false, 
-        attributionControl: false,
-        minZoom: 11,
-        maxZoom: 15
-    }).setView([10.7769, 106.7009], 12);  // Focus TP.HCM
-
-    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
-
+    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.7769, 106.7009], 12);
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
     let currentTab = 'chat';
     let chatHistoryLoaded = false;
@@ -177,16 +175,7 @@
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
         const data = await res.json();
         if (data[0]) {
-            const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-            const displayName = data[0].display_name.toLowerCase();
-
-            const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
-                             displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn");
-
-            if (!isInHCMC) {
-                return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
-            }
-
+            const pos = [data[0].lat, data[0].lon];
             map.setView(pos, 15);
             const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
             markers.push(m);
@@ -203,32 +192,34 @@
         const div = document.createElement('div');
         div.className = `msg ${role}`;
         if (role === 'user') { div.textContent = content; return div; }
-        let data = typeof content === 'string' ? JSON.parse(content) : content;
+        let data = (typeof content === 'string') ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         contentDiv.innerHTML = htmlText;
         if (data.images && data.images.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px; color:#0066cc;">📸 Hình ảnh:</b>';
-            data.images.forEach((img, idx) => {
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
+            data.images.forEach(img => {
                 const image = document.createElement('img');
                 image.src = img.url;
-                image.style = "width:100%; border-radius:10px; margin-bottom:8px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.1);";
-                image.onclick = () => showImg(data.images, idx);
+                image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
+                image.onclick = () => showImg(img.url, img.caption);
                 contentDiv.appendChild(image);
             });
         }
         if (data.youtube_links && data.youtube_links.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px; color:#c0392b;">🎥 Video:</b>';
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế:</b>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-                if (match) vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                if(match) {
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                }
             });
             contentDiv.appendChild(vCon);
         }
         if (data.suggestions && data.suggestions.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 8px;">💡 Gợi ý:</b>';
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
@@ -244,7 +235,7 @@
     async function sendMessage() {
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
-        if (!msg) return;
+        if(!msg) return;
         const box = document.getElementById('chat-box');
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
@@ -253,7 +244,13 @@
         const data = await res.json();
         box.appendChild(createMessageElement('bot', data));
         box.scrollTop = box.scrollHeight;
-        chatHistoryLoaded = false;
+    }
+
+    function setTab(t) {
+        document.getElementById('t-chat').classList.toggle('active', t === 'chat');
+        document.getElementById('t-hist').classList.toggle('active', t === 'history');
+        document.getElementById('pdf-area').classList.toggle('hidden', t !== 'history');
+        if(t === 'history') loadHistory();
     }
 
     async function loadHistory() {
@@ -265,43 +262,18 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    function exportPdf() {
-        window.location.href = '/export_pdf';
-    }
-
     async function clearHistory() {
-        if (confirm("Xóa toàn bộ lịch sử?")) {
+        if(confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
             await fetch('/clear_history', { method: 'POST' });
             location.reload();
         }
     }
 
-    function showImg(images, index) {
-        currentImages = images;
-        currentImgIndex = index;
-        updateModalImg();
+    function showImg(u, c) {
+        document.getElementById('modal-img').src = u;
+        document.getElementById('modal-caption').textContent = c || '';
         document.getElementById('img-modal').classList.remove('hidden');
     }
-
-    function updateModalImg() {
-        const img = currentImages[currentImgIndex];
-        document.getElementById('modal-img').src = img.url;
-        document.getElementById('modal-caption').textContent = img.caption || '';
-        document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
-        document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
-    }
-
-    document.getElementById('prev-img').onclick = (e) => {
-        e.stopPropagation();
-        if (currentImgIndex > 0) currentImgIndex--;
-        updateModalImg();
-    };
-
-    document.getElementById('next-img').onclick = (e) => {
-        e.stopPropagation();
-        if (currentImgIndex < currentImages.length - 1) currentImgIndex++;
-        updateModalImg();
-    };
 
     function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 
