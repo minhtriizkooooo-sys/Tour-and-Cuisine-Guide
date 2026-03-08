@@ -19,9 +19,9 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
-# Debug ngay lúc khởi động
-print(f"[STARTUP] GROQ_API_KEY prefix: {GROQ_API_KEY[:6] if GROQ_API_KEY else 'NOT SET'}...")
-print(f"[STARTUP] SERPER_API_KEY prefix: {SERPER_API_KEY[:6] if SERPER_API_KEY else 'NOT SET'}...")
+# Debug ngay lúc start
+print(f"[STARTUP] GROQ_API_KEY: {'SET (prefix: ' + GROQ_API_KEY[:6] + '...)' if GROQ_API_KEY else 'NOT SET - CHECK RENDER ENV'}")
+print(f"[STARTUP] SERPER_API_KEY: {'SET (prefix: ' + SERPER_API_KEY[:6] + '...)' if SERPER_API_KEY else 'NOT SET'}")
 
 VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
@@ -44,7 +44,7 @@ init_db()
 
 def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
-        print("[DEBUG] SERPER_API_KEY not set, returning empty")
+        print("[DEBUG] SERPER_API_KEY missing, returning empty results")
         return []
     
     base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
@@ -62,11 +62,11 @@ def search_serper(query, search_type="images"):
         if search_type == "images":
             return [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10]]
         else:
-            videos = [i.get('link', '') for i in res.get('videos', [])[:10] if 'youtube' in i.get('link', '').lower()]
-            print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} videos")
+            videos = [i.get('link', '') for i in res.get('videos', [])[:10] if 'youtube.com' in i.get('link', '').lower() or 'youtu.be' in i.get('link', '').lower()]
+            print(f"[DEBUG] Serper videos for '{q}': {len(videos)} found")
             return videos
     except Exception as e:
-        print(f"[Serper error {search_type}]: {e}")
+        print(f"[ERROR] Serper ({search_type}): {e}")
         return []
 
 @app.route("/")
@@ -81,27 +81,28 @@ def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
     if not msg:
+        print("[DEBUG] Empty message received")
         return jsonify({"text": "Bạn chưa nhập gì cả...", "images": [], "youtube_links": []})
 
     if not GROQ_API_KEY:
-        print("[ERROR] GROQ_API_KEY is not set in environment variables!")
-        return jsonify({"text": "Lỗi hệ thống: API key Groq chưa được cấu hình trên server.", "images": [], "youtube_links": []})
+        print("[ERROR] GROQ_API_KEY not set in environment!")
+        return jsonify({"text": "Lỗi hệ thống: Groq API key chưa được cấu hình trên server!", "images": [], "youtube_links": []})
 
     client = Groq(api_key=GROQ_API_KEY)
 
     try:
-        print(f"[DEBUG] Gửi yêu cầu Groq: msg='{msg[:80]}...' | model=llama-3.1-8b-instant | tokens max=2048")
+        print(f"[DEBUG] Gửi Groq request: msg='{msg[:100]}...' | model=llama-3.1-8b-instant | max_tokens=2048")
         
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",          # ← Model nhẹ để test nhanh, đổi lại 70b khi ổn
+            model="llama-3.1-8b-instant",  # Model nhẹ để test nhanh
             messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": msg}],
             response_format={"type": "json_object"},
             temperature=0.75,
-            max_tokens=2048,                       # ← Giảm để tiết kiệm quota khi test
+            max_tokens=2048,  # Giảm để tiết kiệm quota
         )
 
         raw_response = completion.choices[0].message.content
-        print(f"[DEBUG] Groq raw response (first 300 chars): {raw_response[:300]}...")
+        print(f"[DEBUG] Groq raw response: {raw_response[:300]}...")
 
         ai_res = json.loads(raw_response)
 
@@ -122,15 +123,15 @@ def chat():
             conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                          (sid, "bot", json.dumps(data, ensure_ascii=False), now_vn))
 
-        print("[DEBUG] Chat response sent successfully")
+        print("[DEBUG] Chat response sent to client")
         return jsonify(data)
 
     except Exception as e:
-        error_str = f"Groq error: {type(e).__name__} - {str(e)}"
-        print(error_str)
+        error_msg = f"[ERROR] Groq failed: {type(e).__name__} - {str(e)}"
+        print(error_msg)
         if 'completion' in locals():
-            print(f"[DEBUG] Raw Groq content (if available): {completion.choices[0].message.content[:500]}...")
-        return jsonify({"text": f"Lỗi khi gọi Groq: {error_str}", "images": [], "youtube_links": []})
+            print(f"[DEBUG] Raw Groq content (if any): {completion.choices[0].message.content[:500]}...")
+        return jsonify({"text": f"Lỗi khi gọi Groq: {str(e)}", "images": [], "youtube_links": []})
 
 @app.route("/history")
 def get_history():
