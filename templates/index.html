@@ -108,7 +108,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// Code JavaScript giữ nguyên như bạn đã có trước đó
 const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.776, 106.701], 10);
 L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
 let markers = [];
@@ -139,9 +138,6 @@ function askAI(loc) {
     document.getElementById('user-input').value = `Cho tôi thông tin chi tiết về du lịch ${loc}`;
     sendMessage();
 }
-
-// Các hàm còn lại: createMessageElement, sendMessage, setTab, loadHistory, clearHistory, showImg, closeImg
-// (giữ nguyên như code cũ của bạn, mình không paste lại để tránh dài dòng)
 
 function createMessageElement(role, content) {
     const div = document.createElement('div');
