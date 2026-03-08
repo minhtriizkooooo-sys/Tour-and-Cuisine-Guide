@@ -129,15 +129,22 @@
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
         <img id="modal-img" src="">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
+        <button id="close-modal" class="modal-nav" style="position: absolute; top: 10px; right: 10px; background: #e74c3c; color: white; font-size: 20px; padding: 8px 12px; border-radius: 50%; border: none; cursor: pointer;">×</button>
     </div>
     <div id="modal-caption"></div>
-    <button style="margin-top:20px; padding:12px 40px; background:#e74c3c; color:white; border:none; border-radius:8px; font-weight:bold; font-size:16px;" onclick="closeImg()">ĐÓNG</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.7769, 106.7009], 12);
-    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains:['mt0','mt1','mt2','mt3'] }).addTo(map);
+    const map = L.map('map', { 
+        zoomControl: false, 
+        attributionControl: false,
+        minZoom: 11,
+        maxZoom: 15
+    }).setView([10.7769, 106.7009], 12);
+
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
+
     let markers = [];
     let currentTab = 'chat';
     let chatHistoryLoaded = false;
@@ -175,7 +182,16 @@
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
         const data = await res.json();
         if (data[0]) {
-            const pos = [data[0].lat, data[0].lon];
+            const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+            const displayName = data[0].display_name.toLowerCase();
+
+            const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
+                             displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn");
+
+            if (!isInHCMC) {
+                return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
+            }
+
             map.setView(pos, 15);
             const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
             markers.push(m);
@@ -192,17 +208,17 @@
         const div = document.createElement('div');
         div.className = `msg ${role}`;
         if (role === 'user') { div.textContent = content; return div; }
-        let data = (typeof content === 'string') ? JSON.parse(content) : content;
+        let data = typeof content === 'string' ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         contentDiv.innerHTML = htmlText;
         if (data.images && data.images.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
-            data.images.forEach(img => {
+            data.images.forEach((img, idx) => {
                 const image = document.createElement('img');
                 image.src = img.url;
                 image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
-                image.onclick = () => showImg(img.url, img.caption);
+                image.onclick = () => showImg(data.images, idx);
                 contentDiv.appendChild(image);
             });
         }
@@ -246,13 +262,6 @@
         box.scrollTop = box.scrollHeight;
     }
 
-    function setTab(t) {
-        document.getElementById('t-chat').classList.toggle('active', t === 'chat');
-        document.getElementById('t-hist').classList.toggle('active', t === 'history');
-        document.getElementById('pdf-area').classList.toggle('hidden', t !== 'history');
-        if(t === 'history') loadHistory();
-    }
-
     async function loadHistory() {
         const res = await fetch('/history');
         const data = await res.json();
@@ -262,6 +271,10 @@
         box.scrollTop = box.scrollHeight;
     }
 
+    function exportPdf() {
+        window.location.href = '/export_pdf';
+    }
+
     async function clearHistory() {
         if(confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
             await fetch('/clear_history', { method: 'POST' });
@@ -269,11 +282,34 @@
         }
     }
 
-    function showImg(u, c) {
-        document.getElementById('modal-img').src = u;
-        document.getElementById('modal-caption').textContent = c || '';
+    function showImg(images, index) {
+        currentImages = images;
+        currentImgIndex = index;
+        updateModalImg();
         document.getElementById('img-modal').classList.remove('hidden');
     }
+
+    function updateModalImg() {
+        const img = currentImages[currentImgIndex];
+        document.getElementById('modal-img').src = img.url;
+        document.getElementById('modal-caption').textContent = img.caption || '';
+        document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
+        document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
+    }
+
+    document.getElementById('prev-img').onclick = (e) => {
+        e.stopPropagation();
+        if (currentImgIndex > 0) currentImgIndex--;
+        updateModalImg();
+    };
+
+    document.getElementById('next-img').onclick = (e) => {
+        e.stopPropagation();
+        if (currentImgIndex < currentImages.length - 1) currentImgIndex++;
+        updateModalImg();
+    };
+
+    document.getElementById('close-modal')?.addEventListener('click', closeImg);
 
     function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 
