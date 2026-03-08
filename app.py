@@ -39,32 +39,31 @@ def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
         return []
     
-    # Tối ưu query để liên quan cao: Thêm "du lịch [query] thực tế" + địa danh cụ thể nếu có
-    base_q = f"{query} du lịch Việt Nam thực tế review chi tiết"
+    # Tối ưu query để liên quan cao hơn: Sử dụng từ khóa chính xác từ query
+    base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
     if search_type == "videos":
-        q = f"{base_q} video khám phá địa danh -nhạc -karaoke -tin tức -scandal -shorts"  # Tối ưu cho video liên quan du lịch
+        q = f"{base_q} video youtube khám phá trải nghiệm -nhạc -karaoke -tin tức -scandal -shorts -vlog"  # Tối ưu thêm để lấy video chất lượng, liên quan du lịch
     else:
-        q = f"{base_q} hình ảnh đẹp check-in địa danh"
+        q = f"{base_q} hình ảnh đẹp check-in thực tế"
 
     url = f"https://google.serper.dev/{search_type}"
     try:
         res = requests.post(
             url,
             headers={'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'},
-            json={"q": q, "gl": "vn", "hl": "vi", "num": 20},  # Tăng num để có nhiều lựa chọn
-            timeout=12
+            json={"q": q, "gl": "vn", "hl": "vi", "num": 25},  # Tăng num để có nhiều lựa chọn hơn
+            timeout=15
         ).json()
 
         if search_type == "images":
-            # Lọc caption liên quan đến query
-            images = [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:8] if any(word in i.get('title', '').lower() for word in query.lower().split())]
-            return images or [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:5]]  # Fallback nếu lọc quá chặt
+            images = [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10] if query.lower() in i.get('title', '').lower() or 'du lịch' in i.get('title', '').lower()]
+            return images or [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:6]]  # Fallback với filter nhẹ
         else:
             videos = []
-            for i in res.get('videos', [])[:8]:
+            for i in res.get('videos', [])[:10]:
                 link = i.get('link', '')
                 title = i.get('title', '').lower()
-                if ('youtube.com' in link.lower() or 'youtu.be' in link.lower()) and any(word in title for word in ['du lịch', 'review', 'khám phá', 'thực tế']):
+                if ('youtube.com' in link.lower() or 'youtu.be' in link.lower()) and (query.lower() in title or any(word in title for word in ['du lịch', 'review', 'khám phá', 'thực tế', 'trải nghiệm'])):
                     videos.append(link)
             print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} relevant videos")  # Debug
             return videos
