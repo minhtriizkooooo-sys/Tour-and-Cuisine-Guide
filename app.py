@@ -1,4 +1,4 @@
-        import os
+import os
 import uuid
 import sqlite3
 import json
@@ -17,7 +17,6 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
-# System prompt nâng cấp để nội dung phong phú, chiều sâu
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi bật như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương. Nếu là địa điểm trong TP.HCM, thử mô tả rõ hơn nhé!"}
 2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi: 
