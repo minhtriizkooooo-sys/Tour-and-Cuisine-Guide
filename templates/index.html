@@ -7,646 +7,320 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root {
-            --primary: #0066cc;
-            --primary-dark: #004a7c;
-            --bg: #f4f7f9;
-            --accent: #f39c12;
-            --text-color: #222;
+        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f4f7f9; --accent: #f39c12; --text-color: #222; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 12px 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 18px; }
+        .logo img { height: 40px; width: auto; }
+        #hamburger { cursor: pointer; font-size: 24px; color: white; }
+        main { flex: 1; position: relative; overflow: hidden; display: flex; }
+        #map { height: 100%; width: 100%; flex: 1; }
+        #sidebar { 
+            position: fixed; top: 60px; right: -350px; width: 350px; height: calc(100% - 120px); 
+            background: white; transition: right 0.3s ease; z-index: 1001; 
+            box-shadow: -4px 0 12px rgba(0,0,0,0.15); overflow-y: auto; padding: 60px 20px 20px 20px; 
         }
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        #sidebar.open { right: 0; }
+        #close-sidebar { 
+            position: absolute; top: 15px; right: 15px; font-size: 32px; 
+            color: var(--primary); cursor: pointer; background: white; 
+            border-radius: 50%; width: 44px; height: 44px; 
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1002; 
         }
-        body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            height: 100dvh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: var(--bg);
+        .sidebar-section { margin-bottom: 30px; }
+        .sidebar-section h3 { 
+            color: var(--primary); font-size: 17px; margin-bottom: 15px; 
+            cursor: pointer; display: flex; justify-content: space-between; 
+            align-items: center; font-weight: bold; padding: 10px 0; 
+            border-bottom: 1px solid #eee; 
         }
-        header {
-            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-            color: white;
-            padding: 12px 20px;
-            height: 60px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 2000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-        }
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: bold;
-            font-size: 18px;
-        }
-        .logo img {
-            height: 40px;
-            width: auto;
-        }
-        #hamburger {
-            cursor: pointer;
-            font-size: 24px;
-            color: white;
-        }
-        main {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-        }
-        #map {
-            height: 100%;
-            width: 100%;
-            flex: 1;
-        }
-        #sidebar {
-            position: fixed;
-            top: 60px;
-            right: -350px;
-            width: 350px;
-            height: calc(100% - 120px);
-            background: white;
-            transition: right 0.3s ease;
-            z-index: 1001;
-            box-shadow: -4px 0 12px rgba(0,0,0,0.15);
-            overflow-y: auto;
-            padding: 60px 20px 20px 20px;
-        }
-        #sidebar.open {
-            right: 0;
-        }
-        #close-sidebar {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            font-size: 32px;
-            color: var(--primary);
-            cursor: pointer;
-            background: white;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 1002;
-        }
-        .sidebar-section {
-            margin-bottom: 30px;
-        }
-        .sidebar-section h3 {
-            color: var(--primary);
-            font-size: 17px;
-            margin-bottom: 15px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-        }
-        .sidebar-section h3 i {
-            transition: transform 0.3s;
-        }
-        .sidebar-section.collapsed .content {
-            display: none;
-        }
-        .sidebar-section.collapsed h3 i {
-            transform: rotate(180deg);
-        }
-        .btn-sidebar {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            margin: 8px 0;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            color: white;
-            font-size: 15px;
-            text-align: center;
+        .sidebar-section h3 i { transition: transform 0.3s; }
+        .sidebar-section.collapsed .content { display: none; }
+        .sidebar-section.collapsed h3 i { transform: rotate(180deg); }
+        .btn-sidebar { 
+            display: block; width: 100%; padding: 14px; margin: 8px 0; 
+            border: none; border-radius: 8px; cursor: pointer; 
+            font-weight: bold; color: white; font-size: 15px; text-align: center; 
         }
         .btn-primary { background: var(--primary); }
         .btn-danger { background: #e74c3c; }
         .btn-success { background: #27ae60; }
-        #chat-container {
-            display: none;
-            flex-direction: column;
-            height: 100%;
+        #chat-container { display: none; flex-direction: column; height: 100%; }
+        #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg { padding: 12px 16px; border-radius: 16px; max-width: 90%; font-size: 15px; line-height: 1.6; word-wrap: break-word; }
+        .user { background: var(--primary); color: white; align-self: flex-end; }
+        .bot { background: #f8f9fa; color: var(--text-color); align-self: flex-start; }
+        .input-area { padding: 12px 0; display: flex; gap: 10px; border-top: 1px solid #eee; background: white; }
+        #user-input { flex: 1; padding: 12px 18px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
+        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+        footer { background: #006699; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 14px; border-top: 2px solid var(--accent); }
+        #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #modal-content { position: relative; width: 90%; max-width: 900px; height: 80vh; display: flex; align-items: center; justify-content: center; }
+        #modal-img { max-width: 100%; max-height: 80vh; border-radius: 12px; object-fit: contain; }
+        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 15px; max-width: 90%; }
+        .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.3); border: none; color: white; font-size: 28px; padding: 12px 16px; cursor: pointer; border-radius: 50%; z-index: 10; }
+        #prev-img { left: 10px; }
+        #next-img { right: 10px; }
+        #close-modal { 
+            position: absolute; top: 10px; right: 10px; background: #e74c3c; 
+            color: white; font-size: 20px; padding: 8px 12px; border-radius: 50%; 
+            border: none; cursor: pointer; z-index: 11; 
         }
-        #chat-box {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            padding: 15px;
-        }
-        .msg {
-            padding: 12px 16px;
-            border-radius: 16px;
-            max-width: 90%;
-            font-size: 15px;
-            line-height: 1.6;
-            word-wrap: break-word;
-        }
-        .user {
-            background: var(--primary);
-            color: white;
-            align-self: flex-end;
-        }
-        .bot {
-            background: #f8f9fa;
-            color: var(--text-color);
-            align-self: flex-start;
-        }
-        .input-area {
-            padding: 12px 15px;
-            display: flex;
-            gap: 10px;
-            border-top: 1px solid #eee;
-            background: white;
-        }
-        #user-input {
-            flex: 1;
-            padding: 12px 18px;
-            border: 1px solid #ddd;
-            border-radius: 30px;
-            outline: none;
-            font-size: 15px;
-        }
-        .send-btn {
-            background: var(--primary);
-            color: white;
-            border: none;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        footer {
-            background: #006699;
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 2000;
-            color: white;
-            font-size: 14px;
-            border-top: 2px solid var(--accent);
-        }
-
-        /* Modal ảnh */
-        #img-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.92);
-            z-index: 9999;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            overflow: auto;
-        }
-        #img-modal.show {
-            display: flex;
-        }
-        #modal-content {
-            position: relative;
-            width: 90%;
-            max-width: 960px;
-            max-height: 85vh;
-        }
-        #modal-img {
-            max-width: 100%;
-            max-height: 80vh;
-            border-radius: 12px;
-            object-fit: contain;
-            display: block;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-        }
-        #modal-caption {
-            color: white;
-            margin-top: 12px;
-            text-align: center;
-            font-size: 14px;
-            max-width: 90%;
-        }
-        .modal-nav {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(255,255,255,0.25);
-            border: none;
-            color: white;
-            font-size: 32px;
-            padding: 12px 18px;
-            cursor: pointer;
-            border-radius: 50%;
-            z-index: 10;
-            transition: background 0.2s;
-            touch-action: manipulation;
-        }
-        .modal-nav:hover {
-            background: rgba(255,255,255,0.4);
-        }
-        #prev-img { left: 20px; }
-        #next-img { right: 20px; }
-        #close-modal {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #e74c3c;
-            color: white;
-            font-size: 22px;
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-            z-index: 11;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
-
         .hidden { display: none !important; }
-        .suggest-item {
-            background: #e3f2fd;
-            color: var(--primary);
-            padding: 12px 16px;
-            border-radius: 12px;
-            margin-top: 10px;
-            cursor: pointer;
-            border: 1px solid #bbdefb;
-            font-size: 14px;
-            transition: 0.2s;
-        }
+        .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14px; transition: 0.2s; }
         .suggest-item:hover { background: #bbdefb; }
-        .video-container {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-top: 10px;
-        }
-        .video-frame {
-            position: relative;
-            padding-bottom: 56.25%;
-            height: 0;
-            overflow: hidden;
-            border-radius: 12px;
-            background: #000;
-        }
-        .video-frame iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-
+        .video-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
+        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; }
+        .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         @media (max-width: 768px) {
-            #sidebar {
-                width: 85%;
-                right: -85%;
-                height: calc(100% - 110px);
-                top: 55px;
-                padding: 60px 15px 20px 15px;
-            }
-            header {
-                height: 55px;
-                padding: 10px 15px;
-            }
-            .logo {
-                font-size: 16px;
-            }
-            .logo img {
-                height: 35px;
-            }
-            footer {
-                padding: 10px 15px;
-                font-size: 13px;
-                flex-direction: column;
-                gap: 6px;
-                text-align: center;
-            }
-            .btn-sidebar {
-                font-size: 14px;
-                padding: 12px;
-            }
-            #close-sidebar {
-                top: 10px;
-                right: 15px;
-                font-size: 28px;
-            }
-            #img-modal { padding: 10px; }
-            #modal-content { width: 96%; }
-            #modal-img { max-height: 70vh; }
-            .modal-nav { font-size: 26px; padding: 10px 14px; }
-            #prev-img { left: 8px; }
-            #next-img { right: 8px; }
-            #close-modal {
-                top: 12px;
-                right: 12px;
-                width: 40px;
-                height: 40px;
-                font-size: 20px;
-            }
+            #sidebar { width: 80%; right: -80%; height: calc(100% - 120px); top: 55px; padding: 60px 15px 20px 15px; }
+            header { height: 55px; padding: 10px 15px; }
+            .logo { font-size: 16px; }
+            .logo img { height: 35px; }
+            footer { padding: 10px 15px; font-size: 13px; flex-direction: column; gap: 6px; text-align: center; }
+            .btn-sidebar { font-size: 14px; padding: 12px; }
+            .sidebar-section h3 { font-size: 18px; }
+            #close-sidebar { top: 10px; right: 15px; font-size: 28px; }
         }
     </style>
 </head>
 <body>
-    <header>
-        <div class="logo">
-            <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
-            <span>VIET NAM TRAVEL AI GUIDE 2026</span>
-        </div>
-        <i id="hamburger" class="fa fa-bars"></i>
-    </header>
-    <main>
-        <div id="map"></div>
-        <div id="sidebar">
-            <i id="close-sidebar" class="fa fa-times"></i>
-            <div class="sidebar-section" id="map-tools">
-                <h3>Công cụ Bản đồ <i class="fa fa-chevron-down"></i></h3>
-                <div class="content">
-                    <input type="text" id="s-input" placeholder="Nhập địa danh...">
-                    <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc</button>
-                    <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa Marker</button>
-                </div>
-            </div>
-            <div class="sidebar-section" id="chat-tools">
-                <h3>Chat & Lịch sử <i class="fa fa-chevron-down"></i></h3>
-                <div class="content">
-                    <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Hội Thoại</button>
-                    <button class="btn-sidebar btn-primary" onclick="toggleChat('history')">Lịch Sử</button>
-                    <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF</button>
-                    <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa Hết</button>
-                </div>
-            </div>
-            <div id="chat-container">
-                <div id="chat-box"></div>
-                <div class="input-area">
-                    <input type="text" id="user-input" placeholder="Hỏi về địa danh..." onkeypress="if(event.key==='Enter') sendMessage()">
-                    <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
-                </div>
-            </div>
-        </div>
-    </main>
-    <footer>
-        <div>Developer: <span style="color:#ffdd59; font-weight:900;">Lại Nguyễn Minh Trí</span></div>
-        <div>Hotline: <a href="tel:0908083566" style="color:#ffdd59; font-weight:900; text-decoration:none;">84.908.08.35.66</a></div>
-    </footer>
-
-    <div id="img-modal">
-        <div id="modal-content">
-            <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
-            <img id="modal-img" src="" alt="Hình ảnh du lịch">
-            <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
-        </div>
-        <div id="modal-caption"></div>
-        <button id="close-modal">×</button>
+<header>
+    <div class="logo">
+        <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
+        <span>VIET NAM TRAVEL AI GUIDE 2026</span>
     </div>
+    <i id="hamburger" class="fa fa-bars"></i>
+</header>
+<main>
+    <div id="map"></div>
+    <div id="sidebar">
+        <i id="close-sidebar" class="fa fa-times"></i>
+        <div class="sidebar-section" id="map-tools">
+            <h3>Công cụ Bản đồ <i class="fa fa-chevron-down"></i></h3>
+            <div class="content">
+                <input type="text" id="s-input" placeholder="Nhập địa danh...">
+                <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc</button>
+                <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa Marker</button>
+            </div>
+        </div>
+        <div class="sidebar-section" id="chat-tools">
+            <h3>Chat & Lịch sử <i class="fa fa-chevron-down"></i></h3>
+            <div class="content">
+                <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Hội Thoại</button>
+                <button class="btn-sidebar btn-primary" onclick="toggleChat('history')">Lịch Sử</button>
+                <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF</button>
+                <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa Hết</button>
+            </div>
+        </div>
+        <div id="chat-container">
+            <div id="chat-box"></div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="Hỏi về địa danh..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</main>
+<footer>
+    <div>Developer: <span style="color:#ffdd59; font-weight:900;">Lại Nguyễn Minh Trí</span></div>
+    <div>Hotline: <a href="tel:0908083566" style="color:#ffdd59; font-weight:900; text-decoration:none;">84.908.08.35.66</a></div>
+</footer>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        const map = L.map('map', {
-            zoomControl: false,
-            attributionControl: false,
-            minZoom: 11,
-            maxZoom: 15
-        }).setView([10.7769, 106.7009], 12);
+<div id="img-modal" class="hidden">
+    <div id="modal-content">
+        <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
+        <img id="modal-img" src="">
+        <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
+        <button id="close-modal" class="modal-nav" style="position: absolute; top: 10px; right: 10px; background: #e74c3c; color: white; font-size: 20px; padding: 8px 12px; border-radius: 50%; border: none; cursor: pointer;">×</button>
+    </div>
+    <div id="modal-caption"></div>
+</div>
 
-        L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', {
-            subdomains: ['mt0','mt1','mt2','mt3']
-        }).addTo(map);
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const map = L.map('map', { 
+        zoomControl: false, 
+        attributionControl: false,
+        minZoom: 11,
+        maxZoom: 15
+    }).setView([10.7769, 106.7009], 12);
 
-        let markers = [];
-        let currentTab = 'chat';
-        let chatHistoryLoaded = false;
-        let currentImages = [];
-        let currentImgIndex = 0;
-        const sidebar = document.getElementById('sidebar');
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
 
-        document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
-        document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
+    let markers = [];
+    let currentTab = 'chat';
+    let chatHistoryLoaded = false;
+    let currentImages = [];
+    let currentImgIndex = 0;
 
-        document.querySelectorAll('.sidebar-section h3').forEach(h3 => {
-            h3.onclick = () => {
-                const section = h3.parentElement;
-                section.classList.toggle('collapsed');
-            };
-        });
+    const sidebar = document.getElementById('sidebar');
+    document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
+    document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
-        function toggleChat(tab) {
-            currentTab = tab;
-            document.getElementById('chat-container').style.display = 'flex';
-            const box = document.getElementById('chat-box');
-            if (tab === 'chat' && box.innerHTML === '') {
-                box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
-            } else if (tab === 'history') {
-                loadHistory();
-                chatHistoryLoaded = true;
-            }
-        }
-
-        function clearMap() {
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-        }
-
-        async function findLoc() {
-            const q = document.getElementById('s-input').value.trim();
-            if (!q) return;
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
-            const data = await res.json();
-            if (data[0]) {
-                const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-                const displayName = data[0].display_name.toLowerCase();
-                const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
-                                 displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn");
-                if (!isInHCMC) {
-                    return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
-                }
-                map.setView(pos, 15);
-                const m = L.marker(pos).addTo(map).bindPopup(
-                    `<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`
-                ).openPopup();
-                markers.push(m);
-            }
-        }
-
-        function askAI(loc) {
-            toggleChat('chat');
-            document.getElementById('user-input').value = `Thông tin du lịch ${loc}`;
-            sendMessage();
-        }
-
-        function createMessageElement(role, content) {
-            const div = document.createElement('div');
-            div.className = `msg ${role}`;
-            if (role === 'user') {
-                div.textContent = content;
-                return div;
-            }
-
-            let data = typeof content === 'string' ? JSON.parse(content) : content;
-            const contentDiv = document.createElement('div');
-            let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-            contentDiv.innerHTML = htmlText;
-
-            if (data.images && data.images.length) {
-                contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
-                data.images.forEach((img, idx) => {
-                    const image = document.createElement('img');
-                    image.src = img.url;
-                    image.style.cssText = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
-                    image.onclick = () => showImg(data.images, idx);
-                    image.onerror = () => { image.src = 'https://via.placeholder.com/400x300?text=Image+not+found'; };
-                    contentDiv.appendChild(image);
-                });
-            }
-
-            if (data.youtube_links && data.youtube_links.length) {
-                contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế:</b>';
-                const vCon = document.createElement('div');
-                vCon.className = 'video-container';
-                data.youtube_links.forEach(link => {
-                    const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-                    if (match) {
-                        vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
-                    }
-                });
-                contentDiv.appendChild(vCon);
-            }
-
-            if (data.suggestions && data.suggestions.length) {
-                contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
-                data.suggestions.forEach(s => {
-                    const btn = document.createElement('div');
-                    btn.className = 'suggest-item';
-                    btn.textContent = s;
-                    btn.onclick = () => {
-                        document.getElementById('user-input').value = s;
-                        sendMessage();
-                    };
-                    contentDiv.appendChild(btn);
-                });
-            }
-
-            div.appendChild(contentDiv);
-            return div;
-        }
-
-        async function sendMessage() {
-            const inp = document.getElementById('user-input');
-            const msg = inp.value.trim();
-            if (!msg) return;
-
-            const box = document.getElementById('chat-box');
-            box.appendChild(createMessageElement('user', msg));
-            inp.value = '';
-            box.scrollTop = box.scrollHeight;
-
-            const res = await fetch('/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ msg })
-            });
-            const data = await res.json();
-
-            box.appendChild(createMessageElement('bot', data));
-            box.scrollTop = box.scrollHeight;
-        }
-
-        async function loadHistory() {
-            const res = await fetch('/history');
-            const data = await res.json();
-            const box = document.getElementById('chat-box');
-            box.innerHTML = '';
-            data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
-            box.scrollTop = box.scrollHeight;
-        }
-
-        function exportPdf() {
-            window.location.href = '/export_pdf';
-        }
-
-        async function clearHistory() {
-            if (confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
-                await fetch('/clear_history', { method: 'POST' });
-                location.reload();
-            }
-        }
-
-        function showImg(images, index) {
-            currentImages = images;
-            currentImgIndex = Math.max(0, Math.min(index, images.length - 1));
-            updateModalImg();
-
-            const modal = document.getElementById('img-modal');
-            modal.classList.add('show');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function updateModalImg() {
-            if (!currentImages.length) return;
-            const img = currentImages[currentImgIndex];
-            const modalImg = document.getElementById('modal-img');
-            modalImg.src = img.url;
-            modalImg.alt = img.caption || 'Hình ảnh du lịch';
-            document.getElementById('modal-caption').textContent = img.caption || '';
-
-            document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
-            document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
-        }
-
-        document.getElementById('prev-img').onclick = (e) => {
-            e.stopPropagation();
-            if (currentImgIndex > 0) {
-                currentImgIndex--;
-                updateModalImg();
-            }
+    document.querySelectorAll('.sidebar-section h3').forEach(h3 => {
+        h3.onclick = () => {
+            const section = h3.parentElement;
+            section.classList.toggle('collapsed');
         };
+    });
 
-        document.getElementById('next-img').onclick = (e) => {
-            e.stopPropagation();
-            if (currentImgIndex < currentImages.length - 1) {
-                currentImgIndex++;
-                updateModalImg();
+    function toggleChat(tab) {
+        currentTab = tab;
+        document.getElementById('chat-container').style.display = 'flex';
+        const box = document.getElementById('chat-box');
+        if (tab === 'chat' && box.innerHTML === '') {
+            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
+        } else if (tab === 'history') {
+            loadHistory();
+            chatHistoryLoaded = true;
+        }
+    }
+
+    function clearMap() { markers.forEach(m => map.removeLayer(m)); markers = []; }
+
+    async function findLoc() {
+        const q = document.getElementById('s-input').value.trim();
+        if (!q) return;
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
+        const data = await res.json();
+        if (data[0]) {
+            const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+            const displayName = data[0].display_name.toLowerCase();
+
+            const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
+                             displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn");
+
+            if (!isInHCMC) {
+                return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
             }
-        };
 
-        document.getElementById('close-modal').onclick = () => {
-            document.getElementById('img-modal').classList.remove('show');
-            document.body.style.overflow = '';
-        };
+            map.setView(pos, 15);
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
+            markers.push(m);
+        }
+    }
 
-        document.getElementById('img-modal').onclick = function(e) {
-            if (e.target === this || e.target === document.getElementById('modal-caption')) {
-                document.getElementById('close-modal').click();
-            }
-        };
-
-        document.getElementById('modal-img').onclick = (e) => e.stopPropagation();
-
-        // Khởi động
+    function askAI(loc) {
         toggleChat('chat');
-    </script>
+        document.getElementById('user-input').value = `Thông tin du lịch ${loc}`;
+        sendMessage();
+    }
+
+    function createMessageElement(role, content) {
+        const div = document.createElement('div');
+        div.className = `msg ${role}`;
+        if (role === 'user') { div.textContent = content; return div; }
+        let data = typeof content === 'string' ? JSON.parse(content) : content;
+        const contentDiv = document.createElement('div');
+        let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        contentDiv.innerHTML = htmlText;
+        if (data.images && data.images.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
+            data.images.forEach((img, idx) => {
+                const image = document.createElement('img');
+                image.src = img.url;
+                image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
+                image.onclick = () => showImg(data.images, idx);
+                contentDiv.appendChild(image);
+            });
+        }
+        if (data.youtube_links && data.youtube_links.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế:</b>';
+            const vCon = document.createElement('div');
+            vCon.className = 'video-container';
+            data.youtube_links.forEach(link => {
+                const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
+                if(match) {
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                }
+            });
+            contentDiv.appendChild(vCon);
+        }
+        if (data.suggestions && data.suggestions.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
+            data.suggestions.forEach(s => {
+                const btn = document.createElement('div');
+                btn.className = 'suggest-item';
+                btn.textContent = s;
+                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
+                contentDiv.appendChild(btn);
+            });
+        }
+        div.appendChild(contentDiv);
+        return div;
+    }
+
+    async function sendMessage() {
+        const inp = document.getElementById('user-input');
+        const msg = inp.value.trim();
+        if(!msg) return;
+        const box = document.getElementById('chat-box');
+        box.appendChild(createMessageElement('user', msg));
+        inp.value = '';
+        box.scrollTop = box.scrollHeight;
+        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
+        const data = await res.json();
+        box.appendChild(createMessageElement('bot', data));
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function loadHistory() {
+        const res = await fetch('/history');
+        const data = await res.json();
+        const box = document.getElementById('chat-box');
+        box.innerHTML = '';
+        data.forEach(i => box.appendChild(createMessageElement(i.role, i.content)));
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function exportPdf() {
+        window.location.href = '/export_pdf';
+    }
+
+    async function clearHistory() {
+        if(confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
+            await fetch('/clear_history', { method: 'POST' });
+            location.reload();
+        }
+    }
+
+    function showImg(images, index) {
+        currentImages = images;
+        currentImgIndex = index;
+        updateModalImg();
+        document.getElementById('img-modal').classList.remove('hidden');
+    }
+
+    function updateModalImg() {
+        const img = currentImages[currentImgIndex];
+        document.getElementById('modal-img').src = img.url;
+        document.getElementById('modal-caption').textContent = img.caption || '';
+        document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
+        document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
+    }
+
+    document.getElementById('prev-img').onclick = (e) => {
+        e.stopPropagation();
+        if (currentImgIndex > 0) currentImgIndex--;
+        updateModalImg();
+    };
+
+    document.getElementById('next-img').onclick = (e) => {
+        e.stopPropagation();
+        if (currentImgIndex < currentImages.length - 1) currentImgIndex++;
+        updateModalImg();
+    };
+
+    document.getElementById('close-modal').addEventListener('click', () => {
+        document.getElementById('img-modal').classList.add('hidden');
+    });
+
+    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
+
+    toggleChat('chat');
+</script>
 </body>
 </html>
