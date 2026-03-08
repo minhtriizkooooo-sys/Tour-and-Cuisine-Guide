@@ -14,22 +14,37 @@
         .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 18px; }
         .logo img { height: 40px; width: auto; }
         #hamburger { cursor: pointer; font-size: 24px; color: white; }
-        main { flex: 1; position: relative; overflow: hidden; }
-        #map { height: 100%; width: 100%; }
-        #sidebar { position: fixed; top: 60px; right: -100%; width: 100%; height: calc(100% - 120px); background: white; transition: right 0.3s ease; z-index: 1001; box-shadow: -2px 0 10px rgba(0,0,0,0.2); padding: 15px; overflow-y: auto; }
+        main { flex: 1; position: relative; overflow: hidden; display: flex; }
+        #map { height: 100%; width: 100%; flex: 1; }
+        #sidebar { 
+            position: fixed; top: 60px; right: -350px; width: 350px; height: calc(100% - 120px); 
+            background: white; transition: right 0.3s ease; z-index: 1001; 
+            box-shadow: -4px 0 12px rgba(0,0,0,0.15); overflow-y: auto; padding: 20px; 
+        }
         #sidebar.open { right: 0; }
-        #close-sidebar { position: absolute; top: 10px; right: 15px; font-size: 28px; color: var(--primary); cursor: pointer; z-index: 1002; }
+        #close-sidebar { 
+            position: absolute; top: 10px; right: 15px; font-size: 28px; 
+            color: var(--primary); cursor: pointer; 
+        }
         .sidebar-section { margin-bottom: 25px; }
-        .sidebar-section h3 { color: var(--primary); font-size: 17px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        .sidebar-section h3 { 
+            color: var(--primary); font-size: 17px; margin-bottom: 12px; 
+            cursor: pointer; display: flex; justify-content: space-between; 
+            align-items: center; font-weight: bold; 
+        }
         .sidebar-section h3 i { transition: transform 0.3s; }
         .sidebar-section.collapsed .content { display: none; }
         .sidebar-section.collapsed h3 i { transform: rotate(180deg); }
-        .btn-sidebar { display: block; width: 100%; padding: 14px; margin: 6px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; }
+        .btn-sidebar { 
+            display: block; width: 100%; padding: 14px; margin: 6px 0; 
+            border: none; border-radius: 8px; cursor: pointer; 
+            font-weight: bold; color: white; font-size: 15px; text-align: center; 
+        }
         .btn-primary { background: var(--primary); }
         .btn-danger { background: #e74c3c; }
         .btn-success { background: #27ae60; }
         #chat-container { display: none; flex-direction: column; height: 100%; }
-        #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-bottom: 10px; }
+        #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
         .msg { padding: 12px 16px; border-radius: 16px; max-width: 90%; font-size: 15px; line-height: 1.6; word-wrap: break-word; }
         .user { background: var(--primary); color: white; align-self: flex-end; }
         .bot { background: #f8f9fa; color: var(--text-color); align-self: flex-start; }
@@ -51,14 +66,13 @@
         .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         @media (max-width: 768px) {
+            #sidebar { width: 80%; right: -80%; height: calc(100% - 120px); top: 55px; }
             header { height: 55px; padding: 10px 15px; }
             .logo { font-size: 16px; }
             .logo img { height: 35px; }
             footer { padding: 10px 15px; font-size: 13px; flex-direction: column; gap: 6px; text-align: center; }
             .btn-sidebar { font-size: 14px; padding: 12px; }
             .sidebar-section h3 { font-size: 18px; }
-            #sidebar { padding: 20px 15px; }
-            #modal-nav { font-size: 24px; padding: 10px 12px; }
         }
     </style>
 </head>
@@ -117,8 +131,15 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([10.7769, 106.7009], 12);
+    const map = L.map('map', { 
+        zoomControl: false, 
+        attributionControl: false,
+        minZoom: 11,
+        maxZoom: 15
+    }).setView([10.7769, 106.7009], 12);  // Focus TP.HCM
+
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
+
     let markers = [];
     let currentTab = 'chat';
     let chatHistoryLoaded = false;
@@ -129,7 +150,6 @@
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
-    // Minimize/expand sections
     document.querySelectorAll('.sidebar-section h3').forEach(h3 => {
         h3.onclick = () => {
             const section = h3.parentElement;
@@ -153,27 +173,24 @@
 
     async function findLoc() {
         const q = document.getElementById('s-input').value.trim();
-        if (!q) return alert("Vui lòng nhập địa danh!");
-
+        if (!q) return;
         const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
         const data = await res.json();
+        if (data[0]) {
+            const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+            const displayName = data[0].display_name.toLowerCase();
 
-        if (!data[0]) return alert("Không tìm thấy địa danh!");
+            const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
+                             displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn");
 
-        const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-        const displayName = data[0].display_name.toLowerCase();
+            if (!isInHCMC) {
+                return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
+            }
 
-        // Giới hạn chỉ TP.HCM (lat 10.6-10.9, lon 106.5-107.0 hoặc tên chứa "ho chi minh", "tp.hcm", "sài gòn")
-        const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
-                         displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn") || displayName.includes("thành phố hồ chí minh");
-
-        if (!isInHCMC) {
-            return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
+            map.setView(pos, 15);
+            const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
+            markers.push(m);
         }
-
-        map.setView(pos, 15);
-        const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
-        markers.push(m);
     }
 
     function askAI(loc) {
@@ -288,7 +305,6 @@
 
     function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
 
-    // Khởi tạo mặc định
     toggleChat('chat');
 </script>
 </body>
