@@ -150,10 +150,10 @@ def export_pdf():
     pdf.cell(0, 10, "LỊCH TRÌNH DU LỊCH - VIET NAM TRAVEL AI", ln=True, align="C")
     pdf.ln(10)
     with sqlite3.connect(DB_PATH) as conn:
-        rows = conn.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
-        for role, content in rows:
+        rows = conn.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,)).fetchall()
+        for role, content, created_at in rows:
             text = json.loads(content).get("text", "") if role == "bot" else content
-            prefix = "Bạn: " if role == "user" else "AI: "
+            prefix = f"[{created_at}] {'Bạn' if role == 'user' else 'AI'}: "
             pdf.multi_cell(0, 8, f"{prefix}{text}")
             pdf.ln(6)
     output_path = "lich_trinh.pdf"
