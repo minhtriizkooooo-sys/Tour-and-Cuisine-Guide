@@ -17,15 +17,16 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
+# System prompt chi tiết hơn để câu trả lời có chiều sâu
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi tiếng như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương. Nếu là địa điểm trong TP.HCM, thử mô tả rõ hơn nhé!"}
-2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1200 từ, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi: 
-- Lịch sử hình thành và phát triển địa danh
-- Văn hóa đặc trưng, lễ hội, phong tục liên quan
-- Con người địa phương: tính cách, lối sống, tương tác với du khách
-- Ẩm thực nổi bật: món ăn đặc sản, địa chỉ quán ăn gần đó, cách thưởng thức
-- Gợi ý du lịch: địa điểm check-in gần, hoạt động trải nghiệm, lộ trình mẫu, lưu ý thời tiết/an toàn/chi phí/giờ mở cửa.
-Viết hấp dẫn, chính xác, sinh động, dựa trên kiến thức thực tế.", "suggestions": ["3 câu hỏi gợi ý liên quan trực tiếp đến địa danh hỏi, bằng tiếng Việt"]}
+2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1500 từ, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi: 
+- Lịch sử hình thành, phát triển qua các giai đoạn quan trọng, sự kiện nổi bật
+- Văn hóa đặc trưng: lễ hội truyền thống, phong tục tập quán, di sản văn hóa
+- Con người địa phương: tính cách, lối sống, thói quen sinh hoạt, cách tương tác với du khách
+- Ẩm thực nổi bật: món ăn đặc sản, nguồn gốc, cách chế biến, địa chỉ quán ăn ngon gần đó
+- Gợi ý du lịch chi tiết: địa điểm check-in gần, hoạt động trải nghiệm (ăn chơi, nghỉ dưỡng, khám phá), lộ trình mẫu 1-3 ngày, lưu ý thời tiết, an toàn, chi phí tham khảo, giờ mở cửa.
+Viết hấp dẫn, sinh động, gần gũi, dựa trên kiến thức thực tế, khuyến khích du khách.", "suggestions": ["3 câu hỏi gợi ý liên quan sâu đến địa danh vừa hỏi, bằng tiếng Việt"]}
 Chỉ trả JSON thuần, không thêm text ngoài."""
 
 def init_db():
@@ -40,9 +41,9 @@ def search_serper(query, search_type="images"):
     
     base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
     if search_type == "videos":
-        q = f"{query} du lịch review youtube"  # Tập trung YouTube
+        q = f"{query} du lịch review youtube trải nghiệm địa danh"  # Tập trung YouTube, liên quan cao
     else:
-        q = f"{base_q} hình ảnh đẹp check-in thực tế"
+        q = f"{base_q} hình ảnh đẹp check-in thực tế địa danh"
 
     url = f"https://google.serper.dev/{search_type}"
     try:
