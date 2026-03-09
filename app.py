@@ -14,6 +14,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
 CORS(app)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_API_KEY_TCG = os.environ.get("GROQ_API_KEY_TCG")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
@@ -164,3 +165,4 @@ def clear_history():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=True)
+
