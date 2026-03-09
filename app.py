@@ -8,26 +8,18 @@ from flask import Flask, request, jsonify, render_template, make_response, send_
 from flask_cors import CORS
 from groq import Groq
 from fpdf import FPDF
-import pytz
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
 CORS(app)
 
-# Lấy API keys
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
-# Debug ngay lúc start
-print(f"[STARTUP] GROQ_API_KEY: {'SET (prefix: ' + GROQ_API_KEY[:6] + '...)' if GROQ_API_KEY else 'NOT SET - CHECK RENDER ENV'}")
-print(f"[STARTUP] SERPER_API_KEY: {'SET (prefix: ' + SERPER_API_KEY[:6] + '...)' if SERPER_API_KEY else 'NOT SET'}")
-
-VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
-
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi bật như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương. Nếu là địa điểm trong TP.HCM, thử mô tả rõ hơn nhé!"}
-2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi:
+2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi: 
 - Lịch sử hình thành, phát triển qua các giai đoạn quan trọng (thời kỳ thuộc địa, chiến tranh, đổi mới), sự kiện nổi bật, nhân vật lịch sử liên quan, ảnh hưởng đến hiện đại.
 - Văn hóa đặc trưng: lễ hội truyền thống, phong tục tập quán, di sản văn hóa UNESCO hoặc địa phương, nghệ thuật dân gian, lễ hội hiện đại, giá trị văn hóa cốt lõi.
 - Con người địa phương: tính cách thân thiện, lối sống năng động, thói quen sinh hoạt hàng ngày, cách tương tác với du khách, câu chuyện thực tế từ người dân, sự khác biệt giữa các thế hệ.
@@ -44,12 +36,14 @@ init_db()
 
 def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
-        print("[DEBUG] SERPER_API_KEY missing, returning empty results")
         return []
     
     base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
-    q = f"{query} du lịch review youtube trải nghiệm địa danh" if search_type == "videos" else base_q + " hình ảnh đẹp check-in thực tế địa danh"
-    
+    if search_type == "videos":
+        q = f"{query} du lịch review youtube trải nghiệm địa danh"
+    else:
+        q = f"{base_q} hình ảnh đẹp check-in thực tế địa danh"
+
     url = f"https://google.serper.dev/{search_type}"
     try:
         res = requests.post(
@@ -58,15 +52,19 @@ def search_serper(query, search_type="images"):
             json={"q": q, "gl": "vn", "hl": "vi", "num": 25},
             timeout=15
         ).json()
-        
+
         if search_type == "images":
             return [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10]]
         else:
-            videos = [i.get('link', '') for i in res.get('videos', [])[:10] if 'youtube.com' in i.get('link', '').lower() or 'youtu.be' in i.get('link', '').lower()]
-            print(f"[DEBUG] Serper videos for '{q}': {len(videos)} found")
+            videos = []
+            for i in res.get('videos', [])[:10]:
+                link = i.get('link', '')
+                if 'youtube.com' in link.lower() or 'youtu.be' in link.lower():
+                    videos.append(link)
+            print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} videos")
             return videos
     except Exception as e:
-        print(f"[ERROR] Serper ({search_type}): {e}")
+        print(f"Serper error ({search_type}): {e}")
         return []
 
 @app.route("/")
@@ -81,57 +79,43 @@ def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
     if not msg:
-        print("[DEBUG] Empty message received")
         return jsonify({"text": "Bạn chưa nhập gì cả...", "images": [], "youtube_links": []})
 
-    if not GROQ_API_KEY:
-        print("[ERROR] GROQ_API_KEY not set in environment!")
-        return jsonify({"text": "Lỗi hệ thống: Groq API key chưa được cấu hình trên server!", "images": [], "youtube_links": []})
-
     client = Groq(api_key=GROQ_API_KEY)
-
+    
     try:
-        print(f"[DEBUG] Gửi Groq request: msg='{msg[:100]}...' | model=llama-3.1-8b-instant | max_tokens=2048")
-        
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",  # Model nhẹ để test nhanh
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": msg}],
             response_format={"type": "json_object"},
             temperature=0.75,
-            max_tokens=2048,  # Giảm để tiết kiệm quota
+            max_tokens=4500
         )
-
-        raw_response = completion.choices[0].message.content
-        print(f"[DEBUG] Groq raw response: {raw_response[:300]}...")
-
-        ai_res = json.loads(raw_response)
-
-        images = search_serper(msg, "images") if ai_res.get("is_valid", False) else []
-        videos = search_serper(msg, "videos") if ai_res.get("is_valid", False) else []
-
+        
+        ai_res = json.loads(completion.choices[0].message.content)
+        
+        images, videos = [], []
+        if ai_res.get("is_valid", False):
+            images = search_serper(msg, "images")
+            videos = search_serper(msg, "videos")
+        
         data = {
             "text": ai_res.get("text", "Không có nội dung."),
             "images": images,
             "youtube_links": videos,
             "suggestions": ai_res.get("suggestions", ["Du lịch Landmark 81", "Review Vũng Tàu", "Bình Dương có gì chơi"])
         }
-
-        now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
+        
+        now = datetime.now().strftime("%H:%M %d/%m/%Y")
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-                         (sid, "user", msg, now_vn))
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
-                         (sid, "bot", json.dumps(data, ensure_ascii=False), now_vn))
-
-        print("[DEBUG] Chat response sent to client")
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)", (sid, "user", msg, now))
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)", (sid, "bot", json.dumps(data, ensure_ascii=False), now))
+        
         return jsonify(data)
-
+    
     except Exception as e:
-        error_msg = f"[ERROR] Groq failed: {type(e).__name__} - {str(e)}"
-        print(error_msg)
-        if 'completion' in locals():
-            print(f"[DEBUG] Raw Groq content (if any): {completion.choices[0].message.content[:500]}...")
-        return jsonify({"text": f"Lỗi khi gọi Groq: {str(e)}", "images": [], "youtube_links": []})
+        print(f"Groq error: {e}")
+        return jsonify({"text": f"Lỗi: {str(e)}", "images": [], "youtube_links": []})
 
 @app.route("/history")
 def get_history():
