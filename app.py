@@ -3,23 +3,34 @@ import uuid
 import sqlite3
 import json
 import requests
+import sys
+import traceback
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
-from groq import Groq
+from groq import Groq, AuthenticationError, RateLimitError, APITimeoutError
 from fpdf import FPDF
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
 CORS(app)
 
+# Lấy API key với fallback
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY_TCG") or os.environ.get("GROQ_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 
+# Debug startup - in ra log Render lúc khởi động
+print("[STARTUP DEBUG] Checking environment variables...")
+print("GROQ_API_KEY_TCG exists?", "YES" if "GROQ_API_KEY_TCG" in os.environ else "NO - CHECK RENDER ENV")
+print("GROQ_API_KEY_TCG prefix:", os.environ.get("GROQ_API_KEY_TCG", "NONE")[:10] + "..." if os.environ.get("GROQ_API_KEY_TCG") else "NONE")
+print("GROQ_API_KEY prefix:", os.environ.get("GROQ_API_KEY", "NONE")[:10] + "..." if os.environ.get("GROQ_API_KEY") else "NONE")
+print("Final GROQ_API_KEY prefix:", GROQ_API_KEY[:10] + "..." if GROQ_API_KEY else "EMPTY KEY - API CALLS WILL FAIL")
+print("SERPER_API_KEY prefix:", SERPER_API_KEY[:10] + "..." if SERPER_API_KEY else "NONE")
+
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi bật như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương. Nếu là địa điểm trong TP.HCM, thử mô tả rõ hơn nhé!"}
-2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi: 
+2. Nếu HỢP LỆ: Trả JSON {"is_valid": true, "text": "Nội dung chi tiết bằng tiếng Việt, dài >1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi:
 - Lịch sử hình thành, phát triển qua các giai đoạn quan trọng (thời kỳ thuộc địa, chiến tranh, đổi mới), sự kiện nổi bật, nhân vật lịch sử liên quan, ảnh hưởng đến hiện đại.
 - Văn hóa đặc trưng: lễ hội truyền thống, phong tục tập quán, di sản văn hóa UNESCO hoặc địa phương, nghệ thuật dân gian, lễ hội hiện đại, giá trị văn hóa cốt lõi.
 - Con người địa phương: tính cách thân thiện, lối sống năng động, thói quen sinh hoạt hàng ngày, cách tương tác với du khách, câu chuyện thực tế từ người dân, sự khác biệt giữa các thế hệ.
@@ -36,14 +47,12 @@ init_db()
 
 def search_serper(query, search_type="images"):
     if not SERPER_API_KEY:
+        print("[SERPER DEBUG] SERPER_API_KEY missing")
         return []
-    
+   
     base_q = f"{query} du lịch Việt Nam thực tế review chi tiết địa danh"
-    if search_type == "videos":
-        q = f"{query} du lịch review youtube trải nghiệm địa danh"
-    else:
-        q = f"{base_q} hình ảnh đẹp check-in thực tế địa danh"
-
+    q = f"{query} du lịch review youtube trải nghiệm địa danh" if search_type == "videos" else base_q + " hình ảnh đẹp check-in thực tế địa danh"
+   
     url = f"https://google.serper.dev/{search_type}"
     try:
         res = requests.post(
@@ -52,19 +61,15 @@ def search_serper(query, search_type="images"):
             json={"q": q, "gl": "vn", "hl": "vi", "num": 25},
             timeout=15
         ).json()
-
+       
         if search_type == "images":
             return [{"url": i.get('imageUrl'), "caption": i.get('title', 'Ảnh du lịch')} for i in res.get('images', [])[:10]]
         else:
-            videos = []
-            for i in res.get('videos', [])[:10]:
-                link = i.get('link', '')
-                if 'youtube.com' in link.lower() or 'youtu.be' in link.lower():
-                    videos.append(link)
-            print(f"[DEBUG Videos] Query: {q} → Found {len(videos)} videos")
+            videos = [i.get('link', '') for i in res.get('videos', [])[:10] if 'youtube.com' in i.get('link', '').lower() or 'youtu.be' in i.get('link', '').lower()]
+            print(f"[SERPER DEBUG] Found {len(videos)} videos for '{q}'")
             return videos
     except Exception as e:
-        print(f"Serper error ({search_type}): {e}")
+        print(f"[SERPER ERROR] {search_type}: {e}")
         return []
 
 @app.route("/")
@@ -81,18 +86,30 @@ def chat():
     if not msg:
         return jsonify({"text": "Bạn chưa nhập gì cả...", "images": [], "youtube_links": []})
 
+    print(f"[CHAT REQUEST] Received: '{msg[:80]}...' | Session: {sid[:8]}...")
+    print(f"[CHAT KEY] Using API key prefix: {GROQ_API_KEY[:10] + '...' if GROQ_API_KEY else 'EMPTY KEY - WILL FAIL'}")
+
+    if not GROQ_API_KEY:
+        print("[CHAT ERROR] GROQ_API_KEY is empty!")
+        return jsonify({"text": "Lỗi hệ thống: GROQ_API_KEY chưa được cấu hình. Kiểm tra biến môi trường trên Render.", "images": [], "youtube_links": []})
+
     client = Groq(api_key=GROQ_API_KEY)
-    
+
     try:
+        print("[CHAT GROQ] Starting call...")
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",           # tạm dùng model nhẹ để test
             messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": msg}],
             response_format={"type": "json_object"},
             temperature=0.75,
-            max_tokens=4500
+            max_tokens=1200,                        # giảm để tránh vượt quota nhanh
+            timeout=120                             # tăng timeout
         )
         
-        ai_res = json.loads(completion.choices[0].message.content)
+        raw_response = completion.choices[0].message.content
+        print(f"[CHAT GROQ SUCCESS] Response length: {len(raw_response)} | Preview: {raw_response[:150]}...")
+        
+        ai_res = json.loads(raw_response)
         
         images, videos = [], []
         if ai_res.get("is_valid", False):
@@ -108,15 +125,28 @@ def chat():
         
         now = datetime.now().strftime("%H:%M %d/%m/%Y")
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)", (sid, "user", msg, now))
-            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)", (sid, "bot", json.dumps(data, ensure_ascii=False), now))
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "user", msg, now))
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "bot", json.dumps(data, ensure_ascii=False), now))
         
         return jsonify(data)
     
+    except AuthenticationError as e:
+        print(f"[CHAT AUTH ERROR] 401 Invalid key: {str(e)}")
+        return jsonify({"text": "Lỗi: API Key Groq không hợp lệ (401). Kiểm tra key trên console.groq.com.", "images": [], "youtube_links": []})
+    except RateLimitError as e:
+        print(f"[CHAT RATE LIMIT] 429: {str(e)}")
+        return jsonify({"text": "Lỗi: Hết quota Groq (429). Đợi reset quota free tier hoặc dùng model nhẹ hơn.", "images": [], "youtube_links": []})
+    except APITimeoutError as e:
+        print(f"[CHAT TIMEOUT] Groq timeout: {str(e)}")
+        return jsonify({"text": "Lỗi: Groq timeout (chậm hoặc quá tải). Thử lại sau vài phút.", "images": [], "youtube_links": []})
     except Exception as e:
-        print(f"Groq error: {e}")
-        return jsonify({"text": f"Lỗi: {str(e)}", "images": [], "youtube_links": []})
+        print(f"[CHAT CRITICAL ERROR] Groq failed: {type(e).__name__} - {str(e)}")
+        traceback.print_exc(file=sys.stdout)
+        return jsonify({"text": f"Lỗi khi gọi Groq: {str(e)}. Xem log Render để xem chi tiết.", "images": [], "youtube_links": []})
 
+# Các route còn lại giữ nguyên
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
@@ -164,5 +194,3 @@ def clear_history():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=True)
-
-
