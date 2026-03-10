@@ -44,7 +44,7 @@
         .btn-primary { background: var(--primary); }
         .btn-danger { background: #e74c3c; }
         .btn-success { background: #27ae60; }
-        #chat-container { flex: 1; display: flex; flex-direction: column; height: 100%; }
+        #chat-container { flex: 1; display: flex; flex-direction: column; height: 100%; background: #fff; }
         #chat-box { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
         .msg { padding: 10px 14px; border-radius: 16px; max-width: 85%; font-size: 15px; line-height: 1.5; }
         .user { background: var(--primary); color: white; align-self: flex-end; }
@@ -100,7 +100,6 @@
         <div id="map"></div>
         <div id="sidebar">
             <i id="close-sidebar" class="fa fa-times"></i>
-            <!-- Sidebar content giữ nguyên -->
             <div class="sidebar-section" id="map-tools">
                 <h3>Công cụ Bản đồ <i class="fa fa-chevron-down"></i></h3>
                 <div class="content">
@@ -133,7 +132,6 @@
         <div>Hotline: <a href="tel:0908083566" style="color:#ffdd59; font-weight:900; text-decoration:none;">84.908.08.35.66</a></div>
     </footer>
 
-    <!-- Modal ảnh -->
     <div id="img-modal">
         <div id="modal-content">
             <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
@@ -146,7 +144,7 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Bản đồ dùng OpenStreetMap - ổn định 100%
+        // Bản đồ - OpenStreetMap ổn định
         const map = L.map('map', {
             zoomControl: false,
             attributionControl: false,
@@ -158,14 +156,13 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Fix map khi resize/sidebar toggle
         function fixMapSize() { setTimeout(() => map.invalidateSize(), 400); }
 
         const sidebar = document.getElementById('sidebar');
         document.getElementById('hamburger').onclick = () => { sidebar.classList.add('open'); fixMapSize(); };
         document.getElementById('close-sidebar').onclick = () => { sidebar.classList.remove('open'); fixMapSize(); };
         window.addEventListener('resize', fixMapSize);
-        setTimeout(fixMapSize, 300); // fix load ban đầu
+        setTimeout(fixMapSize, 300);
 
         let markers = [];
         let currentTab = 'chat';
@@ -180,18 +177,53 @@
             currentTab = tab;
             document.getElementById('chat-container').style.display = 'flex';
             const box = document.getElementById('chat-box');
-            if (tab === 'chat' && !box.hasChildNodes()) {
+            if (tab === 'chat' && box.children.length === 0) {
                 box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
             } else if (tab === 'history') {
                 loadHistory();
             }
         }
 
-        // Giữ nguyên các hàm còn lại: clearMap, findLoc, askAI, createMessageElement, sendMessage, loadHistory, exportPdf, clearHistory
+        function clearMap() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+        }
+
+        async function findLoc() {
+            const q = document.getElementById('s-input').value.trim();
+            if (!q) return alert("Vui lòng nhập địa danh!");
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
+                const data = await res.json();
+                if (data && data[0]) {
+                    const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+                    map.setView(pos, 15);
+                    const m = L.marker(pos).addTo(map).bindPopup(`
+                        <b>${q}</b><br>
+                        <button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 12px;border:none;border-radius:6px;background:#0066cc;color:white;cursor:pointer;">Hỏi AI về ${q}</button>
+                    `).openPopup();
+                    markers.push(m);
+                } else {
+                    alert("Không tìm thấy địa danh!");
+                }
+            } catch (err) {
+                console.error("Lỗi tìm địa danh:", err);
+                alert("Lỗi kết nối, thử lại sau!");
+            }
+        }
+
+        function askAI(loc) {
+            toggleChat('chat');
+            document.getElementById('user-input').value = `Thông tin du lịch về ${loc}`;
+            sendMessage();
+        }
+
+        // Giữ nguyên các hàm createMessageElement, sendMessage, loadHistory, exportPdf, clearHistory như cũ của bạn
+        // (copy từ file cũ của bạn nếu cần, mình không thay đổi phần đó)
 
         // Modal ảnh - hoạt động chắc chắn
         function showImg(images, index) {
-            console.log('Mở modal ảnh index:', index);
+            console.log('Mở modal ảnh:', index, images);
             currentImages = images;
             currentImgIndex = index;
             updateModalImg();
@@ -213,7 +245,7 @@
             if (e.target.id === 'img-modal') document.getElementById('img-modal').style.display = 'none';
         };
 
-        // Khởi động
+        // Khởi động chat ngay
         toggleChat('chat');
     </script>
 </body>
