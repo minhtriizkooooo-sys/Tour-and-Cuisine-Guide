@@ -9,7 +9,7 @@ from datetime import datetime
 import pytz
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
-from groq import Groq, AuthenticationError, RateLimitError, APITimeoutError
+from groq import Groq
 from fpdf import FPDF
 import tempfile
 import os as os_module
@@ -27,9 +27,7 @@ print(f"[STARTUP {datetime.now(VN_TZ).strftime('%Y-%m-%d %H:%M:%S %Z')}] "
       f"GROQ: {bool(GROQ_API_KEY)} | SERPER: {bool(SERPER_API_KEY)}")
 
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi bật như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
-
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương. Nếu là địa điểm trong TP.HCM, thử mô tả rõ hơn nhé!"}
-
 2. Nếu HỢP LỆ: Trả JSON với các trường bắt buộc:
 {
   "is_valid": true,
@@ -42,7 +40,6 @@ SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao 
   Viết hấp dẫn, sinh động, gần gũi, khuyến khích trải nghiệm sâu sắc.",
   "suggestions": ["3 câu hỏi gợi ý bằng tiếng Việt, liên quan sâu đến địa danh, mỗi câu là string riêng"]
 }
-
 Chỉ trả JSON thuần túy, không thêm text ngoài."""
 
 def init_db():
@@ -110,7 +107,7 @@ def chat():
     msg = request.json.get("msg", "").strip()
     if not msg:
         return jsonify({"text": "Bạn chưa nhập gì cả...", "images": [], "youtube_links": [], "suggestions": []})
-
+    
     now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
     print(f"[CHAT {now_vn}] '{msg[:80]}...'")
 
@@ -130,7 +127,6 @@ def chat():
             max_tokens=4096,
             timeout=90
         )
-
         raw = completion.choices[0].message.content.strip()
         ai_res = json.loads(raw)
 
@@ -158,7 +154,6 @@ def chat():
             "youtube_links": youtube,
             "suggestions": ai_res.get("suggestions", [])
         })
-
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         return jsonify({"text": f"Lỗi: {str(e)}", "images": [], "youtube_links": [], "suggestions": []})
@@ -168,7 +163,6 @@ def export_pdf():
     sid = request.cookies.get("session_id")
     if not sid:
         return jsonify({"error": "Không tìm thấy session"}), 400
-
     try:
         with sqlite3.connect(DB_PATH) as conn:
             cur = conn.cursor()
@@ -180,17 +174,14 @@ def export_pdf():
 
         pdf = FPDF()
         pdf.add_page()
-
         font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
         if not os.path.exists(font_path):
             print(f"[PDF ERROR] Font not found: {font_path}")
             return jsonify({"error": "Không tìm thấy font DejaVuSans.ttf"}), 500
 
         pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.add_font("DejaVu", "B", font_path, uni=True)  # Dùng cùng file cho bold
-
+        pdf.add_font("DejaVu", "B", font_path, uni=True)
         pdf.set_font("DejaVu", size=12)
-
         pdf.cell(0, 10, "LỊCH SỬ TRÒ CHUYỆN - VIET NAM TRAVEL AI GUIDE 2026", ln=1, align="C")
         pdf.ln(10)
 
@@ -198,13 +189,11 @@ def export_pdf():
             pdf.set_font("DejaVu", "B", 12)
             pdf.cell(0, 8, f"{role.upper()} - {created_at or 'N/A'}", ln=1)
             pdf.set_font("DejaVu", size=11)
-
             try:
                 data = json.loads(content) if role == "bot" else {"text": content}
                 text = data.get("text", content)
             except:
                 text = content
-
             pdf.multi_cell(0, 6, text[:3000])
             pdf.ln(5)
 
@@ -213,30 +202,24 @@ def export_pdf():
             tmp_path = tmp.name
 
         response = send_file(tmp_path, as_attachment=True, download_name="lich-su-tro-chuyen.pdf")
-
         try:
             os_module.unlink(tmp_path)
         except:
             pass
-
         return response
-
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         return jsonify({"error": f"Lỗi tạo PDF: {str(e)}"}), 500
 
-# Các route khác giữ nguyên
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
     if not sid:
         return jsonify([])
-
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
         cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 50", (sid,))
         rows = cur.fetchall()
-
     history = []
     for role, content in rows:
         try:
