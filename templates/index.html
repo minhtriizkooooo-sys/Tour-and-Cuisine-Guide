@@ -167,7 +167,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     // ================================================
-    // KHỞI TẠO BẢN ĐỒ (giữ nguyên)
+    // KHỞI TẠO BẢN ĐỒ - SỬA DỨT ĐIỂM TILE LAYER & RESIZE
     // ================================================
     const map = L.map('map', {
         zoomControl: false,
@@ -175,17 +175,38 @@
         minZoom: 11,
         maxZoom: 15
     }).setView([10.7769, 106.7009], 12);
-    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
+
+    // Dùng OpenStreetMap - miễn phí, ổn định, không bị block
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19
+    }).addTo(map);
+
+    // Fix map trắng khi sidebar mở/đóng hoặc resize
+    function invalidateMapSize() {
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 350); // delay để transition sidebar xong
+    }
+
+    document.getElementById('hamburger').onclick = () => {
+        document.getElementById('sidebar').classList.add('open');
+        invalidateMapSize();
+    };
+
+    document.getElementById('close-sidebar').onclick = () => {
+        document.getElementById('sidebar').classList.remove('open');
+        invalidateMapSize();
+    };
+
+    // Gọi lần đầu để chắc chắn map load đúng
+    setTimeout(() => map.invalidateSize(), 500);
 
     let markers = [];
     let currentTab = 'chat';
     let chatHistoryLoaded = false;
     let currentImages = [];
     let currentImgIndex = 0;
-
-    const sidebar = document.getElementById('sidebar');
-    document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
-    document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
     document.querySelectorAll('.sidebar-section h3').forEach(h3 => {
         h3.onclick = () => {
@@ -236,23 +257,15 @@
         sendMessage();
     }
 
-    // ================================================
-    // XỬ LÝ CHAT & MODAL ẢNH (ĐÃ SỬA HOÀN CHỈNH)
-    // ================================================
     function createMessageElement(role, content) {
         const div = document.createElement('div');
         div.className = `msg ${role}`;
-        if (role === 'user') {
-            div.textContent = content;
-            return div;
-        }
-
+        if (role === 'user') { div.textContent = content; return div; }
         let data = typeof content === 'string' ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         contentDiv.innerHTML = htmlText;
 
-        // HÌNH ẢNH (click để bung modal)
         if (data.images && data.images.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế (click để xem lớn):</b>';
             const imgContainer = document.createElement('div');
@@ -275,31 +288,26 @@
             contentDiv.appendChild(imgContainer);
         }
 
-        // VIDEO YOUTUBE
         if (data.youtube_links && data.youtube_links.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế:</b>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
-                if (match) {
+                if(match) {
                     vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
                 }
             });
             contentDiv.appendChild(vCon);
         }
 
-        // GỢI Ý
         if (data.suggestions && data.suggestions.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
                 btn.textContent = s;
-                btn.onclick = () => {
-                    document.getElementById('user-input').value = s;
-                    sendMessage();
-                };
+                btn.onclick = () => { document.getElementById('user-input').value = s; sendMessage(); };
                 contentDiv.appendChild(btn);
             });
         }
@@ -311,17 +319,12 @@
     async function sendMessage() {
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
-        if (!msg) return;
+        if(!msg) return;
         const box = document.getElementById('chat-box');
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
         box.scrollTop = box.scrollHeight;
-
-        const res = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ msg })
-        });
+        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
         const data = await res.json();
         box.appendChild(createMessageElement('bot', data));
         box.scrollTop = box.scrollHeight;
@@ -341,14 +344,14 @@
     }
 
     async function clearHistory() {
-        if (confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
+        if(confirm("Xóa toàn bộ lịch sử trò chuyện?")) {
             await fetch('/clear_history', { method: 'POST' });
             location.reload();
         }
     }
 
     // ================================================
-    // MODAL ẢNH (ĐÃ SỬA DỨT ĐIỂM: responsive, nút close + mũi tên)
+    // MODAL ẢNH - ĐÃ HOÀN CHỈNH
     // ================================================
     let currentImages = [];
     let currentImgIndex = 0;
@@ -359,7 +362,7 @@
         updateModalImg();
         const modal = document.getElementById('img-modal');
         modal.classList.remove('hidden');
-        modal.style.display = 'flex'; // đảm bảo hiển thị
+        modal.style.display = 'flex';
     }
 
     function updateModalImg() {
@@ -373,18 +376,14 @@
 
     document.getElementById('prev-img').onclick = (e) => {
         e.stopPropagation();
-        if (currentImgIndex > 0) {
-            currentImgIndex--;
-            updateModalImg();
-        }
+        if (currentImgIndex > 0) currentImgIndex--;
+        updateModalImg();
     };
 
     document.getElementById('next-img').onclick = (e) => {
         e.stopPropagation();
-        if (currentImgIndex < currentImages.length - 1) {
-            currentImgIndex++;
-            updateModalImg();
-        }
+        if (currentImgIndex < currentImages.length - 1) currentImgIndex++;
+        updateModalImg();
     };
 
     document.getElementById('close-modal').onclick = (e) => {
@@ -392,14 +391,12 @@
         document.getElementById('img-modal').classList.add('hidden');
     };
 
-    // Đóng modal khi click ngoài ảnh/modal-content
-    document.getElementById('img-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'img-modal' || e.target.id === 'modal-content') {
+    document.getElementById('img-modal').onclick = (e) => {
+        if (e.target.id === 'img-modal') {
             document.getElementById('img-modal').classList.add('hidden');
         }
-    });
+    };
 
-    // Khởi tạo chat mặc định
     toggleChat('chat');
 </script>
 </body>
