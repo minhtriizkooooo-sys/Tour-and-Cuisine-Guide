@@ -12,7 +12,7 @@ from flask_cors import CORS
 from groq import Groq, AuthenticationError, RateLimitError, APITimeoutError
 from fpdf import FPDF
 import tempfile
-import os as os_module  # để unlink file
+import os as os_module
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
@@ -24,7 +24,7 @@ DB_PATH = "chat_history.db"
 VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
 print(f"[STARTUP {datetime.now(VN_TZ).strftime('%Y-%m-%d %H:%M:%S %Z')}] "
-      f"GROQ key exists: {bool(GROQ_API_KEY)} | SERPER key exists: {bool(SERPER_API_KEY)}")
+      f"GROQ: {bool(GROQ_API_KEY)} | SERPER: {bool(SERPER_API_KEY)}")
 
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao gồm tất cả quận, huyện, địa danh nổi bật như Bitexco, Landmark 81, Chợ Bến Thành, Phố đi bộ Nguyễn Huệ, Nhà thờ Đức Bà, Bưu điện Thành phố, các tòa nhà cao tầng, khu vui chơi, quán ăn...), Vũng Tàu và Bình Dương.
 
@@ -33,17 +33,17 @@ SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao 
 2. Nếu HỢP LỆ: Trả JSON với các trường bắt buộc:
 {
   "is_valid": true,
-  "text": "Nội dung chi tiết bằng tiếng Việt, dài ít nhất 1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi với các phần chính sau:
-  - ## Lịch sử hình thành và phát triển: Chi tiết qua các giai đoạn quan trọng (thời kỳ thuộc địa Pháp, chiến tranh Việt Nam, thời kỳ đổi mới sau 1986), sự kiện nổi bật, nhân vật lịch sử liên quan, ảnh hưởng đến hiện đại, ví dụ minh họa cụ thể, câu chuyện kể thực tế.
-  - ## Văn hóa đặc trưng: Lễ hội truyền thống và hiện đại, phong tục tập quán địa phương, di sản văn hóa UNESCO hoặc địa phương, nghệ thuật dân gian, giá trị văn hóa cốt lõi, sự kết hợp giữa cổ điển và hiện đại, ví dụ cụ thể và cách du khách có thể trải nghiệm.
-  - ## Con người địa phương: Tính cách thân thiện, năng động, lối sống hàng ngày, thói quen sinh hoạt, cách tương tác với du khách, câu chuyện thực tế từ người dân, sự khác biệt giữa các thế hệ trẻ và già, cách hòa nhập văn hóa khi đến thăm.
-  - ## Ẩm thực nổi bật: Các món ăn đặc sản, nguồn gốc lịch sử, nguyên liệu địa phương đặc trưng, cách chế biến chi tiết, địa chỉ quán ăn ngon gần đó (tên quán, địa chỉ cụ thể, giá tham khảo 2026, giờ mở cửa), mẹo thưởng thức, món ăn theo mùa, biến tấu hiện đại, cách kết hợp với các địa danh lân cận.
-  - ## Gợi ý du lịch chi tiết: Địa điểm check-in gần (khoảng cách, thời gian di chuyển, phương tiện), hoạt động trải nghiệm (ăn chơi, nghỉ dưỡng, khám phá văn hóa), lộ trình mẫu 1-3 ngày với thời gian cụ thể, lưu ý thời tiết, an toàn, chi phí tham khảo 2026, giờ mở cửa, mẹo du lịch tiết kiệm, hoạt động đặc biệt theo mùa, các địa điểm ít người biết (hidden gems), cách di chuyển bền vững.
-  Viết hấp dẫn, sinh động, gần gũi, dựa trên kiến thức thực tế, dùng ví dụ minh họa, câu chuyện kể, khuyến khích du khách trải nghiệm sâu sắc.",
-  "suggestions": ["3 câu hỏi gợi ý liên quan sâu đến địa danh vừa hỏi, bằng tiếng Việt, mỗi câu là một string riêng biệt"]
+  "text": "Nội dung chi tiết bằng tiếng Việt, dài ít nhất 1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng với heading ##, ###. Bao gồm đầy đủ:
+  - ## Lịch sử hình thành và phát triển: Chi tiết qua các giai đoạn (thuộc địa, chiến tranh, đổi mới), sự kiện nổi bật, nhân vật lịch sử, ảnh hưởng đến hiện đại, ví dụ minh họa, câu chuyện thực tế.
+  - ## Văn hóa đặc trưng: Lễ hội, phong tục, di sản, nghệ thuật dân gian, giá trị cốt lõi, cách trải nghiệm.
+  - ## Con người địa phương: Tính cách, lối sống, tương tác với du khách, câu chuyện thực tế, sự khác biệt thế hệ.
+  - ## Ẩm thực nổi bật: Món đặc sản, nguồn gốc, cách chế biến, địa chỉ quán ngon (tên + địa chỉ + giá 2026 + giờ mở), mẹo thưởng thức, theo mùa.
+  - ## Gợi ý du lịch chi tiết: Check-in gần, hoạt động trải nghiệm, lộ trình 1-3 ngày (giờ cụ thể), lưu ý thời tiết/an toàn/chi phí, mẹo tiết kiệm, hidden gems, theo mùa.
+  Viết hấp dẫn, sinh động, gần gũi, khuyến khích trải nghiệm sâu sắc.",
+  "suggestions": ["3 câu hỏi gợi ý bằng tiếng Việt, liên quan sâu đến địa danh, mỗi câu là string riêng"]
 }
 
-Chỉ trả về JSON thuần túy, không thêm text ngoài JSON."""
+Chỉ trả JSON thuần túy, không thêm text ngoài."""
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
@@ -61,7 +61,6 @@ init_db()
 
 def search_serper_images(query):
     if not SERPER_API_KEY:
-        print("[SERPER] API key missing → no images")
         return []
     try:
         url = "https://google.serper.dev/images"
@@ -73,11 +72,7 @@ def search_serper_images(query):
         for item in data.get("images", [])[:6]:
             img_url = item.get("imageUrl") or item.get("original") or item.get("thumbnail")
             if img_url and img_url.startswith("http"):
-                results.append({
-                    "url": img_url,
-                    "caption": item.get("title", query)[:120] or "Ảnh thực tế"
-                })
-        print(f"[SERPER Images] Found {len(results)} images for '{query}'")
+                results.append({"url": img_url, "caption": item.get("title", query)[:120] or "Ảnh thực tế"})
         return results
     except Exception as e:
         print(f"[SERPER Images ERROR] {str(e)}")
@@ -88,7 +83,7 @@ def search_serper_youtube(query):
         return []
     try:
         url = "https://google.serper.dev/videos"
-        payload = json.dumps({"q": f"{query} du lịch trải nghiệm thực tế Vlog"})
+        payload = json.dumps({"q": f"{query} du lịch trải nghiệm thực tế Vlog tiếng Việt"})
         headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         data = resp.json()
@@ -97,7 +92,6 @@ def search_serper_youtube(query):
             link = item.get("link", "")
             if link and ("youtube.com/watch" in link or "youtu.be" in link):
                 results.append(link)
-        print(f"[SERPER YouTube] Found {len(results)} videos")
         return results
     except Exception as e:
         print(f"[SERPER YouTube ERROR] {str(e)}")
@@ -118,7 +112,7 @@ def chat():
         return jsonify({"text": "Bạn chưa nhập gì cả...", "images": [], "youtube_links": [], "suggestions": []})
 
     now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
-    print(f"[CHAT {now_vn}] '{msg[:80]}...' | Session {sid[:8] or 'NONE'}")
+    print(f"[CHAT {now_vn}] '{msg[:80]}...'")
 
     if not GROQ_API_KEY:
         return jsonify({"text": "Lỗi hệ thống: Chưa set GROQ_API_KEY", "images": [], "youtube_links": [], "suggestions": []})
@@ -141,12 +135,8 @@ def chat():
         ai_res = json.loads(raw)
 
         if not ai_res.get("is_valid", False):
-            return jsonify({
-                "text": ai_res.get("text", "Không hợp lệ."),
-                "images": [], "youtube_links": [], "suggestions": []
-            })
+            return jsonify({"text": ai_res.get("text", "Không hợp lệ."), "images": [], "youtube_links": [], "suggestions": []})
 
-        # Lưu vào DB
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute(
                 "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
@@ -169,45 +159,35 @@ def chat():
             "suggestions": ai_res.get("suggestions", [])
         })
 
-    except json.JSONDecodeError:
-        return jsonify({"text": "Lỗi: AI trả về không phải JSON hợp lệ", "images": [], "youtube_links": [], "suggestions": []})
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        return jsonify({"text": f"Lỗi hệ thống: {str(e)}", "images": [], "youtube_links": [], "suggestions": []})
+        return jsonify({"text": f"Lỗi: {str(e)}", "images": [], "youtube_links": [], "suggestions": []})
 
 @app.route("/export_pdf")
 def export_pdf():
     sid = request.cookies.get("session_id")
     if not sid:
-        print("[PDF ERROR] No session_id found")
         return jsonify({"error": "Không tìm thấy session"}), 400
 
     try:
         with sqlite3.connect(DB_PATH) as conn:
             cur = conn.cursor()
-            cur.execute("""
-                SELECT role, content, created_at 
-                FROM messages 
-                WHERE session_id = ? 
-                ORDER BY id ASC
-            """, (sid,))
+            cur.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
             messages = cur.fetchall()
 
         if not messages:
-            print("[PDF] No messages found for session")
             return jsonify({"error": "Chưa có lịch sử chat"}), 404
 
         pdf = FPDF()
         pdf.add_page()
 
-        # Đăng ký font DejaVuSans.ttf từ thư mục static
         font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
         if not os.path.exists(font_path):
-            print(f"[PDF ERROR] Font not found at: {font_path}")
-            return jsonify({"error": "Không tìm thấy file font DejaVuSans.ttf trong thư mục static"}), 500
+            print(f"[PDF ERROR] Font not found: {font_path}")
+            return jsonify({"error": "Không tìm thấy font DejaVuSans.ttf"}), 500
 
         pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.add_font("DejaVu", "B", font_path, uni=True)  # SỬA: add font cho bold (DejaVuB)
+        pdf.add_font("DejaVu", "B", font_path, uni=True)  # Dùng cùng file cho bold
 
         pdf.set_font("DejaVu", size=12)
 
@@ -225,34 +205,27 @@ def export_pdf():
             except:
                 text = content
 
-            pdf.multi_cell(0, 6, text[:3000])  # giới hạn độ dài để tránh lỗi buffer
+            pdf.multi_cell(0, 6, text[:3000])
             pdf.ln(5)
 
-        # Tạo file tạm
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            pdf.output(tmp_file.name)
-            tmp_path = tmp_file.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            pdf.output(tmp.name)
+            tmp_path = tmp.name
 
-        response = send_file(
-            tmp_path,
-            as_attachment=True,
-            download_name="lich-su-tro-chuyen.pdf",
-            mimetype="application/pdf"
-        )
+        response = send_file(tmp_path, as_attachment=True, download_name="lich-su-tro-chuyen.pdf")
 
-        # Xóa file tạm sau khi gửi
         try:
             os_module.unlink(tmp_path)
-        except Exception as unlink_err:
-            print(f"[PDF] Không xóa được file tạm: {unlink_err}")
+        except:
+            pass
 
         return response
 
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        print(f"[PDF CRITICAL ERROR] {str(e)}")
-        return jsonify({"error": f"Lỗi khi tạo PDF: {str(e)}"}), 500
+        return jsonify({"error": f"Lỗi tạo PDF: {str(e)}"}), 500
 
+# Các route khác giữ nguyên
 @app.route("/history")
 def get_history():
     sid = request.cookies.get("session_id")
