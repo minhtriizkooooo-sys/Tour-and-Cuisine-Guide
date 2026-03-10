@@ -33,8 +33,14 @@ SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (bao 
 2. Nếu HỢP LỆ: Trả JSON với các trường bắt buộc:
 {
   "is_valid": true,
-  "text": "Nội dung chi tiết bằng tiếng Việt, dài ít nhất 1800 từ, phong phú, có chiều sâu, cấu trúc rõ ràng...",
-  "suggestions": ["3 câu hỏi gợi ý bằng tiếng Việt, liên quan sâu đến địa danh"]
+  "text": "Nội dung chi tiết bằng tiếng Việt, dài ít nhất 1800 từ, phong phú thông tin, có chiều sâu, cấu trúc rõ ràng và liên quan trực tiếp đến địa danh hỏi với các phần chính sau:
+  - ## Lịch sử hình thành và phát triển: Chi tiết qua các giai đoạn quan trọng (thời kỳ thuộc địa Pháp, chiến tranh Việt Nam, thời kỳ đổi mới sau 1986), sự kiện nổi bật, nhân vật lịch sử liên quan, ảnh hưởng đến hiện đại, ví dụ minh họa cụ thể, câu chuyện kể thực tế.
+  - ## Văn hóa đặc trưng: Lễ hội truyền thống và hiện đại, phong tục tập quán địa phương, di sản văn hóa UNESCO hoặc địa phương, nghệ thuật dân gian, giá trị văn hóa cốt lõi, sự kết hợp giữa cổ điển và hiện đại, ví dụ cụ thể và cách du khách có thể trải nghiệm.
+  - ## Con người địa phương: Tính cách thân thiện, năng động, lối sống hàng ngày, thói quen sinh hoạt, cách tương tác với du khách, câu chuyện thực tế từ người dân, sự khác biệt giữa các thế hệ trẻ và già, cách hòa nhập văn hóa khi đến thăm.
+  - ## Ẩm thực nổi bật: Các món ăn đặc sản, nguồn gốc lịch sử, nguyên liệu địa phương đặc trưng, cách chế biến chi tiết, địa chỉ quán ăn ngon gần đó (tên quán, địa chỉ cụ thể, giá tham khảo 2026, giờ mở cửa), mẹo thưởng thức, món ăn theo mùa, biến tấu hiện đại, cách kết hợp với các địa danh lân cận.
+  - ## Gợi ý du lịch chi tiết: Địa điểm check-in gần (khoảng cách, thời gian di chuyển, phương tiện), hoạt động trải nghiệm (ăn chơi, nghỉ dưỡng, khám phá văn hóa), lộ trình mẫu 1-3 ngày với thời gian cụ thể, lưu ý thời tiết, an toàn, chi phí tham khảo 2026, giờ mở cửa, mẹo du lịch tiết kiệm, hoạt động đặc biệt theo mùa, các địa điểm ít người biết (hidden gems), cách di chuyển bền vững.
+  Viết hấp dẫn, sinh động, gần gũi, dựa trên kiến thức thực tế, dùng ví dụ minh họa, câu chuyện kể, khuyến khích du khách trải nghiệm sâu sắc.",
+  "suggestions": ["3 câu hỏi gợi ý liên quan sâu đến địa danh vừa hỏi, bằng tiếng Việt, mỗi câu là một string riêng biệt"]
 }
 
 Chỉ trả về JSON thuần túy, không thêm text ngoài JSON."""
@@ -197,10 +203,12 @@ def export_pdf():
         # Đăng ký font DejaVuSans.ttf từ thư mục static
         font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
         if not os.path.exists(font_path):
-            print(f"[PDF ERROR] Font not found: {font_path}")
-            return jsonify({"error": "Không tìm thấy file font DejaVuSans.ttf"}), 500
+            print(f"[PDF ERROR] Font not found at: {font_path}")
+            return jsonify({"error": "Không tìm thấy file font DejaVuSans.ttf trong thư mục static"}), 500
 
         pdf.add_font("DejaVu", "", font_path, uni=True)
+        pdf.add_font("DejaVu", "B", font_path, uni=True)  # SỬA: add font cho bold (DejaVuB)
+
         pdf.set_font("DejaVu", size=12)
 
         pdf.cell(0, 10, "LỊCH SỬ TRÒ CHUYỆN - VIET NAM TRAVEL AI GUIDE 2026", ln=1, align="C")
@@ -217,7 +225,7 @@ def export_pdf():
             except:
                 text = content
 
-            pdf.multi_cell(0, 6, text[:3000])  # giới hạn để tránh lỗi buffer
+            pdf.multi_cell(0, 6, text[:3000])  # giới hạn độ dài để tránh lỗi buffer
             pdf.ln(5)
 
         # Tạo file tạm
