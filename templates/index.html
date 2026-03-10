@@ -101,7 +101,7 @@
         <div class="sidebar-section" id="map-tools">
             <h3>Công cụ Bản đồ <i class="fa fa-chevron-down"></i></h3>
             <div class="content">
-                <input type="text" id="s-input" placeholder="Nhập địa danh...">
+                <input type="text" id="s-input" placeholder="Nhập địa danh..." style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin-bottom: 5px;">
                 <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc</button>
                 <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa Marker</button>
             </div>
@@ -134,7 +134,7 @@
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
         <img id="modal-img" src="">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
-        <button id="close-modal" class="modal-nav" style="position: absolute; top: 10px; right: 10px; background: #e74c3c; color: white; font-size: 20px; padding: 8px 12px; border-radius: 50%; border: none; cursor: pointer;">×</button>
+        <button id="close-modal" style="position: absolute; top: 10px; right: 10px; background: #e74c3c; color: white; font-size: 20px; padding: 8px 12px; border-radius: 50%; border: none; cursor: pointer; z-index: 100;">×</button>
     </div>
     <div id="modal-caption"></div>
 </div>
@@ -144,8 +144,8 @@
     const map = L.map('map', { 
         zoomControl: false, 
         attributionControl: false,
-        minZoom: 11,
-        maxZoom: 15
+        minZoom: 5,
+        maxZoom: 18
     }).setView([10.7769, 106.7009], 12);
 
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
@@ -188,15 +188,6 @@
         const data = await res.json();
         if (data[0]) {
             const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-            const displayName = data[0].display_name.toLowerCase();
-
-            const isInHCMC = (pos[0] >= 10.6 && pos[0] <= 10.9 && pos[1] >= 106.5 && pos[1] <= 107.0) ||
-                             displayName.includes("ho chi minh") || displayName.includes("tp.hcm") || displayName.includes("sài gòn");
-
-            if (!isInHCMC) {
-                return alert("Hiện tại chỉ hỗ trợ cắm mốc địa danh tại TP.HCM!");
-            }
-
             map.setView(pos, 15);
             const m = L.marker(pos).addTo(map).bindPopup(`<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:5px;padding:6px 10px;border-radius:4px;border:none;background:#0066cc;color:white;cursor:pointer;">Hỏi AI</button>`).openPopup();
             markers.push(m);
@@ -213,17 +204,22 @@
         const div = document.createElement('div');
         div.className = `msg ${role}`;
         if (role === 'user') { div.textContent = content; return div; }
+        
         let data = typeof content === 'string' ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         contentDiv.innerHTML = htmlText;
+
         if (data.images && data.images.length) {
             contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
             data.images.forEach((img, idx) => {
                 const image = document.createElement('img');
                 image.src = img.url;
                 image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
-                image.onclick = () => showImg(data.images, idx);
+                // FIX: Sử dụng addEventListener để đảm bảo context đúng
+                image.addEventListener('click', function() {
+                    showImg(data.images, idx);
+                });
                 contentDiv.appendChild(image);
             });
         }
@@ -261,10 +257,12 @@
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
         box.scrollTop = box.scrollHeight;
-        const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
-        const data = await res.json();
-        box.appendChild(createMessageElement('bot', data));
-        box.scrollTop = box.scrollHeight;
+        try {
+            const res = await fetch('/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ msg }) });
+            const data = await res.json();
+            box.appendChild(createMessageElement('bot', data));
+            box.scrollTop = box.scrollHeight;
+        } catch(e) { console.error(e); }
     }
 
     async function loadHistory() {
@@ -295,6 +293,7 @@
     }
 
     function updateModalImg() {
+        if(!currentImages[currentImgIndex]) return;
         const img = currentImages[currentImgIndex];
         document.getElementById('modal-img').src = img.url;
         document.getElementById('modal-caption').textContent = img.caption || '';
@@ -314,11 +313,9 @@
         updateModalImg();
     };
 
-    document.getElementById('close-modal').addEventListener('click', () => {
+    document.getElementById('close-modal').onclick = () => {
         document.getElementById('img-modal').classList.add('hidden');
-    });
-
-    function closeImg() { document.getElementById('img-modal').classList.add('hidden'); }
+    };
 
     toggleChat('chat');
 </script>
