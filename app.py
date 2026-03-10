@@ -7,9 +7,10 @@ import traceback
 import requests
 from datetime import datetime
 import pytz
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
-from groq import Groq, AuthenticationError, RateLimitError, APITimeoutError, GroqError
+from groq import Groq, AuthenticationError, RateLimitError, APITimeoutError
+from fpdf import FPDF
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
@@ -45,13 +46,20 @@ Chỉ trả về JSON thuần túy, không có bất kỳ text nào ngoài JSON.
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, role TEXT, content TEXT, created_at TEXT)")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                role TEXT,
+                content TEXT,
+                created_at TEXT
+            )
+        """)
 
 init_db()
 
 def search_serper_images(query):
     if not SERPER_API_KEY:
-        print("[SERPER] No API key → skip images")
         return []
     try:
         url = "https://google.serper.dev/images"
@@ -67,7 +75,6 @@ def search_serper_images(query):
                     "url": url_img,
                     "caption": item.get("title", query)[:100]
                 })
-        print(f"[SERPER Images] Found {len(results)} for '{query}'")
         return results
     except Exception as e:
         print(f"[SERPER Images ERROR] {str(e)}")
@@ -87,7 +94,6 @@ def search_serper_youtube(query):
             link = item.get("link", "")
             if link and ("youtube.com/watch" in link or "youtu.be" in link):
                 results.append(link)
-        print(f"[SERPER YouTube] Found {len(results)}")
         return results
     except Exception as e:
         print(f"[SERPER YouTube ERROR] {str(e)}")
@@ -113,17 +119,14 @@ def chat():
     if not GROQ_API_KEY:
         print("[ERROR] GROQ_API_KEY chưa được set")
         return jsonify({
-            "text": "Lỗi hệ thống: Chưa cấu hình GROQ_API_KEY trên Render. Vui lòng kiểm tra Environment Variables.",
+            "text": "Lỗi hệ thống: Chưa cấu hình GROQ_API_KEY trên Render.",
             "images": [], "youtube_links": [], "suggestions": []
         })
 
     try:
-        print("[GROQ] Khởi tạo client...")
         client = Groq(api_key=GROQ_API_KEY)
-
-        print("[GROQ] Gọi model...")
         completion = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",  # hoặc llama-3.1-8b-instant nếu quota hạn chế
+            model="llama-3.3-70b-versatile",  # Model đang hoạt động năm 2026
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": msg}
@@ -145,7 +148,18 @@ def chat():
                 "images": [], "youtube_links": [], "suggestions": []
             })
 
-        # Tìm ảnh + video
+        # Lưu tin nhắn vào DB (cải thiện để xuất PDF sau này)
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute(
+                "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                (sid, "user", msg, now_vn)
+            )
+            conn.execute(
+                "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                (sid, "bot", json.dumps(ai_res), now_vn)
+            )
+            conn.commit()
+
         place_name = msg.strip()
         images = search_serper_images(place_name)
         youtube_links = search_serper_youtube(place_name)
@@ -158,49 +172,68 @@ def chat():
         })
 
     except json.JSONDecodeError:
-        print("[ERROR] Groq trả về không phải JSON hợp lệ")
-        return jsonify({
-            "text": "Lỗi: AI trả về định dạng không đúng. Thử hỏi lại nhé!",
-            "images": [], "youtube_links": [], "suggestions": []
-        })
-
+        return jsonify({"text": "Lỗi: AI trả về định dạng không đúng.", "images": [], "youtube_links": [], "suggestions": []})
     except AuthenticationError:
-        print("[GROQ AUTH ERROR] 401 Invalid key")
-        return jsonify({
-            "text": "Lỗi: GROQ API key không hợp lệ (401). Kiểm tra lại key tại https://console.groq.com/keys",
-            "images": [], "youtube_links": [], "suggestions": []
-        })
-
+        return jsonify({"text": "Lỗi: GROQ API key không hợp lệ (401). Kiểm tra lại key.", "images": [], "youtube_links": [], "suggestions": []})
     except RateLimitError:
-        print("[GROQ RATE LIMIT] 429")
-        return jsonify({
-            "text": "Hết quota Groq (429). Đợi reset quota hoặc nâng cấp plan.",
-            "images": [], "youtube_links": [], "suggestions": []
-        })
-
+        return jsonify({"text": "Hết quota Groq (429). Đợi reset hoặc nâng cấp plan.", "images": [], "youtube_links": [], "suggestions": []})
     except APITimeoutError:
-        print("[GROQ TIMEOUT]")
-        return jsonify({
-            "text": "Groq timeout. Thử lại sau vài phút.",
-            "images": [], "youtube_links": [], "suggestions": []
-        })
-
+        return jsonify({"text": "Groq timeout. Thử lại sau vài phút.", "images": [], "youtube_links": [], "suggestions": []})
     except Exception as e:
-        print(f"[CRITICAL ERROR] {type(e).__name__}: {str(e)}")
+        print(f"[CRITICAL] {type(e).__name__}: {str(e)}")
         traceback.print_exc(file=sys.stdout)
-        return jsonify({
-            "text": f"Lỗi hệ thống: {str(e)}. Xem log Render để biết chi tiết.",
-            "images": [], "youtube_links": [], "suggestions": []
-        })
+        return jsonify({"text": f"Lỗi hệ thống: {str(e)}", "images": [], "youtube_links": [], "suggestions": []})
 
-# Nếu bạn đã có các route khác (/history, /export_pdf, /clear_history) thì giữ nguyên
-# Ví dụ route history đơn giản (nếu cần):
-@app.route("/history")
-def get_history():
+@app.route("/export_pdf")
+def export_pdf():
+    sid = request.cookies.get("session_id")
+    if not sid:
+        return jsonify({"error": "Không tìm thấy session"}), 400
+
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT role, content FROM messages ORDER BY id DESC LIMIT 50")
+        cur.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
+        messages = cur.fetchall()
+
+    if not messages:
+        return jsonify({"error": "Chưa có lịch sử chat"}), 404
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, "LỊCH SỬ TRÒ CHUYỆN - VIET NAM TRAVEL AI GUIDE 2026", ln=1, align="C")
+    pdf.ln(10)
+
+    for role, content, created_at in messages:
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, f"{role.upper()} - {created_at}", ln=1)
+        pdf.set_font("Arial", size=11)
+
+        try:
+            data = json.loads(content) if role == "bot" else {"text": content}
+            text = data.get("text", content)
+        except:
+            text = content
+
+        pdf.multi_cell(0, 6, text.strip())
+        pdf.ln(5)
+
+    pdf_file = f"chat_history_{sid[:8]}.pdf"
+    pdf.output(pdf_file)
+
+    return send_file(pdf_file, as_attachment=True, download_name="lich-su-tro-chuyen.pdf")
+
+@app.route("/history")
+def get_history():
+    sid = request.cookies.get("session_id")
+    if not sid:
+        return jsonify([])
+
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id DESC LIMIT 50", (sid,))
         rows = cur.fetchall()
+
     history = []
     for role, content in rows:
         try:
@@ -208,7 +241,17 @@ def get_history():
         except:
             parsed = content
         history.append({"role": role, "content": parsed})
+
     return jsonify(history)
+
+@app.route("/clear_history", methods=["POST"])
+def clear_history():
+    sid = request.cookies.get("session_id")
+    if sid:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+            conn.commit()
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=True)
