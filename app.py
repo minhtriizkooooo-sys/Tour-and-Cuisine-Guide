@@ -8,7 +8,7 @@ import pytz
 from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_cors import CORS
 from groq import Groq
-from fpdf import FPDF # Cần pip install fpdf2
+from fpdf import FPDF
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
@@ -21,13 +21,18 @@ VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM, Vũng Tàu và Bình Dương.
 1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương."}
-2. Nếu HỢP LỆ: Trả JSON:
+2. Nếu HỢP LỆ: Luôn bao gồm đầy đủ các phần sau trong "text" (> 1800 từ, dùng markdown ##, ###):
+   - Lịch sử phát triển địa danh (quá khứ - hiện tại - dự báo 2026)
+   - Văn hóa và Con người địa phương
+   - Ẩm thực đặc trưng (địa chỉ cụ thể + giá cập nhật năm 2026)
+   - Gợi ý lộ trình du lịch chi tiết (1-3 ngày)
+Trả JSON:
 {
   "is_valid": true,
-  "text": "Nội dung chi tiết > 1800 từ, dùng ##, ###. Đầy đủ Lịch sử, Văn hóa, Con người, Ẩm thực (địa chỉ + giá 2026), Gợi ý lộ trình.",
+  "text": "...",
   "suggestions": ["Câu hỏi 1", "Câu hỏi 2", "Câu hỏi 3"]
 }
-Chỉ trả JSON thuần túy."""
+Chỉ trả JSON thuần túy, không thêm gì khác."""
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
@@ -40,7 +45,6 @@ def init_db():
                 created_at TEXT
             )
         """)
-
 init_db()
 
 # --- Helper Functions ---
@@ -59,10 +63,32 @@ def search_serper_youtube(query):
     if not SERPER_API_KEY: return []
     try:
         url = "https://google.serper.dev/videos"
-        payload = json.dumps({"q": f"{query} du lịch trải nghiệm"})
+        payload = json.dumps({"q": f"{query} du lịch trải nghiệm tiếng Việt 2026"})
         headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
-        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "")] [:3]
+        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
+    except: return []
+
+# === PHẦN MỚI: Tương lai phát triển TP.HCM 2026 ===
+def search_serper_future_images():
+    if not SERPER_API_KEY: return []
+    try:
+        url = "https://google.serper.dev/images"
+        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 hình ảnh thực tế dự án đô thị cao tầng"})
+        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+        resp = requests.post(url, headers=headers, data=payload, timeout=10)
+        data = resp.json()
+        return [{"url": i.get("imageUrl"), "caption": i.get("title", "Tương lai TP.HCM 2026")} for i in data.get("images", [])[:6]]
+    except: return []
+
+def search_serper_future_youtube():
+    if not SERPER_API_KEY: return []
+    try:
+        url = "https://google.serper.dev/videos"
+        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 video tiếng Việt du lịch dự án"})
+        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+        resp = requests.post(url, headers=headers, data=payload, timeout=10)
+        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
     except: return []
 
 # --- Routes ---
@@ -91,14 +117,17 @@ def chat():
         if ai_res.get("is_valid"):
             ai_res["images"] = search_serper_images(msg)
             ai_res["youtube_links"] = search_serper_youtube(msg)
-        
+            # === THÊM PHẦN TƯƠNG LAI TP.HCM ===
+            ai_res["future_images"] = search_serper_future_images()
+            ai_res["future_youtube_links"] = search_serper_future_youtube()
+
         now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                          (sid, "user", msg, now_vn))
             conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
                          (sid, "bot", json.dumps(ai_res), now_vn))
-        
+
         return jsonify(ai_res)
     except Exception as e:
         return jsonify({"text": f"Lỗi: {str(e)}", "is_valid": False})
@@ -110,7 +139,7 @@ def get_history():
         cur = conn.cursor()
         cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
         rows = cur.fetchall()
-    
+
     formatted_history = []
     for r, c in rows:
         try:
@@ -134,13 +163,12 @@ def export_pdf():
         cur = conn.cursor()
         cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
         rows = cur.fetchall()
-
     if not rows: return "Không có dữ liệu để xuất."
 
     pdf = FPDF()
     pdf.add_page()
-    
-    # Load Font Unicode (Bắt buộc phải có file này trong folder static)
+
+    # Font Unicode tiếng Việt
     font_path = os.path.join("static", "DejaVuSans.ttf")
     if os.path.exists(font_path):
         pdf.add_font("DejaVu", "", font_path, uni=True)
@@ -148,12 +176,14 @@ def export_pdf():
     else:
         pdf.set_font("Arial", size=12)
 
+    # Thời gian xuất file theo giờ Việt Nam
+    now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
     pdf.cell(200, 10, txt="LỊCH TRÌNH DU LỊCH VIỆT NAM 2026", ln=True, align='C')
+    pdf.cell(200, 10, txt=f"Xuất lúc: {now_vn} (Giờ Việt Nam)", ln=True, align='C')
     pdf.ln(10)
 
     for role, content in rows:
         label = "BẠN: " if role == "user" else "AI: "
-        pdf.set_text_color(0, 0, 0)
         if role == "bot":
             try:
                 data = json.loads(content)
