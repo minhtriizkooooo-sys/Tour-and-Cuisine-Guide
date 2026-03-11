@@ -14,26 +14,34 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
 CORS(app)
 
+# --- Cấu hình API ---
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY_TCG")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
-SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM, Vũng Tàu và Bình Dương.
-1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương."}
-2. Nếu HỢP LỆ: Luôn bao gồm đầy đủ các phần sau trong "text" (> 1800 từ, dùng markdown ##, ###):
-   - Lịch sử phát triển địa danh (quá khứ - hiện tại - dự báo 2026)
-   - Văn hóa và Con người địa phương
-   - Ẩm thực đặc trưng (địa chỉ cụ thể + giá cập nhật năm 2026)
-   - Gợi ý lộ trình du lịch chi tiết (1-3 ngày)
-Trả JSON:
+# --- Prompt AI (Đã tối ưu để tránh lỗi 400 và ép kiểu JSON) ---
+SYSTEM_PROMPT = """Bạn là chuyên gia du lịch và quy hoạch đô thị CHỈ dành cho: TP.HCM, Vũng Tàu và Bình Dương.
+NHIỆM VỤ: Trả về dữ liệu dưới định dạng JSON thuần túy.
+
+1. Nếu địa danh KHÔNG thuộc 3 nơi này: 
+   Trả JSON: {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ tư vấn du lịch và quy hoạch tại TP.HCM, Vũng Tàu và Bình Dương."}
+
+2. Nếu địa danh HỢP LỆ:
+   Cung cấp bài viết chi tiết (> 1800 từ) dùng Markdown (##, ###) bao gồm:
+   - Lịch sử & Tầm nhìn tương lai 2030-2045.
+   - Văn hóa, Con người và nhịp sống 2026.
+   - Ẩm thực (Địa chỉ cụ thể + Giá cả 2026).
+   - Lộ trình du lịch thông minh kết hợp các tuyến Metro/Hạ tầng mới.
+
+Trả JSON mẫu:
 {
   "is_valid": true,
-  "text": "...",
-  "suggestions": ["Câu hỏi 1", "Câu hỏi 2", "Câu hỏi 3"]
-}
-Chỉ trả JSON thuần túy, không thêm gì khác."""
+  "text": "Nội dung bài viết dài ở đây...",
+  "suggestions": ["Câu hỏi gợi ý 1", "Câu hỏi gợi ý 2", "Câu hỏi gợi ý 3"]
+}"""
 
+# --- Khởi tạo Database ---
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
@@ -47,49 +55,23 @@ def init_db():
         """)
 init_db()
 
-# --- Helper Functions ---
-def search_serper_images(query):
+# --- Search Helpers (Ảnh & Video Hiện tại + Tương lai) ---
+def search_media(query, type="images", future=False):
     if not SERPER_API_KEY: return []
     try:
-        url = "https://google.serper.dev/images"
-        payload = json.dumps({"q": f"{query} du lịch thực tế 2026"})
+        url = f"https://google.serper.dev/{type}"
+        suffix = "quy hoạch tương lai dự án 2030" if future else "du lịch thực tế 2026"
+        payload = json.dumps({"q": f"{query} {suffix}"})
         headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         data = resp.json()
-        return [{"url": i.get("imageUrl"), "caption": i.get("title", query)} for i in data.get("images", [])[:8]]
-    except: return []
-
-def search_serper_youtube(query):
-    if not SERPER_API_KEY: return []
-    try:
-        url = "https://google.serper.dev/videos"
-        payload = json.dumps({"q": f"{query} du lịch trải nghiệm tiếng Việt 2026"})
-        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
-        resp = requests.post(url, headers=headers, data=payload, timeout=10)
-        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
-    except: return []
-
-# === PHẦN MỚI: Tương lai phát triển TP.HCM 2026 ===
-def search_serper_future_images():
-    if not SERPER_API_KEY: return []
-    try:
-        url = "https://google.serper.dev/images"
-        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 hình ảnh thực tế dự án đô thị cao tầng"})
-        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
-        resp = requests.post(url, headers=headers, data=payload, timeout=10)
-        data = resp.json()
-        return [{"url": i.get("imageUrl"), "caption": i.get("title", "Tương lai TP.HCM 2026")} for i in data.get("images", [])[:6]]
-    except: return []
-
-def search_serper_future_youtube():
-    if not SERPER_API_KEY: return []
-    try:
-        url = "https://google.serper.dev/videos"
-        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 video tiếng Việt du lịch dự án"})
-        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
-        resp = requests.post(url, headers=headers, data=payload, timeout=10)
-        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
-    except: return []
+        
+        if type == "images":
+            return [{"url": i.get("imageUrl"), "caption": i.get("title")} for i in data.get("images", [])[:8]]
+        else: # videos
+            return [i.get("link") for i in data.get("videos", []) if "youtube" in i.get("link", "").lower()][:3]
+    except:
+        return []
 
 # --- Routes ---
 @app.route("/")
@@ -103,7 +85,7 @@ def index():
 def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
-    if not msg: return jsonify({"error": "Empty message"})
+    if not msg: return jsonify({"error": "Nội dung trống"})
 
     try:
         client = Groq(api_key=GROQ_API_KEY)
@@ -115,11 +97,12 @@ def chat():
         ai_res = json.loads(completion.choices[0].message.content)
 
         if ai_res.get("is_valid"):
-            ai_res["images"] = search_serper_images(msg)
-            ai_res["youtube_links"] = search_serper_youtube(msg)
-            # === THÊM PHẦN TƯƠNG LAI TP.HCM ===
-            ai_res["future_images"] = search_serper_future_images()
-            ai_res["future_youtube_links"] = search_serper_future_youtube()
+            # Lấy ảnh/video hiện tại
+            ai_res["images"] = search_media(msg, "images", False)
+            ai_res["youtube_links"] = search_media(msg, "videos", False)
+            # Lấy ảnh/video tương lai
+            ai_res["future_images"] = search_media(msg, "images", True)
+            ai_res["future_youtube_links"] = search_media(msg, "videos", True)
 
         now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
         with sqlite3.connect(DB_PATH) as conn:
@@ -130,7 +113,7 @@ def chat():
 
         return jsonify(ai_res)
     except Exception as e:
-        return jsonify({"text": f"Lỗi: {str(e)}", "is_valid": False})
+        return jsonify({"text": f"Lỗi hệ thống: {str(e)}", "is_valid": False})
 
 @app.route("/history")
 def get_history():
@@ -140,14 +123,59 @@ def get_history():
         cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
         rows = cur.fetchall()
 
-    formatted_history = []
+    history = []
     for r, c in rows:
         try:
             content = json.loads(c) if r == "bot" else c
         except:
             content = c
-        formatted_history.append({"role": r, "content": content})
-    return jsonify(formatted_history)
+        history.append({"role": r, "content": content})
+    return jsonify(history)
+
+@app.route("/export_pdf")
+def export_pdf():
+    sid = request.cookies.get("session_id")
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
+        rows = cur.fetchall()
+    
+    if not rows: return "Trống"
+
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Hỗ trợ tiếng Việt (Cần file DejaVuSans.ttf trong thư mục static)
+    font_path = os.path.join("static", "DejaVuSans.ttf")
+    if os.path.exists(font_path):
+        pdf.add_font("DejaVu", "", font_path, uni=True)
+        pdf.set_font("DejaVu", size=10)
+    else:
+        pdf.set_font("Arial", size=10)
+
+    pdf.set_text_color(0, 51, 102)
+    pdf.cell(200, 10, txt="CẨM NANG DU LỊCH & QUY HOẠCH 2026", ln=True, align='C')
+    pdf.ln(10)
+
+    for role, content, time in rows:
+        pdf.set_text_color(150, 0, 0) if role == "user" else pdf.set_text_color(0, 100, 0)
+        label = f"[{time}] NGƯỜI DÙNG: " if role == "user" else f"[{time}] CHUYÊN GIA AI: "
+        
+        text_to_print = content
+        if role == "bot":
+            try:
+                data = json.loads(content)
+                text_to_print = data.get("text", "")
+            except: pass
+        
+        pdf.multi_cell(0, 8, txt=f"{label}\n{text_to_print}")
+        pdf.ln(5)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+
+    path = f"/tmp/history_{sid}.pdf"
+    pdf.output(path)
+    return send_file(path, as_attachment=True)
 
 @app.route("/clear_history", methods=["POST"])
 def clear_history():
@@ -155,49 +183,6 @@ def clear_history():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
     return jsonify({"status": "ok"})
-
-@app.route("/export_pdf")
-def export_pdf():
-    sid = request.cookies.get("session_id")
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
-        rows = cur.fetchall()
-    if not rows: return "Không có dữ liệu để xuất."
-
-    pdf = FPDF()
-    pdf.add_page()
-
-    # Font Unicode tiếng Việt
-    font_path = os.path.join("static", "DejaVuSans.ttf")
-    if os.path.exists(font_path):
-        pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.set_font("DejaVu", size=12)
-    else:
-        pdf.set_font("Arial", size=12)
-
-    # Thời gian xuất file theo giờ Việt Nam
-    now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
-    pdf.cell(200, 10, txt="LỊCH TRÌNH DU LỊCH VIỆT NAM 2026", ln=True, align='C')
-    pdf.cell(200, 10, txt=f"Xuất lúc: {now_vn} (Giờ Việt Nam)", ln=True, align='C')
-    pdf.ln(10)
-
-    for role, content in rows:
-        label = "BẠN: " if role == "user" else "AI: "
-        if role == "bot":
-            try:
-                data = json.loads(content)
-                text = data.get("text", "")
-                pdf.multi_cell(0, 10, txt=f"{label}\n{text}")
-            except:
-                pdf.multi_cell(0, 10, txt=f"{label}{content}")
-        else:
-            pdf.multi_cell(0, 10, txt=f"{label}{content}")
-        pdf.ln(5)
-
-    path = f"history_{sid}.pdf"
-    pdf.output(path)
-    return send_file(path, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
