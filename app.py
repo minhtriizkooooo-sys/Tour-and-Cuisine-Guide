@@ -19,20 +19,25 @@ SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
-SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM, Vũng Tàu và Bình Dương.
-1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương."}
-2. Nếu HỢP LỆ: Luôn bao gồm đầy đủ các phần sau trong "text" (> 1800 từ, dùng markdown ##, ###):
-   - Lịch sử phát triển địa danh (quá khứ - hiện tại - dự báo 2026)
-   - Văn hóa và Con người địa phương
-   - Ẩm thực đặc trưng (địa chỉ cụ thể + giá cập nhật năm 2026)
-   - Gợi ý lộ trình du lịch chi tiết (1-3 ngày)
-Trả JSON:
+# Cập nhật Prompt để AI linh hoạt hơn với các địa danh thuộc TP.HCM, Vũng Tàu, Bình Dương
+SYSTEM_PROMPT = """Bạn là chuyên gia du lịch am hiểu sâu sắc về TP.HCM, Vũng Tàu và Bình Dương.
+NHIỆM VỤ:
+1. Kiểm tra địa danh: Nếu thuộc TP.HCM (kể cả các quận, huyện, đường phố cụ thể), Vũng Tàu hoặc Bình Dương -> Proceed.
+2. Nếu hoàn toàn KHÔNG thuộc 3 khu vực này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi hiện chỉ hỗ trợ thông tin du lịch chuyên sâu tại TP.HCM, Vũng Tàu và Bình Dương."}
+3. Nếu HỢP LỆ: Trả về bài viết cực kỳ chi tiết (> 1800 từ), sử dụng Markdown (##, ###, bullet points).
+   Cấu trúc bắt buộc trong trường "text":
+   - Lịch sử & Sự tích địa danh (từ quá khứ đến hiện tại).
+   - Tầm nhìn phát triển 2026: Các dự án hạ tầng, metro, hoặc quy hoạch mới tại khu vực đó.
+   - Văn hóa, lối sống và con người địa phương.
+   - Ẩm thực: Danh sách món ăn + Địa chỉ cụ thể + Giá dự kiến năm 2026.
+   - Lộ trình tham quan chi tiết từ 1-3 ngày.
+
+Trả về định dạng JSON thuần túy:
 {
   "is_valid": true,
-  "text": "...",
-  "suggestions": ["Câu hỏi 1", "Câu hỏi 2", "Câu hỏi 3"]
-}
-Chỉ trả JSON thuần túy, không thêm gì khác."""
+  "text": "nội dung bài viết dài...",
+  "suggestions": ["Câu hỏi gợi ý 1", "Câu hỏi gợi ý 2", "Câu hỏi gợi ý 3"]
+}"""
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
@@ -52,7 +57,7 @@ def search_serper_images(query):
     if not SERPER_API_KEY: return []
     try:
         url = "https://google.serper.dev/images"
-        payload = json.dumps({"q": f"{query} du lịch thực tế 2026"})
+        payload = json.dumps({"q": f"du lịch {query} thực tế 2026 đẹp nhất"})
         headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         data = resp.json()
@@ -63,32 +68,22 @@ def search_serper_youtube(query):
     if not SERPER_API_KEY: return []
     try:
         url = "https://google.serper.dev/videos"
-        payload = json.dumps({"q": f"{query} du lịch trải nghiệm tiếng Việt 2026"})
+        payload = json.dumps({"q": f"review du lịch {query} 2026 mới nhất"})
         headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
     except: return []
 
-# === PHẦN MỚI: Tương lai phát triển TP.HCM 2026 ===
-def search_serper_future_images():
+def search_serper_future_images(query):
     if not SERPER_API_KEY: return []
     try:
         url = "https://google.serper.dev/images"
-        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 hình ảnh thực tế dự án đô thị cao tầng"})
+        # Query tập trung vào quy hoạch và dự án 2026
+        payload = json.dumps({"q": f"quy hoạch hạ tầng {query} 2026 2030 dự án tương lai"})
         headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         data = resp.json()
-        return [{"url": i.get("imageUrl"), "caption": i.get("title", "Tương lai TP.HCM 2026")} for i in data.get("images", [])[:6]]
-    except: return []
-
-def search_serper_future_youtube():
-    if not SERPER_API_KEY: return []
-    try:
-        url = "https://google.serper.dev/videos"
-        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 video tiếng Việt du lịch dự án"})
-        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
-        resp = requests.post(url, headers=headers, data=payload, timeout=10)
-        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
+        return [{"url": i.get("imageUrl"), "caption": i.get("title", "Tầm nhìn tương lai")} for i in data.get("images", [])[:4]]
     except: return []
 
 # --- Routes ---
@@ -117,9 +112,8 @@ def chat():
         if ai_res.get("is_valid"):
             ai_res["images"] = search_serper_images(msg)
             ai_res["youtube_links"] = search_serper_youtube(msg)
-            # === THÊM PHẦN TƯƠNG LAI TP.HCM ===
-            ai_res["future_images"] = search_serper_future_images()
-            ai_res["future_youtube_links"] = search_serper_future_youtube()
+            # Lấy thêm ảnh tương lai dựa trên query người dùng
+            ai_res["future_images"] = search_serper_future_images(msg)
 
         now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
         with sqlite3.connect(DB_PATH) as conn:
@@ -130,7 +124,7 @@ def chat():
 
         return jsonify(ai_res)
     except Exception as e:
-        return jsonify({"text": f"Lỗi: {str(e)}", "is_valid": False})
+        return jsonify({"text": f"Lỗi hệ thống: {str(e)}", "is_valid": False})
 
 @app.route("/history")
 def get_history():
@@ -163,39 +157,37 @@ def export_pdf():
         cur = conn.cursor()
         cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
         rows = cur.fetchall()
-    if not rows: return "Không có dữ liệu để xuất."
+    if not rows: return "Không có dữ liệu."
 
     pdf = FPDF()
     pdf.add_page()
-
-    # Font Unicode tiếng Việt
+    
+    # Cần đảm bảo file DejaVuSans.ttf nằm trong folder static/
     font_path = os.path.join("static", "DejaVuSans.ttf")
     if os.path.exists(font_path):
         pdf.add_font("DejaVu", "", font_path, uni=True)
-        pdf.set_font("DejaVu", size=12)
+        pdf.set_font("DejaVu", size=11)
     else:
-        pdf.set_font("Arial", size=12)
+        pdf.set_font("Arial", size=11)
 
-    # Thời gian xuất file theo giờ Việt Nam
     now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
-    pdf.cell(200, 10, txt="LỊCH TRÌNH DU LỊCH VIỆT NAM 2026", ln=True, align='C')
-    pdf.cell(200, 10, txt=f"Xuất lúc: {now_vn} (Giờ Việt Nam)", ln=True, align='C')
-    pdf.ln(10)
+    pdf.cell(0, 10, txt="CAM NANG DU LICH 2026", ln=True, align='C')
+    pdf.ln(5)
 
     for role, content in rows:
-        label = "BẠN: " if role == "user" else "AI: "
+        label = "KHACH HANG: " if role == "user" else "AI GUIDE: "
         if role == "bot":
             try:
                 data = json.loads(content)
                 text = data.get("text", "")
-                pdf.multi_cell(0, 10, txt=f"{label}\n{text}")
+                pdf.multi_cell(0, 8, txt=f"{label}\n{text}")
             except:
-                pdf.multi_cell(0, 10, txt=f"{label}{content}")
+                pdf.multi_cell(0, 8, txt=f"{label}{content}")
         else:
-            pdf.multi_cell(0, 10, txt=f"{label}{content}")
-        pdf.ln(5)
+            pdf.multi_cell(0, 8, txt=f"{label}{content}")
+        pdf.ln(4)
 
-    path = f"history_{sid}.pdf"
+    path = f"trip_guide_{sid}.pdf"
     pdf.output(path)
     return send_file(path, as_attachment=True)
 
