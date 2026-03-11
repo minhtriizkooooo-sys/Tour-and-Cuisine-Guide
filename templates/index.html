@@ -103,7 +103,7 @@
         <div class="sidebar-section" id="map-tools">
             <h3>Công cụ Bản đồ <i class="fa fa-chevron-down"></i></h3>
             <div class="content">
-                <input type="text" id="s-input" placeholder="Nhập địa danh tại TP.HCM..." style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin-bottom: 5px;">
+                <input type="text" id="s-input" placeholder="Nhập địa danh..." style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ddd; margin-bottom: 5px;">
                 <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc</button>
                 <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa Marker</button>
             </div>
@@ -151,12 +151,6 @@
     let currentImgIndex = 0;
     const sidebar = document.getElementById('sidebar');
 
-    // Hàm kiểm tra địa danh có thuộc phạm vi hỗ trợ (TP.HCM) hay không
-    function isHCMC(text) {
-        const keywords = ["hcm", "hồ chí minh", "sài gòn", "sai gon", "quận", "huyện", "thủ đức", "bình chánh", "củ chi", "nhà bè", "hóc môn", "district"];
-        return keywords.some(k => text.toLowerCase().includes(k));
-    }
-
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
@@ -168,7 +162,7 @@
         document.getElementById('chat-container').style.display = 'flex';
         const box = document.getElementById('chat-box');
         if (tab === 'chat' && box.innerHTML === '') {
-            box.innerHTML = '<div class="msg bot">Chào bạn! Hãy hỏi về các địa điểm tại TP.HCM nhé! 🇻🇳</div>';
+            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
         } else if (tab === 'history') {
             loadHistory();
         }
@@ -179,14 +173,7 @@
     async function findLoc() {
         const q = document.getElementById('s-input').value.trim();
         if (!q) return;
-        
-        // Chỉ cho phép tìm kiếm trong TP.HCM trên bản đồ
-        if (!isHCMC(q)) {
-            alert("Vui lòng chỉ cắm mốc các địa danh thuộc TP.HCM.");
-            return;
-        }
-
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Ho Chi Minh City')}`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Vietnam')}`);
         const data = await res.json();
         if (data[0]) {
             const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
@@ -212,23 +199,19 @@
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         contentDiv.innerHTML = htmlText;
 
-        // Gộp tất cả ảnh lại để Modal có thể Next/Prev qua toàn bộ
-        const allImgs = [...(data.images || []), ...(data.future_images || [])];
-
-        if (allImgs.length > 0) {
-            contentDiv.innerHTML += '<br><b style="display:block; margin:10px 0; color:#0066cc;">🖼️ Hình ảnh thực tế & Tầm nhìn tương lai:</b>';
-            allImgs.forEach((img, idx) => {
+        if (data.images && data.images.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
+            data.images.forEach((img, idx) => {
                 const image = document.createElement('img');
                 image.src = img.url;
                 image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
-                // Tất cả ảnh đều gọi chung hàm showImg với danh sách allImgs
-                image.onclick = () => showImg(allImgs, idx);
+                image.addEventListener('click', () => showImg(data.images, idx));
                 contentDiv.appendChild(image);
             });
         }
 
         if (data.youtube_links && data.youtube_links.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 10px 0; color:#c0392b;">🎥 Video khám phá:</b>';
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế (tiếng Việt):</b>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
@@ -239,7 +222,7 @@
         }
 
         if (data.suggestions && data.suggestions.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:15px 0 10px 0;">💡 Gợi ý:</b>';
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
@@ -249,6 +232,17 @@
             });
         }
 
+        if (data.future_images && data.future_images.length) {
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">🌆 Hình ảnh tương lai phát triển TP.HCM 2026:</b>';
+            data.future_images.forEach((img, idx) => {
+                const image = document.createElement('img');
+                image.src = img.url;
+                image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
+                image.addEventListener('click', () => showImg(data.future_images, idx));
+                contentDiv.appendChild(image);
+            });
+        }
+        
         div.appendChild(contentDiv);
         return div;
     }
@@ -257,16 +251,6 @@
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
         if(!msg) return;
-
-        // Chặn người dùng hỏi các nơi ngoài phạm vi (TP.HCM, Vũng Tàu, Bình Dương - theo app.py)
-        const validAreas = ["hcm", "hồ chí minh", "sài gòn", "vũng tàu", "vung tau", "bình dương", "binh duong", "thủ đức", "quận"];
-        const isValidInput = validAreas.some(k => msg.toLowerCase().includes(k));
-        
-        if(!isValidInput) {
-            alert("Xin lỗi, tôi hiện chỉ hỗ trợ thông tin du lịch tại TP.HCM, Vũng Tàu và Bình Dương.");
-            return;
-        }
-
         const box = document.getElementById('chat-box');
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
@@ -298,7 +282,7 @@
         }
     }
 
-    // ==================== LOGIC MODAL ẢNH ====================
+    // ==================== LOGIC MODAL ẢNH (ĐÃ CẬP NHẬT) ====================
     function showImg(images, index) {
         currentImages = images;
         currentImgIndex = index;
@@ -315,24 +299,32 @@
         modalImg.src = imgObj.url;
         modalCaption.textContent = imgObj.caption || `Hình ảnh ${currentImgIndex + 1} / ${currentImages.length}`;
         
+        // Hiện/ẩn nút điều hướng
         document.getElementById('prev-img').style.visibility = (currentImgIndex > 0) ? 'visible' : 'hidden';
         document.getElementById('next-img').style.visibility = (currentImgIndex < currentImages.length - 1) ? 'visible' : 'hidden';
     }
 
     document.getElementById('prev-img').onclick = (e) => { 
         e.stopPropagation(); 
-        if (currentImgIndex > 0) { currentImgIndex--; updateModalImg(); }
+        if (currentImgIndex > 0) {
+            currentImgIndex--; 
+            updateModalImg(); 
+        }
     };
 
     document.getElementById('next-img').onclick = (e) => { 
         e.stopPropagation(); 
-        if (currentImgIndex < currentImages.length - 1) { currentImgIndex++; updateModalImg(); }
+        if (currentImgIndex < currentImages.length - 1) {
+            currentImgIndex++; 
+            updateModalImg(); 
+        }
     };
 
     document.getElementById('close-modal').onclick = () => {
         document.getElementById('img-modal').classList.add('hidden');
     };
 
+    // Đóng modal khi bấm ra ngoài ảnh
     document.getElementById('img-modal').onclick = (e) => {
         if (e.target.id === 'img-modal' || e.target.id === 'modal-content') {
             document.getElementById('img-modal').classList.add('hidden');
