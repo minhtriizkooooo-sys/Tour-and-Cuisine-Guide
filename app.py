@@ -83,24 +83,23 @@ return []
 
 ```
 try:
-    url="https://google.serper.dev/images"
+    url = "https://google.serper.dev/images"
 
-    payload=json.dumps({
-    "q":f"{query} Ho Chi Minh city"
+    payload = json.dumps({
+        "q": f"{query} Ho Chi Minh city"
     })
 
-    headers={
-    "X-API-KEY":SERPER_API_KEY,
-    "Content-Type":"application/json"
+    headers = {
+        "X-API-KEY": SERPER_API_KEY,
+        "Content-Type": "application/json"
     }
 
-    r=requests.post(url,headers=headers,data=payload)
-
-    data=r.json()
+    r = requests.post(url, headers=headers, data=payload)
+    data = r.json()
 
     return [
-    {"url":i["imageUrl"],"caption":i.get("title",query)}
-    for i in data.get("images",[])[:8]
+        {"url": i["imageUrl"], "caption": i.get("title", query)}
+        for i in data.get("images", [])[:8]
     ]
 
 except:
@@ -108,31 +107,28 @@ except:
 ```
 
 def search_future_images(query):
+if not SERPER_API_KEY:
+return []
 
 ```
-if not SERPER_API_KEY:
-    return []
-
 try:
+    url = "https://google.serper.dev/images"
 
-    url="https://google.serper.dev/images"
-
-    payload=json.dumps({
-    "q":f"quy hoach {query} ho chi minh metro 2030 urban future"
+    payload = json.dumps({
+        "q": f"quy hoach {query} ho chi minh metro 2030 urban future"
     })
 
-    headers={
-    "X-API-KEY":SERPER_API_KEY,
-    "Content-Type":"application/json"
+    headers = {
+        "X-API-KEY": SERPER_API_KEY,
+        "Content-Type": "application/json"
     }
 
-    r=requests.post(url,headers=headers,data=payload)
-
-    data=r.json()
+    r = requests.post(url, headers=headers, data=payload)
+    data = r.json()
 
     return [
-    {"url":i["imageUrl"],"caption":"Tầm nhìn đô thị tương lai"}
-    for i in data.get("images",[])[:4]
+        {"url": i["imageUrl"], "caption": "Tầm nhìn đô thị tương lai"}
+        for i in data.get("images", [])[:4]
     ]
 
 except:
@@ -145,9 +141,9 @@ except:
 def index():
 
 ```
-sid=request.cookies.get("session_id") or str(uuid.uuid4())
+sid = request.cookies.get("session_id") or str(uuid.uuid4())
 
-resp=make_response(render_template("index.html"))
+resp = make_response(render_template("index.html"))
 
 resp.set_cookie(
     "session_id",
@@ -161,53 +157,51 @@ return resp
 
 # ================= CHAT =================
 
-@app.route("/chat",methods=["POST"])
+@app.route("/chat", methods=["POST"])
 def chat():
 
 ```
-sid=request.cookies.get("session_id")
+sid = request.cookies.get("session_id")
 
-msg=request.json.get("msg","").strip()
+msg = request.json.get("msg", "").strip()
 
 if not msg:
-    return jsonify({"error":"Empty message"})
+    return jsonify({"error": "Empty message"})
 
 try:
 
-    client=Groq(api_key=GROQ_API_KEY)
+    client = Groq(api_key=GROQ_API_KEY)
 
-    completion=client.chat.completions.create(
-    model="llama-3.3-70b-versatile",
-    messages=[
-    {"role":"system","content":SYSTEM_PROMPT},
-    {"role":"user","content":msg}
-    ],
-    response_format={"type":"json_object"}
+    completion = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": msg}
+        ],
+        response_format={"type": "json_object"}
     )
 
-    ai=json.loads(completion.choices[0].message.content)
+    ai = json.loads(completion.choices[0].message.content)
 
     if ai.get("is_valid"):
+        images = search_images(msg)
+        future = search_future_images(msg)
 
-        images=search_images(msg)
+        ai["images"] = images
+        ai["future_images"] = future
 
-        future=search_future_images(msg)
-
-        ai["images"]=images
-        ai["future_images"]=future
-
-    now=datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
+    now = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
 
     with sqlite3.connect(DB_PATH) as conn:
 
         conn.execute(
-        "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
-        (sid,"user",msg,now)
+            "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
+            (sid, "user", msg, now)
         )
 
         conn.execute(
-        "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
-        (sid,"bot",json.dumps(ai),now)
+            "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
+            (sid, "bot", json.dumps(ai), now)
         )
 
     return jsonify(ai)
@@ -215,8 +209,8 @@ try:
 except Exception as e:
 
     return jsonify({
-    "is_valid":False,
-    "text":f"Lỗi hệ thống {str(e)}"
+        "is_valid": False,
+        "text": f"Lỗi hệ thống {str(e)}"
     })
 ```
 
@@ -226,32 +220,32 @@ except Exception as e:
 def history():
 
 ```
-sid=request.cookies.get("session_id")
+sid = request.cookies.get("session_id")
 
 with sqlite3.connect(DB_PATH) as conn:
 
-    cur=conn.cursor()
+    cur = conn.cursor()
 
     cur.execute(
-    "SELECT role,content FROM messages WHERE session_id=? ORDER BY id",
-    (sid,)
+        "SELECT role,content FROM messages WHERE session_id=? ORDER BY id",
+        (sid,)
     )
 
-    rows=cur.fetchall()
+    rows = cur.fetchall()
 
-res=[]
+res = []
 
-for r,c in rows:
+for r, c in rows:
 
     try:
-        if r=="bot":
-            c=json.loads(c)
+        if r == "bot":
+            c = json.loads(c)
     except:
         pass
 
     res.append({
-    "role":r,
-    "content":c
+        "role": r,
+        "content": c
     })
 
 return jsonify(res)
@@ -259,20 +253,19 @@ return jsonify(res)
 
 # ================= CLEAR =================
 
-@app.route("/clear_history",methods=["POST"])
+@app.route("/clear_history", methods=["POST"])
 def clear_history():
 
 ```
-sid=request.cookies.get("session_id")
+sid = request.cookies.get("session_id")
 
 with sqlite3.connect(DB_PATH) as conn:
-
     conn.execute(
-    "DELETE FROM messages WHERE session_id=?",
-    (sid,)
+        "DELETE FROM messages WHERE session_id=?",
+        (sid,)
     )
 
-return jsonify({"status":"ok"})
+return jsonify({"status": "ok"})
 ```
 
 # ================= EXPORT PDF =================
@@ -281,59 +274,51 @@ return jsonify({"status":"ok"})
 def export_pdf():
 
 ```
-sid=request.cookies.get("session_id")
+sid = request.cookies.get("session_id")
 
 with sqlite3.connect(DB_PATH) as conn:
 
-    cur=conn.cursor()
+    cur = conn.cursor()
 
     cur.execute(
-    "SELECT role,content,created_at FROM messages WHERE session_id=? ORDER BY id",
-    (sid,)
+        "SELECT role,content,created_at FROM messages WHERE session_id=? ORDER BY id",
+        (sid,)
     )
 
-    rows=cur.fetchall()
+    rows = cur.fetchall()
 
-pdf=FPDF()
-
+pdf = FPDF()
 pdf.add_page()
 
-font_path="static/DejaVuSans.ttf"
+font_path = "static/DejaVuSans.ttf"
 
-pdf.add_font("DejaVu","",font_path,uni=True)
+pdf.add_font("DejaVu", "", font_path, uni=True)
+pdf.set_font("DejaVu", "", 14)
 
-pdf.set_font("DejaVu","",14)
+for role, content, time in rows:
 
-for role,content,time in rows:
-
-    if role=="bot":
-
+    if role == "bot":
         try:
-            content=json.loads(content)
-            text=content.get("text","")
+            content = json.loads(content)
+            text = content.get("text", "")
         except:
-            text=content
-
+            text = content
     else:
-        text=content
+        text = content
 
     pdf.multi_cell(
-    0,
-    10,
-    f"{role.upper()} {time}\n{text}\n"
+        0,
+        10,
+        f"{role.upper()} {time}\n{text}\n"
     )
 
-path="chat_history.pdf"
-
+path = "chat_history.pdf"
 pdf.output(path)
 
-return send_file(
-path,
-as_attachment=True
-)
+return send_file(path, as_attachment=True)
 ```
 
 # ================= START =================
 
-if **name**=="**main**":
-app.run(host="0.0.0.0",port=10000)
+if **name** == "**main**":
+app.run(host="0.0.0.0", port=10000)
