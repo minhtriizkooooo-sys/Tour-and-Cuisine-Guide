@@ -10,7 +10,7 @@ from flask_cors import CORS
 from groq import Groq
 from fpdf import FPDF
 
-app = Flask(__name__)
+app = Flask(**name**)
 app.secret_key = os.environ.get("SECRET_KEY", "tphcm_ai_travel_secret")
 CORS(app)
 
@@ -20,7 +20,6 @@ SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 DB_PATH = "chat_history.db"
 VN_TZ = pytz.timezone("Asia/Ho_Chi_Minh")
 
-
 # ================= PROMPT AI =================
 
 SYSTEM_PROMPT = """
@@ -28,23 +27,10 @@ Bạn là chuyên gia du lịch và quy hoạch đô thị TP.HCM.
 
 QUY TẮC BẮT BUỘC
 
-1. Chỉ xử lý địa danh thuộc TP.HCM
-bao gồm:
-- Quận
-- Huyện
-- Phường
-- Đường
-- Công viên
-- Landmark
-- Khu du lịch
-- Nhà thờ
-- Chùa
-- Bảo tàng
-- Trung tâm thương mại
+Chỉ xử lý địa danh thuộc TP.HCM.
 
-2. Nếu địa danh KHÔNG thuộc TP.HCM
-
-Trả JSON
+Nếu địa danh KHÔNG thuộc TP.HCM
+Trả JSON:
 
 {
 "is_valid": false,
@@ -56,27 +42,9 @@ Trả JSON
 ]
 }
 
-3. Nếu là địa danh TP.HCM
+Nếu là địa danh TP.HCM
 
 Phải trả lời cực kỳ chi tiết >1800 từ
-
-Cấu trúc bài viết:
-
-## Lịch sử hình thành
-## Giá trị văn hóa – xã hội
-## Kiến trúc và cảnh quan
-## Ẩm thực xung quanh (địa chỉ + giá 2026)
-## Lịch trình tham quan 1-3 ngày
-
-## TẦM NHÌN PHÁT TRIỂN TP.HCM 2026 – 2035
-Phân tích:
-
-- Metro
-- Vành đai
-- Khu đô thị mới
-- Smart city
-- Hạ tầng giao thông
-- Công nghệ đô thị
 
 Trả JSON:
 
@@ -91,209 +59,281 @@ Trả JSON:
 }
 """
 
-
 # ================= DATABASE =================
 
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-        CREATE TABLE IF NOT EXISTS messages(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT,
-        role TEXT,
-        content TEXT,
-        created_at TEXT
-        )
-        """)
+with sqlite3.connect(DB_PATH) as conn:
+conn.execute("""
+CREATE TABLE IF NOT EXISTS messages(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+session_id TEXT,
+role TEXT,
+content TEXT,
+created_at TEXT
+)
+""")
 
 init_db()
-
 
 # ================= SERPER SEARCH =================
 
 def search_images(query):
+if not SERPER_API_KEY:
+return []
 
-    if not SERPER_API_KEY:
-        return []
+```
+try:
+    url="https://google.serper.dev/images"
 
-    try:
-        url="https://google.serper.dev/images"
+    payload=json.dumps({
+    "q":f"{query} Ho Chi Minh city"
+    })
 
-        payload=json.dumps({
-        "q":f"{query} Ho Chi Minh city du lich dep"
-        })
+    headers={
+    "X-API-KEY":SERPER_API_KEY,
+    "Content-Type":"application/json"
+    }
 
-        headers={
-        "X-API-KEY":SERPER_API_KEY,
-        "Content-Type":"application/json"
-        }
+    r=requests.post(url,headers=headers,data=payload)
 
-        r=requests.post(url,headers=headers,data=payload)
-        data=r.json()
+    data=r.json()
 
-        return [
-        {"url":i["imageUrl"],"caption":i.get("title",query)}
-        for i in data.get("images",[])[:8]
-        ]
+    return [
+    {"url":i["imageUrl"],"caption":i.get("title",query)}
+    for i in data.get("images",[])[:8]
+    ]
 
-    except:
-        return []
-
+except:
+    return []
+```
 
 def search_future_images(query):
 
-    if not SERPER_API_KEY:
-        return []
+```
+if not SERPER_API_KEY:
+    return []
 
-    try:
+try:
 
-        url="https://google.serper.dev/images"
+    url="https://google.serper.dev/images"
 
-        payload=json.dumps({
-        "q":f"quy hoach {query} ho chi minh metro 2030 urban future"
-        })
+    payload=json.dumps({
+    "q":f"quy hoach {query} ho chi minh metro 2030 urban future"
+    })
 
-        headers={
-        "X-API-KEY":SERPER_API_KEY,
-        "Content-Type":"application/json"
-        }
+    headers={
+    "X-API-KEY":SERPER_API_KEY,
+    "Content-Type":"application/json"
+    }
 
-        r=requests.post(url,headers=headers,data=payload)
+    r=requests.post(url,headers=headers,data=payload)
 
-        data=r.json()
+    data=r.json()
 
-        return [
-        {"url":i["imageUrl"],"caption":"Tầm nhìn đô thị tương lai"}
-        for i in data.get("images",[])[:4]
-        ]
+    return [
+    {"url":i["imageUrl"],"caption":"Tầm nhìn đô thị tương lai"}
+    for i in data.get("images",[])[:4]
+    ]
 
-    except:
-        return []
-
+except:
+    return []
+```
 
 # ================= ROUTES =================
 
 @app.route("/")
 def index():
 
-    sid=request.cookies.get("session_id") or str(uuid.uuid4())
+```
+sid=request.cookies.get("session_id") or str(uuid.uuid4())
 
-    resp=make_response(render_template("index.html"))
+resp=make_response(render_template("index.html"))
 
-    resp.set_cookie("session_id",sid,httponly=True,max_age=31536000)
+resp.set_cookie(
+    "session_id",
+    sid,
+    httponly=True,
+    max_age=31536000
+)
 
-    return resp
+return resp
+```
 
-
+# ================= CHAT =================
 
 @app.route("/chat",methods=["POST"])
 def chat():
 
-    sid=request.cookies.get("session_id")
+```
+sid=request.cookies.get("session_id")
 
-    msg=request.json.get("msg","").strip()
+msg=request.json.get("msg","").strip()
 
-    if not msg:
-        return jsonify({"error":"Empty message"})
+if not msg:
+    return jsonify({"error":"Empty message"})
 
+try:
 
-    try:
+    client=Groq(api_key=GROQ_API_KEY)
 
-        client=Groq(api_key=GROQ_API_KEY)
+    completion=client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[
+    {"role":"system","content":SYSTEM_PROMPT},
+    {"role":"user","content":msg}
+    ],
+    response_format={"type":"json_object"}
+    )
 
-        completion=client.chat.completions.create(
+    ai=json.loads(completion.choices[0].message.content)
 
-        model="llama-3.3-70b-versatile",
+    if ai.get("is_valid"):
 
-        messages=[
-        {"role":"system","content":SYSTEM_PROMPT},
-        {"role":"user","content":msg}
-        ],
+        images=search_images(msg)
 
-        response_format={"type":"json_object"}
+        future=search_future_images(msg)
 
+        ai["images"]=images
+        ai["future_images"]=future
+
+    now=datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
+
+    with sqlite3.connect(DB_PATH) as conn:
+
+        conn.execute(
+        "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
+        (sid,"user",msg,now)
         )
 
-        ai=json.loads(completion.choices[0].message.content)
+        conn.execute(
+        "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
+        (sid,"bot",json.dumps(ai),now)
+        )
 
+    return jsonify(ai)
 
-        if ai.get("is_valid"):
+except Exception as e:
 
-            images=search_images(msg)
+    return jsonify({
+    "is_valid":False,
+    "text":f"Lỗi hệ thống {str(e)}"
+    })
+```
 
-            future=search_future_images(msg)
-
-            ai["images"]=images
-            ai["future_images"]=future
-
-        now=datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
-
-        with sqlite3.connect(DB_PATH) as conn:
-
-            conn.execute(
-            "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
-            (sid,"user",msg,now)
-            )
-
-            conn.execute(
-            "INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
-            (sid,"bot",json.dumps(ai),now)
-            )
-
-
-        return jsonify(ai)
-
-    except Exception as e:
-
-        return jsonify({
-        "is_valid":False,
-        "text":f"Lỗi hệ thống {str(e)}"
-        })
-
-
+# ================= HISTORY =================
 
 @app.route("/history")
 def history():
 
-    sid=request.cookies.get("session_id")
+```
+sid=request.cookies.get("session_id")
 
-    with sqlite3.connect(DB_PATH) as conn:
+with sqlite3.connect(DB_PATH) as conn:
 
-        cur=conn.cursor()
+    cur=conn.cursor()
 
-        cur.execute(
-        "SELECT role,content FROM messages WHERE session_id=? ORDER BY id",
-        (sid,)
-        )
+    cur.execute(
+    "SELECT role,content FROM messages WHERE session_id=? ORDER BY id",
+    (sid,)
+    )
 
-        rows=cur.fetchall()
+    rows=cur.fetchall()
 
-    res=[]
+res=[]
 
-    for r,c in rows:
+for r,c in rows:
 
-        try:
-            if r=="bot":
-                c=json.loads(c)
-        except:
-            pass
+    try:
+        if r=="bot":
+            c=json.loads(c)
+    except:
+        pass
 
-        res.append({"role":r,"content":c})
+    res.append({
+    "role":r,
+    "content":c
+    })
 
-    return jsonify(res)
+return jsonify(res)
+```
 
-
+# ================= CLEAR =================
 
 @app.route("/clear_history",methods=["POST"])
 def clear_history():
 
-    sid=request.cookies.get("session_id")
+```
+sid=request.cookies.get("session_id")
 
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM messages WHERE session_id=?",(sid,))
+with sqlite3.connect(DB_PATH) as conn:
 
-    return jsonify({"status":"ok"})
+    conn.execute(
+    "DELETE FROM messages WHERE session_id=?",
+    (sid,)
+    )
 
+return jsonify({"status":"ok"})
+```
 
-if __name__=="__main__":
-    app.run(host="0.0.0.0",port=10000)
+# ================= EXPORT PDF =================
+
+@app.route("/export_pdf")
+def export_pdf():
+
+```
+sid=request.cookies.get("session_id")
+
+with sqlite3.connect(DB_PATH) as conn:
+
+    cur=conn.cursor()
+
+    cur.execute(
+    "SELECT role,content,created_at FROM messages WHERE session_id=? ORDER BY id",
+    (sid,)
+    )
+
+    rows=cur.fetchall()
+
+pdf=FPDF()
+
+pdf.add_page()
+
+font_path="static/DejaVuSans.ttf"
+
+pdf.add_font("DejaVu","",font_path,uni=True)
+
+pdf.set_font("DejaVu","",14)
+
+for role,content,time in rows:
+
+    if role=="bot":
+
+        try:
+            content=json.loads(content)
+            text=content.get("text","")
+        except:
+            text=content
+
+    else:
+        text=content
+
+    pdf.multi_cell(
+    0,
+    10,
+    f"{role.upper()} {time}\n{text}\n"
+    )
+
+path="chat_history.pdf"
+
+pdf.output(path)
+
+return send_file(
+path,
+as_attachment=True
+)
+```
+
+# ================= START =================
+
+if **name**=="**main**":
+app.run(host="0.0.0.0",port=10000)
