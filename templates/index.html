@@ -57,15 +57,15 @@
         /* CSS MODAL ẢNH */
         #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
         #modal-content { position: relative; width: 90%; max-width: 900px; height: 80vh; display: flex; align-items: center; justify-content: center; }
-        #modal-img { max-width: 100%; max-height: 80vh; border-radius: 12px; object-fit: contain; }
-        #modal-caption { color: white; margin-top: 15px; text-align: center; font-size: 15px; max-width: 90%; font-weight: 500; }
-        .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.2); border: none; color: white; font-size: 28px; padding: 15px; cursor: pointer; border-radius: 50%; z-index: 10; transition: background 0.3s; }
-        .modal-nav:hover { background: rgba(255,255,255,0.4); }
-        #prev-img { left: -60px; }
-        #next-img { right: -60px; }
+        #modal-img { max-width: 100%; max-height: 80vh; border-radius: 12px; object-fit: contain; box-shadow: 0 0 20px rgba(255,255,255,0.1); }
+        #modal-caption { color: white; margin-top: 20px; text-align: center; font-size: 16px; max-width: 80%; font-weight: 500; }
+        .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.15); border: none; color: white; font-size: 30px; width: 50px; height: 50px; cursor: pointer; border-radius: 50%; z-index: 10; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .modal-nav:hover { background: rgba(255,255,255,0.3); }
+        #prev-img { left: -70px; }
+        #next-img { right: -70px; }
         #close-modal {
-            position: absolute; top: -40px; right: 0; background: #e74c3c;
-            color: white; font-size: 24px; width: 40px; height: 40px; border-radius: 50%;
+            position: absolute; top: -50px; right: 0; background: #e74c3c;
+            color: white; font-size: 26px; width: 44px; height: 44px; border-radius: 50%;
             border: none; cursor: pointer; z-index: 11; display: flex; align-items: center; justify-content: center;
         }
         .hidden { display: none !important; }
@@ -76,15 +76,16 @@
         .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         
-        @media (max-width: 768px) {
-            #sidebar { width: 80%; right: -80%; height: calc(100% - 120px); top: 55px; padding: 60px 15px 20px 15px; }
-            header { height: 55px; padding: 10px 15px; }
-            .logo { font-size: 16px; }
-            .logo img { height: 35px; }
-            footer { padding: 10px 15px; font-size: 13px; flex-direction: column; gap: 6px; text-align: center; }
+        @media (max-width: 1024px) {
             #prev-img { left: 10px; }
             #next-img { right: 10px; }
             #close-modal { top: 10px; right: 10px; }
+        }
+        @media (max-width: 768px) {
+            #sidebar { width: 85%; right: -85%; top: 55px; padding: 60px 15px 20px 15px; }
+            header { height: 55px; padding: 10px 15px; }
+            .logo { font-size: 16px; }
+            footer { padding: 10px 15px; font-size: 13px; flex-direction: column; text-align: center; }
         }
     </style>
 </head>
@@ -162,7 +163,7 @@
         document.getElementById('chat-container').style.display = 'flex';
         const box = document.getElementById('chat-box');
         if (tab === 'chat' && box.innerHTML === '') {
-            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi về TP.HCM, Vũng Tàu, Bình Dương nhé! 🇻🇳</div>';
+            box.innerHTML = '<div class="msg bot">Chào bạn! Hội thoại bắt đầu... 🇻🇳</div>';
         } else if (tab === 'history') {
             loadHistory();
         }
@@ -199,19 +200,26 @@
         let htmlText = (data.text || "").replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
         contentDiv.innerHTML = htmlText;
 
-        if (data.images && data.images.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">📸 Hình ảnh thực tế:</b>';
-            data.images.forEach((img, idx) => {
-                const image = document.createElement('img');
-                image.src = img.url;
-                image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
-                image.addEventListener('click', () => showImg(data.images, idx));
-                contentDiv.appendChild(image);
-            });
-        }
+        // Xử lý tất cả các nhóm ảnh (thực tế và tương lai)
+        const processImages = (imageList, title, color) => {
+            if (imageList && imageList.length) {
+                contentDiv.innerHTML += `<b style="display:block; margin:20px 0 10px 0; color:${color};">${title}</b>`;
+                imageList.forEach((img, idx) => {
+                    const image = document.createElement('img');
+                    image.src = img.url;
+                    image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15); transition: 0.3s;";
+                    // Gắn sự kiện click cho MỌI ảnh
+                    image.addEventListener('click', () => showImg(imageList, idx));
+                    contentDiv.appendChild(image);
+                });
+            }
+        };
+
+        processImages(data.images, "📸 Hình ảnh thực tế:", "#0066cc");
+        processImages(data.future_images, "🌆 Hình ảnh tương lai phát triển TP.HCM 2026:", "#0066cc");
 
         if (data.youtube_links && data.youtube_links.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá thực tế (tiếng Việt):</b>';
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#c0392b;">🎥 Video khám phá:</b>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
@@ -222,7 +230,7 @@
         }
 
         if (data.suggestions && data.suggestions.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý cho bạn:</b>';
+            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0;">💡 Gợi ý:</b>';
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
@@ -232,17 +240,6 @@
             });
         }
 
-        if (data.future_images && data.future_images.length) {
-            contentDiv.innerHTML += '<b style="display:block; margin:20px 0 10px 0; color:#0066cc;">🌆 Hình ảnh tương lai phát triển TP.HCM 2026:</b>';
-            data.future_images.forEach((img, idx) => {
-                const image = document.createElement('img');
-                image.src = img.url;
-                image.style = "width:100%; border-radius:12px; margin-bottom:12px; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.15);";
-                image.addEventListener('click', () => showImg(data.future_images, idx));
-                contentDiv.appendChild(image);
-            });
-        }
-        
         div.appendChild(contentDiv);
         return div;
     }
@@ -282,7 +279,7 @@
         }
     }
 
-    // ==================== LOGIC MODAL ẢNH (ĐÃ CẬP NHẬT) ====================
+    // ==================== LOGIC MODAL ẢNH TOÀN DIỆN ====================
     function showImg(images, index) {
         currentImages = images;
         currentImgIndex = index;
@@ -324,12 +321,24 @@
         document.getElementById('img-modal').classList.add('hidden');
     };
 
-    // Đóng modal khi bấm ra ngoài ảnh
+    // Đóng khi click vùng ngoài
     document.getElementById('img-modal').onclick = (e) => {
         if (e.target.id === 'img-modal' || e.target.id === 'modal-content') {
             document.getElementById('img-modal').classList.add('hidden');
         }
     };
+
+    // Hỗ trợ phím mũi tên bàn phím
+    document.addEventListener('keydown', (e) => {
+        if (document.getElementById('img-modal').classList.contains('hidden')) return;
+        if (e.key === 'ArrowLeft' && currentImgIndex > 0) {
+            currentImgIndex--; updateModalImg();
+        } else if (e.key === 'ArrowRight' && currentImgIndex < currentImages.length - 1) {
+            currentImgIndex++; updateModalImg();
+        } else if (e.key === 'Escape') {
+            document.getElementById('img-modal').classList.add('hidden');
+        }
+    });
 
     toggleChat('chat');
 </script>
