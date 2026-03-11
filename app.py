@@ -14,7 +14,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "tphcm_ai_travel_secret")
 CORS(app)
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY") os.environ.get("GROQ_API_KEY_TCG")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY_TCG")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 
 DB_PATH = "chat_history.db"
@@ -353,4 +353,5 @@ return send_file(path, as_attachment=True)
 
 if **name** == "main":
 app.run(host="0.0.0.0", port=10000)
+
 
