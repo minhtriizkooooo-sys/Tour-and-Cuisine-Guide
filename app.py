@@ -11,45 +11,33 @@ from groq import Groq
 from fpdf import FPDF
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "tphcm_ai_travel_secret")
+app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
 CORS(app)
 
-# Cấu hình API Keys
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY_TCG")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
-
 DB_PATH = "chat_history.db"
-VN_TZ = pytz.timezone("Asia/Ho_Chi_Minh")
+VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
-# ================= PROMPT AI (Đã sửa để tránh lỗi 400) =================
-
-SYSTEM_PROMPT = """
-Bạn là chuyên gia du lịch và quy hoạch đô thị TP.HCM. 
-YÊU CẦU BẮT BUỘC: Trả về câu trả lời dưới định dạng JSON nguyên khối.
-
-Chỉ trả lời địa danh thuộc TP.HCM.
-
-Nếu địa danh KHÔNG thuộc TP.HCM, trả về JSON:
-{
-  "is_valid": false,
-  "text": "Xin lỗi, hệ thống AI này chỉ hỗ trợ các địa danh thuộc phạm vi TP.HCM.",
-  "suggestions": ["Quận 1 có gì chơi?", "Khu đô thị Thủ Thiêm", "Tuyến Metro số 1"]
-}
-
-Nếu địa danh HỢP LỆ, trả về JSON:
+SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM, Vũng Tàu và Bình Dương.
+1. Nếu địa danh KHÔNG thuộc 3 nơi này: Trả JSON {"is_valid": false, "text": "Xin lỗi, tôi chỉ hỗ trợ du lịch TP.HCM, Vũng Tàu và Bình Dương."}
+2. Nếu HỢP LỆ: Luôn bao gồm đầy đủ các phần sau trong "text" (> 1800 từ, dùng markdown ##, ###):
+   - Lịch sử phát triển địa danh (quá khứ - hiện tại - dự báo 2026)
+   - Văn hóa và Con người địa phương
+   - Ẩm thực đặc trưng (địa chỉ cụ thể + giá cập nhật năm 2026)
+   - Gợi ý lộ trình du lịch chi tiết (1-3 ngày)
+Trả JSON:
 {
   "is_valid": true,
-  "text": "Phân tích sâu về: 1. Lịch sử/Văn hóa. 2. Hiện trạng du lịch. 3. Tầm nhìn quy hoạch 2030-2045 (Metro, hạ tầng số, kinh tế đêm).",
-  "suggestions": ["Lịch trình 1 ngày tại đây", "Giá vé và giờ mở cửa", "Các dự án hạ tầng sắp tới"]
+  "text": "...",
+  "suggestions": ["Câu hỏi 1", "Câu hỏi 2", "Câu hỏi 3"]
 }
-"""
-
-# ================= DATABASE =================
+Chỉ trả JSON thuần túy, không thêm gì khác."""
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS messages(
+            CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT,
                 role TEXT,
@@ -57,38 +45,53 @@ def init_db():
                 created_at TEXT
             )
         """)
-
 init_db()
 
-# ================= SEARCH HELPERS =================
-
-def search_serper(query, search_type="images", limit=8):
-    if not SERPER_API_KEY:
-        return []
+# --- Helper Functions ---
+def search_serper_images(query):
+    if not SERPER_API_KEY: return []
     try:
-        url = f"https://google.serper.dev/{search_type}"
-        headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
-        
-        # Tối ưu query tìm kiếm
-        if "future" in query:
-            q = f"{query} Ho Chi Minh City 2030 vision development"
-        else:
-            q = f"{query} Ho Chi Minh City tourism"
-            
-        payload = json.dumps({"q": q})
-        r = requests.post(url, headers=headers, data=payload)
-        data = r.json()
+        url = "https://google.serper.dev/images"
+        payload = json.dumps({"q": f"{query} du lịch thực tế 2026"})
+        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+        resp = requests.post(url, headers=headers, data=payload, timeout=10)
+        data = resp.json()
+        return [{"url": i.get("imageUrl"), "caption": i.get("title", query)} for i in data.get("images", [])[:8]]
+    except: return []
 
-        if search_type == "images":
-            return [{"url": i["imageUrl"], "caption": i.get("title", "Hình ảnh")} for i in data.get("images", [])[:limit]]
-        elif search_type == "videos":
-            return [v["link"] for v in data.get("videos", [])[:3]]
-    except Exception as e:
-        print(f"Serper Error: {e}")
-        return []
+def search_serper_youtube(query):
+    if not SERPER_API_KEY: return []
+    try:
+        url = "https://google.serper.dev/videos"
+        payload = json.dumps({"q": f"{query} du lịch trải nghiệm tiếng Việt 2026"})
+        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+        resp = requests.post(url, headers=headers, data=payload, timeout=10)
+        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
+    except: return []
 
-# ================= ROUTES =================
+# === PHẦN MỚI: Tương lai phát triển TP.HCM 2026 ===
+def search_serper_future_images():
+    if not SERPER_API_KEY: return []
+    try:
+        url = "https://google.serper.dev/images"
+        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 hình ảnh thực tế dự án đô thị cao tầng"})
+        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+        resp = requests.post(url, headers=headers, data=payload, timeout=10)
+        data = resp.json()
+        return [{"url": i.get("imageUrl"), "caption": i.get("title", "Tương lai TP.HCM 2026")} for i in data.get("images", [])[:6]]
+    except: return []
 
+def search_serper_future_youtube():
+    if not SERPER_API_KEY: return []
+    try:
+        url = "https://google.serper.dev/videos"
+        payload = json.dumps({"q": "phát triển tương lai TP.HCM 2026 video tiếng Việt du lịch dự án"})
+        headers = {'X-API-KEY': SERPER_API_KEY, 'Content-Type': 'application/json'}
+        resp = requests.post(url, headers=headers, data=payload, timeout=10)
+        return [i.get("link") for i in resp.json().get("videos", []) if "youtube" in i.get("link", "").lower()] [:3]
+    except: return []
+
+# --- Routes ---
 @app.route("/")
 def index():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
@@ -100,120 +103,101 @@ def index():
 def chat():
     sid = request.cookies.get("session_id")
     msg = request.json.get("msg", "").strip()
-    if not msg:
-        return jsonify({"error": "Nội dung trống"})
+    if not msg: return jsonify({"error": "Empty message"})
 
     try:
         client = Groq(api_key=GROQ_API_KEY)
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": msg}
-            ],
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": msg}],
             response_format={"type": "json_object"}
         )
-        
         ai_res = json.loads(completion.choices[0].message.content)
 
-        # Nếu địa danh hợp lệ, tiến hành tìm kiếm Media
         if ai_res.get("is_valid"):
-            ai_res["images"] = search_serper(msg, "images", 8)
-            ai_res["future_images"] = search_serper(f"quy hoạch {msg} tương lai", "images", 4)
-            ai_res["future_youtube_links"] = search_serper(f"quy hoạch {msg}", "videos", 3)
-        else:
-            ai_res["images"] = []
-            ai_res["future_images"] = []
-            ai_res["future_youtube_links"] = []
+            ai_res["images"] = search_serper_images(msg)
+            ai_res["youtube_links"] = search_serper_youtube(msg)
+            # === THÊM PHẦN TƯƠNG LAI TP.HCM ===
+            ai_res["future_images"] = search_serper_future_images()
+            ai_res["future_youtube_links"] = search_serper_future_youtube()
 
-        # Lưu lịch sử
-        now = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
+        now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
         with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
-                         (sid, "user", msg, now))
-            conn.execute("INSERT INTO messages (session_id,role,content,created_at) VALUES (?,?,?,?)",
-                         (sid, "bot", json.dumps(ai_res), now))
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "user", msg, now_vn))
+            conn.execute("INSERT INTO messages (session_id, role, content, created_at) VALUES (?,?,?,?)",
+                         (sid, "bot", json.dumps(ai_res), now_vn))
 
         return jsonify(ai_res)
-
     except Exception as e:
-        return jsonify({
-            "is_valid": False, 
-            "text": f"Hệ thống gặp sự cố: {str(e)}",
-            "images": [], "future_images": [], "future_youtube_links": []
-        })
+        return jsonify({"text": f"Lỗi: {str(e)}", "is_valid": False})
 
 @app.route("/history")
-def history():
+def get_history():
     sid = request.cookies.get("session_id")
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT role, content FROM messages WHERE session_id=? ORDER BY id", (sid,))
+        cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
         rows = cur.fetchall()
 
-    res = []
+    formatted_history = []
     for r, c in rows:
-        content = c
-        if r == "bot":
-            try: content = json.loads(c)
-            except: pass
-        res.append({"role": r, "content": content})
-    return jsonify(res)
+        try:
+            content = json.loads(c) if r == "bot" else c
+        except:
+            content = c
+        formatted_history.append({"role": r, "content": content})
+    return jsonify(formatted_history)
+
+@app.route("/clear_history", methods=["POST"])
+def clear_history():
+    sid = request.cookies.get("session_id")
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+    return jsonify({"status": "ok"})
 
 @app.route("/export_pdf")
 def export_pdf():
     sid = request.cookies.get("session_id")
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT role, content, created_at FROM messages WHERE session_id=? ORDER BY id", (sid,))
+        cur.execute("SELECT role, content FROM messages WHERE session_id = ? ORDER BY id ASC", (sid,))
         rows = cur.fetchall()
+    if not rows: return "Không có dữ liệu để xuất."
 
     pdf = FPDF()
     pdf.add_page()
-    
-    # Cấu hình Font Tiếng Việt (Phải có file trong static/)
-    font_added = False
-    try:
-        pdf.add_font("DejaVu", "", "static/DejaVuSans.ttf", uni=True)
-        pdf.set_font("DejaVu", "", 11)
-        font_added = True
-    except:
-        pdf.set_font("Arial", "", 11)
 
-    pdf.cell(0, 10, "LỊCH SỬ TƯ VẤN DU LỊCH TPHCM", ln=True, align='C')
-    pdf.ln(5)
+    # Font Unicode tiếng Việt
+    font_path = os.path.join("static", "DejaVuSans.ttf")
+    if os.path.exists(font_path):
+        pdf.add_font("DejaVu", "", font_path, uni=True)
+        pdf.set_font("DejaVu", size=12)
+    else:
+        pdf.set_font("Arial", size=12)
 
-    for role, content, time in rows:
-        display_text = ""
+    # Thời gian xuất file theo giờ Việt Nam
+    now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
+    pdf.cell(200, 10, txt="LỊCH TRÌNH DU LỊCH VIỆT NAM 2026", ln=True, align='C')
+    pdf.cell(200, 10, txt=f"Xuất lúc: {now_vn} (Giờ Việt Nam)", ln=True, align='C')
+    pdf.ln(10)
+
+    for role, content in rows:
+        label = "BẠN: " if role == "user" else "AI: "
         if role == "bot":
             try:
                 data = json.loads(content)
-                display_text = data.get("text", "")
+                text = data.get("text", "")
+                pdf.multi_cell(0, 10, txt=f"{label}\n{text}")
             except:
-                display_text = str(content)
+                pdf.multi_cell(0, 10, txt=f"{label}{content}")
         else:
-            display_text = str(content)
+            pdf.multi_cell(0, 10, txt=f"{label}{content}")
+        pdf.ln(5)
 
-        header = f"[{time}] {'NGƯỜI DÙNG' if role=='user' else 'AI CHUYÊN GIA'}:"
-        pdf.set_text_color(200, 0, 0) if role == "user" else pdf.set_text_color(0, 100, 0)
-        pdf.multi_cell(0, 8, header)
-        
-        pdf.set_text_color(0, 0, 0)
-        pdf.multi_cell(0, 8, display_text)
-        pdf.ln(3)
-        pdf.cell(0, 0, "", "T") # Đường kẻ ngang
-        pdf.ln(3)
-
-    output_path = "/tmp/travel_history.pdf"
-    pdf.output(output_path)
-    return send_file(output_path, as_attachment=True)
-
-@app.route("/clear_history", methods=["POST"])
-def clear_history():
-    sid = request.cookies.get("session_id")
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("DELETE FROM messages WHERE session_id=?", (sid,))
-    return jsonify({"status": "đã xóa"})
+    path = f"history_{sid}.pdf"
+    pdf.output(path)
+    return send_file(path, as_attachment=True)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
