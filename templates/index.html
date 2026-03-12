@@ -7,52 +7,267 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #d32f2f; --primary-dark: #b71c1c; --bg: #f9f9f9; --accent: #fbc02d; --text-color: #212121; }
+        :root {
+            --primary: #0066cc;
+            --primary-dark: #004a7c;
+            --bg: #f4f7f9;
+            --accent: #00b7eb;
+            --text-color: #222;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
-        header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 12px 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
-        .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 18px; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg);
+        }
+        header {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: white;
+            padding: 12px 20px;
+            height: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 2000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: bold;
+            font-size: 18px;
+        }
         .logo img { height: 40px; width: auto; }
         #hamburger { cursor: pointer; font-size: 24px; color: white; }
         main { flex: 1; position: relative; overflow: hidden; display: flex; }
         #map { height: 100%; width: 100%; flex: 1; }
-        #sidebar { position: fixed; top: 60px; right: -340px; width: 340px; height: calc(100% - 120px); background: white; transition: right 0.3s ease; z-index: 1001; box-shadow: -4px 0 12px rgba(0,0,0,0.15); overflow-y: auto; padding: 60px 20px 20px 20px; }
+        #sidebar {
+            position: fixed;
+            top: 60px;
+            right: -350px;
+            width: 350px;
+            height: calc(100% - 120px);
+            background: white;
+            transition: right 0.3s ease;
+            z-index: 1001;
+            box-shadow: -4px 0 12px rgba(0,0,0,0.15);
+            overflow-y: auto;
+            padding: 60px 20px 20px 20px;
+        }
         #sidebar.open { right: 0; }
-        #close-sidebar { position: absolute; top: 15px; right: 15px; font-size: 32px; color: var(--primary); cursor: pointer; background: white; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1002; }
-        .sidebar-section { margin-bottom: 28px; }
-        .sidebar-section h3 { color: var(--primary); font-size: 17px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .btn-sidebar { display: block; width: 100%; padding: 13px; margin: 8px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; }
+        #close-sidebar {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 32px;
+            color: var(--primary);
+            cursor: pointer;
+            background: white;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1002;
+        }
+        .sidebar-section { margin-bottom: 30px; }
+        .sidebar-section h3 {
+            color: var(--primary);
+            font-size: 17px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .btn-sidebar {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            font-size: 15px;
+            text-align: center;
+        }
         .btn-primary { background: var(--primary); }
-        .btn-danger { background: #e53935; }
-        .btn-success { background: #43a047; }
+        .btn-danger { background: #e74c3c; }
+        .btn-success { background: #27ae60; }
         #chat-container { display: none; flex-direction: column; height: 100%; }
-        #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 0 4px; }
-        .msg { padding: 12px 16px; border-radius: 18px; max-width: 92%; font-size: 15px; line-height: 1.55; word-wrap: break-word; }
+        #chat-box {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 10px 4px;
+        }
+        .msg {
+            padding: 12px 16px;
+            border-radius: 16px;
+            max-width: 90%;
+            font-size: 15px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
         .user { background: var(--primary); color: white; align-self: flex-end; }
-        .bot { background: #ffebee; color: #c62828; align-self: flex-start; border: 1px solid #ffcdd2; }
-        .input-area { padding: 12px 0; display: flex; gap: 10px; border-top: 1px solid #eee; background: white; }
-        #user-input { flex: 1; padding: 12px 18px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
-        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
-        footer { background: var(--primary); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 14px; border-top: 2px solid var(--accent); }
-        #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.94); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        #modal-content { position: relative; width: 92%; max-width: 960px; height: 82vh; display: flex; align-items: center; justify-content: center; }
-        #modal-img { max-width: 100%; max-height: 82vh; border-radius: 12px; object-fit: contain; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
-        #modal-caption { color: #eee; margin-top: 16px; text-align: center; font-size: 15px; max-width: 90%; }
-        .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.25); border: none; color: white; font-size: 30px; padding: 14px 18px; cursor: pointer; border-radius: 50%; z-index: 10; backdrop-filter: blur(4px); }
-        #prev-img { left: 16px; }
-        #next-img { right: 16px; }
-        #close-modal { position: absolute; top: 16px; right: 16px; background: #d32f2f; color: white; font-size: 22px; padding: 8px 14px; border-radius: 50%; border: none; cursor: pointer; z-index: 11; }
+        .bot { background: #e3f2fd; color: var(--text-color); align-self: flex-start; }
+        .input-area {
+            padding: 12px 0;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid #eee;
+            background: white;
+        }
+        #user-input {
+            flex: 1;
+            padding: 12px 18px;
+            border: 1px solid #ddd;
+            border-radius: 30px;
+            outline: none;
+            font-size: 15px;
+        }
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        footer {
+            background: var(--primary);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 2000;
+            color: white;
+            font-size: 14px;
+            border-top: 2px solid var(--accent);
+        }
+        #img-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #modal-content {
+            position: relative;
+            width: 90%;
+            max-width: 940px;
+            height: 80vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #modal-img {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 12px;
+            object-fit: contain;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+        }
+        #modal-loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+        }
+        #modal-caption {
+            color: white;
+            margin-top: 16px;
+            text-align: center;
+            font-size: 15px;
+            max-width: 90%;
+        }
+        .modal-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.3);
+            border: none;
+            color: white;
+            font-size: 30px;
+            padding: 14px 18px;
+            cursor: pointer;
+            border-radius: 50%;
+            z-index: 10;
+        }
+        #prev-img { left: 12px; }
+        #next-img { right: 12px; }
+        #close-modal {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #e74c3c;
+            color: white;
+            font-size: 22px;
+            padding: 8px 12px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            z-index: 11;
+        }
         .hidden { display: none !important; }
-        .suggest-item { background: #ffebee; color: #c62828; padding: 12px 16px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid #ffcdd2; font-size: 14.5px; transition: 0.2s; }
-        .suggest-item:hover { background: #ffcdd2; }
+        .suggest-item {
+            background: #e3f2fd;
+            color: var(--primary);
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin-top: 10px;
+            cursor: pointer;
+            border: 1px solid #bbdefb;
+            transition: 0.2s;
+        }
+        .suggest-item:hover { background: #bbdefb; }
         .video-container { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
-        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
-        .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        .video-frame {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #000;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
+        .video-frame iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
         @media (max-width: 768px) {
             #sidebar { width: 85%; right: -85%; }
-            header { height: 56px; padding: 10px 16px; }
+            header { height: 55px; padding: 10px 15px; }
             .logo { font-size: 16px; }
-            .logo img { height: 36px; }
+            .logo img { height: 35px; }
         }
     </style>
 </head>
@@ -72,9 +287,9 @@
         <div class="sidebar-section">
             <h3>Công cụ Bản đồ</h3>
             <div class="content">
-                <input type="text" id="s-input" placeholder="Tìm địa danh trong TP.HCM..." style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px;">
-                <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc & xem</button>
-                <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa hết marker</button>
+                <input type="text" id="s-input" placeholder="Tìm địa danh / tòa nhà ở TP.HCM..." style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px;">
+                <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc & hỏi AI</button>
+                <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa marker</button>
             </div>
         </div>
 
@@ -82,15 +297,15 @@
             <h3>Chat với AI</h3>
             <div class="content">
                 <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Mở Hội thoại</button>
-                <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF lịch sử</button>
-                <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa lịch sử chat</button>
+                <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF</button>
+                <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa lịch sử</button>
             </div>
         </div>
 
         <div id="chat-container">
             <div id="chat-box"></div>
             <div class="input-area">
-                <input type="text" id="user-input" placeholder="Hỏi về bất kỳ nơi nào ở Sài Gòn..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <input type="text" id="user-input" placeholder="Hỏi về Landmark 81, Bitexco, phố đi bộ..." onkeypress="if(event.key==='Enter') sendMessage()">
                 <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
             </div>
         </div>
@@ -104,8 +319,9 @@
 <!-- Modal xem ảnh lớn -->
 <div id="img-modal" class="hidden">
     <div id="modal-content">
+        <div id="modal-loading">Đang tải ảnh...</div>
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
-        <img id="modal-img" src="" alt="Ảnh lớn">
+        <img id="modal-img" src="" alt="Ảnh lớn" onload="document.getElementById('modal-loading').style.display='none'">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
         <button id="close-modal">×</button>
     </div>
@@ -129,7 +345,7 @@
         document.getElementById('chat-container').style.display = 'flex';
         const box = document.getElementById('chat-box');
         if (tab === 'chat' && box.innerHTML === '') {
-            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố nào ở TP.HCM nhé! Sài Gòn 2026 đang rất thú vị đấy 🇻🇳</div>';
+            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình về bất kỳ địa danh, tòa nhà, khu phố nào ở TP.HCM nhé! Sài Gòn 2026 đang rất thú vị đấy 🇻🇳</div>';
         }
     }
 
@@ -140,19 +356,21 @@
 
     async function findLoc() {
         const q = document.getElementById('s-input').value.trim();
-        if (!q) return alert("Vui lòng nhập tên địa danh trong TP.HCM");
+        if (!q) return alert("Vui lòng nhập tên địa danh hoặc tòa nhà trong TP.HCM");
 
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&city=Ho%20Chi%20Minh%20City&q=${encodeURIComponent(q)}`);
+        // Tăng độ chính xác tìm kiếm
+        const searchQuery = q + " Ho Chi Minh City Vietnam";
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&viewbox=106.4,10.3,107.1,10.9&bounded=1&q=${encodeURIComponent(searchQuery)}`);
         const data = await res.json();
 
         if (data && data[0] && data[0].lat && data[0].lon) {
             const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-            map.setView(pos, 15);
-            const popupContent = `<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:#d32f2f;color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>`;
+            map.setView(pos, 16);
+            const popupContent = `<b>${q}</b><br><button onclick="askAI('${q.replace(/'/g,"\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>`;
             const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
             markers.push(m);
         } else {
-            alert("Không tìm thấy địa danh này trong TP.HCM hoặc nhập chưa chính xác.");
+            alert("Không tìm thấy địa danh/tòa nhà này trong TP.HCM. Hãy thử tên chính xác hơn (ví dụ: Landmark 81, Bitexco Financial Tower).");
         }
     }
 
@@ -175,15 +393,15 @@
         const contentDiv = document.createElement('div');
 
         let htmlText = (data.text || "").replace(/\n/g, '<br>')
-                                       .replace(/## (.*?)<br>/g, '<h2 style="margin:16px 0 8px;color:#b71c1c;">$1</h2>')
-                                       .replace(/### (.*?)<br>/g, '<h3 style="margin:14px 0 6px;color:#d32f2f;">$1</h3>')
+                                       .replace(/## (.*?)<br>/g, '<h2 style="margin:16px 0 8px;color:#004a7c;">$1</h2>')
+                                       .replace(/### (.*?)<br>/g, '<h3 style="margin:14px 0 6px;color:#0066cc;">$1</h3>')
                                        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
                                        .replace(/\*(.*?)\*/g, '<i>$1</i>');
         contentDiv.innerHTML = htmlText;
 
         // Hình ảnh thực tế
-        if (data.images?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#d32f2f;">📸 Hình ảnh thực tế hiện nay:</div>';
+        if (data.images && data.images.length) {
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">📸 Hình ảnh thực tế hiện nay:</div>';
             const gallery = document.createElement('div');
             gallery.style.display = 'grid';
             gallery.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
@@ -202,8 +420,8 @@
         }
 
         // Video hiện tại
-        if (data.youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#c62828;">🎥 Video trải nghiệm thực tế (tiếng Việt):</div>';
+        if (data.youtube_links && data.youtube_links.length) {
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#c0392b;">🎥 Video trải nghiệm thực tế (tiếng Việt):</div>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
@@ -215,9 +433,9 @@
             contentDiv.appendChild(vCon);
         }
 
-        // Tương lai TP.HCM
-        if (data.future_images?.length) {
-            contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#d32f2f;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
+        // Hình ảnh tương lai
+        if (data.future_images && data.future_images.length) {
+            contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
             const futGallery = document.createElement('div');
             futGallery.style.display = 'grid';
             futGallery.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
@@ -235,8 +453,8 @@
             contentDiv.appendChild(futGallery);
         }
 
-        if (data.future_youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#c62828;">🎥 Video dự án & tương lai TP.HCM:</div>';
+        if (data.future_youtube_links && data.future_youtube_links.length) {
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#c0392b;">🎥 Video dự án & tương lai TP.HCM (tiếng Việt):</div>';
             const futVCon = document.createElement('div');
             futVCon.className = 'video-container';
             data.future_youtube_links.forEach(link => {
@@ -248,8 +466,8 @@
             contentDiv.appendChild(futVCon);
         }
 
-        // Gợi ý câu hỏi
-        if (data.suggestions?.length) {
+        // Gợi ý
+        if (data.suggestions && data.suggestions.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;">💡 Gợi ý tiếp theo:</div>';
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
@@ -291,10 +509,6 @@
         }
     }
 
-    async function loadHistory() {
-        // Optional: nếu muốn load lịch sử khi mở tab history
-    }
-
     function exportPdf() {
         window.location.href = '/export_pdf';
     }
@@ -309,6 +523,7 @@
     function showImg(images, index) {
         currentImages = images;
         currentImgIndex = index;
+        document.getElementById('modal-loading').style.display = 'flex';
         updateModalImg();
         document.getElementById('img-modal').classList.remove('hidden');
     }
@@ -317,28 +532,35 @@
         if (!currentImages[currentImgIndex]) return;
         const img = currentImages[currentImgIndex];
         document.getElementById('modal-img').src = img.url;
-        document.getElementById('modal-caption').textContent = img.caption || 'Ảnh minh họa';
+        document.getElementById('modal-caption').textContent = img.caption || 'Ảnh minh họa TP.HCM';
         document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
     }
 
     document.getElementById('prev-img').onclick = (e) => {
         e.stopPropagation();
-        if (currentImgIndex > 0) currentImgIndex--;
-        updateModalImg();
+        if (currentImgIndex > 0) {
+            currentImgIndex--;
+            document.getElementById('modal-loading').style.display = 'flex';
+            updateModalImg();
+        }
     };
 
     document.getElementById('next-img').onclick = (e) => {
         e.stopPropagation();
-        if (currentImgIndex < currentImages.length - 1) currentImgIndex++;
-        updateModalImg();
+        if (currentImgIndex < currentImages.length - 1) {
+            currentImgIndex++;
+            document.getElementById('modal-loading').style.display = 'flex';
+            updateModalImg();
+        }
     };
 
     document.getElementById('close-modal').onclick = () => {
         document.getElementById('img-modal').classList.add('hidden');
+        document.getElementById('modal-loading').style.display = 'none';
     };
 
-    // Khởi động
+    // Khởi động chat mặc định
     toggleChat('chat');
 </script>
 </body>
