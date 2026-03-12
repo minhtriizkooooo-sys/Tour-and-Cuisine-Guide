@@ -26,7 +26,7 @@ Bạn CHỈ hỗ trợ thông tin du lịch **TP.HCM** (bao gồm mọi quận/h
 Nếu địa danh/tòa nhà/khu vực KHÔNG thuộc TP.HCM → Trả ngay JSON:
 {
   "is_valid": false,
-  "text": "Xin lỗi bạn nhé, mình chỉ am hiểu và hỗ trợ du lịch tại Sài Gòn – TP.HCM thôi! Nếu bạn hỏi về nơi khác, mình chưa rành lắm đâu. Hỏi mình về Landmark 81, phố đi bộ hay món ăn Sài Gòn đi nào! 😄"
+  "text": "Xin lỗi bạn nhé, mình chỉ hỗ trợ du lịch tại Sài Gòn – TP.HCM thôi! Bạn có thể hỏi về các vấn đề liên quan du lịch tại Sài Gòn TP. Hồ Chí Minh nhé! 😄"
 }
 
 Nếu HỢP LỆ: Trả về JSON **chi tiết cực kỳ phong phú** (tối thiểu 2500–3500 từ), viết bằng tiếng Việt **hay, cuốn hút, chuyên nghiệp** như bài viết báo du lịch cao cấp. Sử dụng markdown đẹp mắt:
@@ -241,3 +241,4 @@ def export_pdf():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=False)
+
