@@ -34,15 +34,34 @@
         #user-input { flex: 1; padding: 12px 18px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
         .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         footer { background: var(--primary); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 14px; border-top: 2px solid var(--accent); }
-        #img-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.94); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-        #modal-content { position: relative; width: 92%; max-width: 960px; height: 82vh; display: flex; align-items: center; justify-content: center; }
-        #modal-img { max-width: 100%; max-height: 82vh; border-radius: 12px; object-fit: contain; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
-        #modal-loading { position: absolute; inset: 0; background: rgba(0,0,0,0.5); color: white; font-size: 22px; display: flex; align-items: center; justify-content: center; border-radius: 12px; }
-        #modal-caption { color: #eee; margin-top: 16px; text-align: center; font-size: 15px; max-width: 90%; }
-        .modal-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.25); border: none; color: white; font-size: 30px; padding: 14px 18px; cursor: pointer; border-radius: 50%; z-index: 10; backdrop-filter: blur(4px); }
-        #prev-img { left: 16px; }
-        #next-img { right: 16px; }
-        #close-modal { position: absolute; top: 16px; right: 16px; background: #0066cc; color: white; font-size: 22px; padding: 8px 14px; border-radius: 50%; border: none; cursor: pointer; z-index: 11; }
+        #img-modal { 
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+        }
+        #modal-content { 
+            position: relative; width: 90%; max-width: 1000px; height: 85vh; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        #modal-img { 
+            max-width: 100%; max-height: 85vh; border-radius: 12px; object-fit: contain; 
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7); transition: opacity 0.3s;
+        }
+        #modal-loading { 
+            position: absolute; inset: 0; background: rgba(0,0,0,0.6); 
+            display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; border-radius: 12px;
+        }
+        #modal-caption { color: white; margin-top: 16px; text-align: center; font-size: 15px; max-width: 90%; }
+        .modal-nav { 
+            position: absolute; top: 50%; transform: translateY(-50%); 
+            background: rgba(255,255,255,0.3); border: none; color: white; font-size: 32px; 
+            padding: 16px 20px; cursor: pointer; border-radius: 50%; z-index: 10; backdrop-filter: blur(6px);
+        }
+        #prev-img { left: 20px; }
+        #next-img { right: 20px; }
+        #close-modal { 
+            position: absolute; top: 20px; right: 20px; background: #0066cc; color: white; 
+            font-size: 24px; padding: 10px 14px; border-radius: 50%; border: none; cursor: pointer; z-index: 11;
+        }
         .hidden { display: none !important; }
         .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
         .suggest-item:hover { background: #bbdefb; }
@@ -54,6 +73,7 @@
             header { height: 56px; padding: 10px 16px; }
             .logo { font-size: 16px; }
             .logo img { height: 36px; }
+            .modal-nav { font-size: 28px; padding: 12px 16px; }
         }
     </style>
 </head>
@@ -99,12 +119,12 @@
     <div>Hotline: <a href="tel:0908083566" style="color:#fff176;font-weight:900;text-decoration:none;">0908.08.35.66</a></div>
 </footer>
 
-<!-- Modal xem ảnh lớn -->
+<!-- Modal xem ảnh lớn – ĐÃ FIX HOÀN CHỈNH -->
 <div id="img-modal" class="hidden">
     <div id="modal-content">
-        <div id="modal-loading">Đang tải ảnh...</div>
+        <div id="modal-loading">Đang tải ảnh lớn...</div>
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
-        <img id="modal-img" src="" alt="Ảnh lớn" onload="document.getElementById('modal-loading').style.display='none'">
+        <img id="modal-img" src="" alt="Ảnh lớn" onload="document.getElementById('modal-loading').style.display='none'" onerror="document.getElementById('modal-loading').innerHTML='Lỗi tải ảnh'">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
         <button id="close-modal">×</button>
     </div>
@@ -115,9 +135,11 @@
 <script>
     const map = L.map('map', { zoomControl: false, attributionControl: false, minZoom: 11, maxZoom: 18 }).setView([10.7769, 106.7009], 12);
     L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
+
     let markers = [];
     let currentImages = [];
     let currentImgIndex = 0;
+
     const sidebar = document.getElementById('sidebar');
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
@@ -129,10 +151,12 @@
             box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố nào ở TP.HCM nhé! Sài Gòn 2026 đang rất thú vị đấy 🇻🇳</div>';
         }
     }
+
     function clearMap() {
         markers.forEach(m => map.removeLayer(m));
         markers = [];
     }
+
     async function findLoc() {
         const q = document.getElementById('s-input').value.trim();
         if (!q) return alert("Vui lòng nhập tên địa danh trong TP.HCM");
@@ -141,18 +165,20 @@
         if (data && data[0] && data[0].lat && data[0].lon) {
             const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
             map.setView(pos, 15);
-            const popupContent = `<b>${q}</b><br><button onclick="askAI('${q}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>`;
+            const popupContent = `<b>${q}</b><br><button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>`;
             const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
             markers.push(m);
         } else {
             alert("Không tìm thấy địa danh này trong TP.HCM hoặc nhập chưa chính xác.");
         }
     }
+
     function askAI(loc) {
         toggleChat('chat');
         document.getElementById('user-input').value = `Thông tin du lịch chi tiết về ${loc} tại TP.HCM năm 2026`;
         sendMessage();
     }
+
     function createMessageElement(role, content) {
         const div = document.createElement('div');
         div.className = `msg ${role}`;
@@ -168,6 +194,7 @@
                                        .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
                                        .replace(/\*(.*?)\*/g, '<i>$1</i>');
         contentDiv.innerHTML = htmlText;
+
         // Hình ảnh thực tế
         if (data.images?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">📸 Hình ảnh thực tế hiện nay:</div>';
@@ -178,15 +205,20 @@
             data.images.forEach((img, idx) => {
                 const imgEl = document.createElement('img');
                 imgEl.src = img.url;
+                imgEl.alt = img.caption || 'Ảnh thực tế';
                 imgEl.style.width = '100%';
                 imgEl.style.borderRadius = '10px';
                 imgEl.style.cursor = 'pointer';
                 imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
+                imgEl.style.transition = 'transform 0.2s';
+                imgEl.onmouseover = () => imgEl.style.transform = 'scale(1.05)';
+                imgEl.onmouseout = () => imgEl.style.transform = 'scale(1)';
                 imgEl.onclick = () => showImg(data.images, idx);
                 gallery.appendChild(imgEl);
             });
             contentDiv.appendChild(gallery);
         }
+
         // Video hiện tại
         if (data.youtube_links?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video trải nghiệm thực tế (tiếng Việt):</div>';
@@ -200,6 +232,7 @@
             });
             contentDiv.appendChild(vCon);
         }
+
         // Tương lai TP.HCM
         if (data.future_images?.length) {
             contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
@@ -210,15 +243,20 @@
             data.future_images.forEach((img, idx) => {
                 const imgEl = document.createElement('img');
                 imgEl.src = img.url;
+                imgEl.alt = img.caption || 'Ảnh tương lai';
                 imgEl.style.width = '100%';
                 imgEl.style.borderRadius = '10px';
                 imgEl.style.cursor = 'pointer';
                 imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
+                imgEl.style.transition = 'transform 0.2s';
+                imgEl.onmouseover = () => imgEl.style.transform = 'scale(1.05)';
+                imgEl.onmouseout = () => imgEl.style.transform = 'scale(1)';
                 imgEl.onclick = () => showImg(data.future_images, idx);
                 futGallery.appendChild(imgEl);
             });
             contentDiv.appendChild(futGallery);
         }
+
         if (data.future_youtube_links?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video dự án & tương lai TP.HCM:</div>';
             const futVCon = document.createElement('div');
@@ -231,7 +269,8 @@
             });
             contentDiv.appendChild(futVCon);
         }
-        // Gợi ý câu hỏi
+
+        // Gợi ý
         if (data.suggestions?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;">💡 Gợi ý tiếp theo:</div>';
             data.suggestions.forEach(s => {
@@ -245,9 +284,11 @@
                 contentDiv.appendChild(btn);
             });
         }
+
         div.appendChild(contentDiv);
         return div;
     }
+
     async function sendMessage() {
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
@@ -269,30 +310,37 @@
             console.error(e);
         }
     }
+
     function exportPdf() {
         window.location.href = '/export_pdf';
     }
+
     async function clearHistory() {
         if (!confirm("Xóa toàn bộ lịch sử trò chuyện?")) return;
         await fetch('/clear_history', { method: 'POST' });
         location.reload();
     }
-    // Modal ảnh – ĐÃ FIX HOÀN CHỈNH
+
+    // === MODAL ẢNH – ĐÃ FIX HOÀN CHỈNH ===
     function showImg(images, index) {
+        if (!images || !images.length) return;
         currentImages = images;
         currentImgIndex = index;
         document.getElementById('modal-loading').style.display = 'flex';
+        document.getElementById('modal-img').src = ''; // reset để trigger onload lại
         updateModalImg();
         document.getElementById('img-modal').classList.remove('hidden');
     }
+
     function updateModalImg() {
-        if (!currentImages[currentImgIndex]) return;
-        const img = currentImages[currentImgIndex];
-        document.getElementById('modal-img').src = img.url;
-        document.getElementById('modal-caption').textContent = img.caption || 'Ảnh minh họa';
+        const imgData = currentImages[currentImgIndex];
+        if (!imgData) return;
+        document.getElementById('modal-img').src = imgData.url;
+        document.getElementById('modal-caption').textContent = imgData.caption || 'Ảnh minh họa TP.HCM';
         document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
     }
+
     document.getElementById('prev-img').onclick = (e) => {
         e.stopPropagation();
         if (currentImgIndex > 0) {
@@ -301,6 +349,7 @@
             updateModalImg();
         }
     };
+
     document.getElementById('next-img').onclick = (e) => {
         e.stopPropagation();
         if (currentImgIndex < currentImages.length - 1) {
@@ -309,10 +358,12 @@
             updateModalImg();
         }
     };
+
     document.getElementById('close-modal').onclick = () => {
         document.getElementById('img-modal').classList.add('hidden');
         document.getElementById('modal-loading').style.display = 'none';
     };
+
     // Khởi động
     toggleChat('chat');
 </script>
