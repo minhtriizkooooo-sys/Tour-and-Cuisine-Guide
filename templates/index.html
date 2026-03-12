@@ -119,12 +119,12 @@
     <div>Hotline: <a href="tel:0908083566" style="color:#fff176;font-weight:900;text-decoration:none;">0908.08.35.66</a></div>
 </footer>
 
-<!-- Modal xem ảnh lớn – ĐÃ FIX HOÀN CHỈNH -->
+<!-- Modal ảnh lớn – ĐÃ FIX HOÀN CHỈNH -->
 <div id="img-modal" class="hidden">
     <div id="modal-content">
         <div id="modal-loading">Đang tải ảnh lớn...</div>
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
-        <img id="modal-img" src="" alt="Ảnh lớn" onload="document.getElementById('modal-loading').style.display='none'" onerror="document.getElementById('modal-loading').innerHTML='Lỗi tải ảnh'">
+        <img id="modal-img" src="" alt="Ảnh lớn" loading="eager" onload="document.getElementById('modal-loading').style.display='none'" onerror="document.getElementById('modal-loading').innerHTML='Không tải được ảnh'">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
         <button id="close-modal">×</button>
     </div>
@@ -211,9 +211,11 @@
                 imgEl.style.cursor = 'pointer';
                 imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
                 imgEl.style.transition = 'transform 0.2s';
-                imgEl.onmouseover = () => imgEl.style.transform = 'scale(1.05)';
-                imgEl.onmouseout = () => imgEl.style.transform = 'scale(1)';
-                imgEl.onclick = () => showImg(data.images, idx);
+                imgEl.dataset.index = idx;  // Lưu index để debug
+                imgEl.onclick = () => {
+                    console.log('Click ảnh index:', idx, 'URL:', img.url);  // Debug
+                    showImg(data.images, idx);
+                };
                 gallery.appendChild(imgEl);
             });
             contentDiv.appendChild(gallery);
@@ -248,10 +250,11 @@
                 imgEl.style.borderRadius = '10px';
                 imgEl.style.cursor = 'pointer';
                 imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
-                imgEl.style.transition = 'transform 0.2s';
-                imgEl.onmouseover = () => imgEl.style.transform = 'scale(1.05)';
-                imgEl.onmouseout = () => imgEl.style.transform = 'scale(1)';
-                imgEl.onclick = () => showImg(data.future_images, idx);
+                imgEl.dataset.index = idx;
+                imgEl.onclick = () => {
+                    console.log('Click ảnh tương lai index:', idx, 'URL:', img.url);
+                    showImg(data.future_images, idx);
+                };
                 futGallery.appendChild(imgEl);
             });
             contentDiv.appendChild(futGallery);
@@ -321,22 +324,32 @@
         location.reload();
     }
 
-    // === MODAL ẢNH – ĐÃ FIX HOÀN CHỈNH ===
+    // MODAL ẢNH – ĐÃ FIX HOÀN CHỈNH & CÓ DEBUG
     function showImg(images, index) {
-        if (!images || !images.length) return;
+        console.log('showImg called with index:', index, 'images length:', images.length);
+        if (!images || images.length === 0 || index < 0 || index >= images.length) {
+            console.warn('Invalid images array or index');
+            return;
+        }
         currentImages = images;
         currentImgIndex = index;
-        document.getElementById('modal-loading').style.display = 'flex';
-        document.getElementById('modal-img').src = ''; // reset để trigger onload lại
-        updateModalImg();
+        const loading = document.getElementById('modal-loading');
+        const modalImg = document.getElementById('modal-img');
+        loading.style.display = 'flex';
+        modalImg.src = ''; // reset để trigger onload
+        modalImg.src = images[index].url;
+        document.getElementById('modal-caption').textContent = images[index].caption || 'Ảnh minh họa';
+        document.getElementById('prev-img').style.display = index > 0 ? 'block' : 'none';
+        document.getElementById('next-img').style.display = index < images.length - 1 ? 'block' : 'none';
         document.getElementById('img-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden'; // Ngăn scroll body khi modal mở
     }
 
     function updateModalImg() {
         const imgData = currentImages[currentImgIndex];
         if (!imgData) return;
         document.getElementById('modal-img').src = imgData.url;
-        document.getElementById('modal-caption').textContent = imgData.caption || 'Ảnh minh họa TP.HCM';
+        document.getElementById('modal-caption').textContent = imgData.caption || 'Ảnh minh họa';
         document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
     }
@@ -362,6 +375,7 @@
     document.getElementById('close-modal').onclick = () => {
         document.getElementById('img-modal').classList.add('hidden');
         document.getElementById('modal-loading').style.display = 'none';
+        document.body.style.overflow = 'auto'; // Bật lại scroll body
     };
 
     // Khởi động
