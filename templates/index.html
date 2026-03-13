@@ -45,6 +45,7 @@
         #modal-img {
             max-width: 100%; max-height: 85vh; border-radius: 12px; object-fit: contain;
             box-shadow: 0 10px 40px rgba(0,0,0,0.7); transition: opacity 0.4s ease;
+            opacity: 0;
         }
         #modal-loading {
             position: absolute; inset: 0; background: rgba(0,0,0,0.7);
@@ -71,8 +72,9 @@
         .video-container { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
         .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        /* Fix click trên ảnh gallery */
-        .gallery img { pointer-events: auto !important; user-select: none; cursor: pointer; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+        .gallery img { width: 100%; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.15); transition: transform 0.25s; cursor: pointer; }
+        .gallery img:hover { transform: scale(1.05); }
         @media (max-width: 768px) {
             #sidebar { width: 85%; right: -85%; }
             header { height: 56px; padding: 10px 16px; }
@@ -97,7 +99,7 @@
         <div class="sidebar-section">
             <h3>Công cụ Bản đồ</h3>
             <div class="content">
-                <input type="text" id="s-input" placeholder="Tìm địa danh trong TP.HCM..." style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px;">
+                <input type="text" id="s-input" placeholder="Tìm tòa nhà, địa danh, khu phố ở Sài Gòn..." style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px;">
                 <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc & xem</button>
                 <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa hết marker</button>
             </div>
@@ -129,7 +131,7 @@
     <div id="modal-content">
         <div id="modal-loading">Đang tải ảnh...</div>
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
-        <img id="modal-img" src="" alt="Ảnh lớn" loading="eager">
+        <img id="modal-img" src="" alt="Ảnh lớn" loading="eager" decoding="async">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
         <button id="close-modal">×</button>
     </div>
@@ -153,7 +155,7 @@
         document.getElementById('chat-container').style.display = 'flex';
         const box = document.getElementById('chat-box');
         if (tab === 'chat' && box.innerHTML === '') {
-            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố nào ở TP.HCM nhé! TP.HCM 2026 đang rất thú vị đấy 🇻🇳</div>';
+            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố, tòa nhà nào ở TP.HCM nhé! TP.HCM 2026 đang rất thú vị đấy 🇻🇳</div>';
         }
     }
 
@@ -163,18 +165,86 @@
     }
 
     async function findLoc() {
-        const q = document.getElementById('s-input').value.trim();
-        if (!q) return alert("Vui lòng nhập tên địa danh trong TP.HCM");
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&city=Ho%20Chi%20Minh%20City&q=${encodeURIComponent(q)}`);
-        const data = await res.json();
-        if (data && data[0] && data[0].lat && data[0].lon) {
-            const pos = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-            map.setView(pos, 15);
-            const popupContent = `<b>${q}</b><br><button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>`;
+        let q = document.getElementById('s-input').value.trim();
+        if (!q) return alert("Vui lòng nhập tên địa danh hoặc tòa nhà");
+
+        const qLower = q.toLowerCase().replace(/\s+/g, ' ').trim();
+
+        const queryVariants = [
+            q,
+            q + " TP.HCM",
+            q + " Ho Chi Minh City",
+            q + " Thành phố Hồ Chí Minh",
+            q + " Quận 1",
+            q + " District 1",
+            q + " Quận 7",
+            q + " District 7",
+            q.replace(/ifc/gi, "International Financial Centre"),
+            q.replace(/saigon marina/gi, "Grand Marina Saigon"),
+            q.replace(/saigon marina ifc/gi, "Grand Marina Saigon IFC"),
+            q.replace(/bitexco/gi, "Bitexco Financial Tower"),
+            q.replace(/landmark/gi, "Landmark 81 Vinhomes"),
+            q.replace(/vinhomes landmark/gi, "Landmark 81"),
+            q.replace(/tháp bitexco/gi, "Bitexco Financial Tower"),
+            q.replace(/tháp tài chính/gi, "Financial Tower") + " TP.HCM",
+        ];
+
+        let found = false;
+        let bestResult = null;
+        let bestZoom = 16.5;
+
+        for (const variant of queryVariants) {
+            if (found) break;
+
+            const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&q=${encodeURIComponent(variant)}&addressdetails=1&namedetails=1&limit=5`;
+
+            try {
+                const res = await fetch(url, {
+                    headers: { 'User-Agent': 'HCMC-Travel-AI-Guide/1.0 (contact: dev@example.com)' }
+                });
+                const data = await res.json();
+
+                if (data && data.length > 0) {
+                    const valid = data.find(item =>
+                        (item.display_name || '').includes("Thành phố Hồ Chí Minh") ||
+                        (item.display_name || '').includes("Ho Chi Minh City") ||
+                        (item.address?.city || '').includes("Hồ Chí Minh") ||
+                        (item.address?.city_district || '').match(/Quận \d|District \d/)
+                    );
+
+                    if (valid) {
+                        bestResult = valid;
+                        found = true;
+                    } else if (!bestResult && data[0]) {
+                        bestResult = data[0];
+                    }
+                }
+            } catch (err) {
+                console.warn(`Query thất bại: ${variant}`, err);
+            }
+        }
+
+        if (bestResult) {
+            const pos = [parseFloat(bestResult.lat), parseFloat(bestResult.lon)];
+            map.setView(pos, bestZoom);
+
+            const displayName = (bestResult.namedetails?.name || bestResult.display_name?.split(',')[0] || q);
+            const addressPart = bestResult.display_name?.split(', ').slice(1).join(', ') || 'TP.HCM';
+
+            const popupContent = `
+                <b>${displayName}</b><br>
+                <small>${addressPart}</small><br>
+                <button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>
+            `;
+
             const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
             markers.push(m);
         } else {
-            alert("Không tìm thấy địa danh này trong TP.HCM hoặc nhập chưa chính xác.");
+            alert(`Không tìm thấy "${q}" trong dữ liệu bản đồ hiện tại.\n\n` +
+                  `Gợi ý:\n` +
+                  `• Thử thêm từ khóa như "TP.HCM", "Quận 1", "tòa nhà", "tháp"\n` +
+                  `• Ví dụ: "saigon marina quận 1", "bitexco financial tower", "landmark 81"\n` +
+                  `• Hoặc hỏi trực tiếp AI trong ô chat bên dưới nhé!`);
         }
     }
 
@@ -202,36 +272,23 @@
                                        .replace(/\*(.*?)\*/g, '<i>$1</i>');
         contentDiv.innerHTML = htmlText;
 
-        // Hình ảnh thực tế
         if (data.images?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">📸 Hình ảnh thực tế hiện nay:</div>';
             const gallery = document.createElement('div');
             gallery.className = 'gallery';
-            gallery.style.display = 'grid';
-            gallery.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
-            gallery.style.gap = '12px';
-
             data.images.forEach((img, idx) => {
                 const imgEl = document.createElement('img');
                 imgEl.src = img.url;
                 imgEl.alt = img.caption || 'Ảnh thực tế';
-                imgEl.style.width = '100%';
-                imgEl.style.borderRadius = '10px';
-                imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
-                imgEl.style.transition = 'transform 0.2s';
                 imgEl.dataset.index = idx;
-                imgEl.addEventListener('click', () => {
-                    console.log(`[Gallery click] index: ${idx} | url: ${img.url}`);
-                    showImg(data.images, idx);
-                });
+                imgEl.dataset.galleryType = 'current';
                 gallery.appendChild(imgEl);
             });
             contentDiv.appendChild(gallery);
         }
 
-        // Video hiện tại
         if (data.youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video trải nghiệm thực tế (tiếng Việt):</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video trải nghiệm thực tế:</div>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
@@ -243,35 +300,23 @@
             contentDiv.appendChild(vCon);
         }
 
-        // Tầm nhìn tương lai TP.HCM
         if (data.future_images?.length) {
             contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
             const futGallery = document.createElement('div');
             futGallery.className = 'gallery';
-            futGallery.style.display = 'grid';
-            futGallery.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
-            futGallery.style.gap = '12px';
-
             data.future_images.forEach((img, idx) => {
                 const imgEl = document.createElement('img');
                 imgEl.src = img.url;
                 imgEl.alt = img.caption || 'Ảnh tương lai';
-                imgEl.style.width = '100%';
-                imgEl.style.borderRadius = '10px';
-                imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
-                imgEl.style.transition = 'transform 0.2s';
                 imgEl.dataset.index = idx;
-                imgEl.addEventListener('click', () => {
-                    console.log(`[Future Gallery click] index: ${idx} | url: ${img.url}`);
-                    showImg(data.future_images, idx);
-                });
+                imgEl.dataset.galleryType = 'future';
                 futGallery.appendChild(imgEl);
             });
             contentDiv.appendChild(futGallery);
         }
 
         if (data.future_youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video dự án & tương lai TP.HCM:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video dự án & tương lai:</div>';
             const futVCon = document.createElement('div');
             futVCon.className = 'video-container';
             data.future_youtube_links.forEach(link => {
@@ -283,7 +328,6 @@
             contentDiv.appendChild(futVCon);
         }
 
-        // Gợi ý
         if (data.suggestions?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;">💡 Gợi ý tiếp theo:</div>';
             data.suggestions.forEach(s => {
@@ -302,6 +346,29 @@
         return div;
     }
 
+    document.getElementById('chat-box').addEventListener('click', function(e) {
+        const img = e.target.closest('.gallery img');
+        if (img) {
+            const index = parseInt(img.dataset.index);
+            const galleryType = img.dataset.galleryType;
+            const msgDiv = img.closest('.msg.bot');
+            if (!msgDiv) return;
+
+            const hiddenData = msgDiv.querySelector('[data-raw]');
+            if (!hiddenData) return;
+            const data = JSON.parse(hiddenData.dataset.raw);
+
+            let imagesArray = galleryType === 'current' ? (data.images || []) : (data.future_images || []);
+
+            if (imagesArray.length > 0) {
+                console.log(`[Gallery click] Type: ${galleryType}, Index: ${index}, Total: ${imagesArray.length}, URL: ${imagesArray[index]?.url}`);
+                showImg(imagesArray, index);
+            } else {
+                console.warn('Không tìm thấy mảng ảnh cho gallery này');
+            }
+        }
+    });
+
     async function sendMessage() {
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
@@ -319,10 +386,17 @@
                 body: JSON.stringify({ msg })
             });
             const data = await res.json();
-            box.appendChild(createMessageElement('bot', data));
+
+            const botMsg = createMessageElement('bot', data);
+            const hiddenData = document.createElement('div');
+            hiddenData.style.display = 'none';
+            hiddenData.dataset.raw = JSON.stringify(data);
+            botMsg.appendChild(hiddenData);
+
+            box.appendChild(botMsg);
             box.scrollTop = box.scrollHeight;
         } catch (e) {
-            console.error(e);
+            console.error('Lỗi gửi tin nhắn:', e);
         }
     }
 
@@ -336,11 +410,11 @@
         location.reload();
     }
 
-    // ──────────────── MODAL IMAGE ────────────────
+    // ──────────────── MODAL ────────────────
     function showImg(images, index) {
-        console.log(`showImg() called → index: ${index}, total: ${images.length}`);
-        if (!images || images.length === 0 || index < 0 || index >= images.length) {
-            console.warn('Invalid image index or empty array');
+        console.log(`[showImg] called → index: ${index}, total images: ${images.length}`);
+        if (!images || !images.length || index < 0 || index >= images.length) {
+            console.warn('[showImg] Invalid images array or index');
             return;
         }
 
@@ -353,7 +427,13 @@
 
         loading.style.display = 'flex';
         modalImg.style.opacity = '0';
-        modalImg.src = images[index].url || '';
+        modalImg.src = ''; // reset src để trigger onload lại
+
+        // Đợi 1 frame nhỏ để reset hoàn toàn trước khi set src mới
+        requestAnimationFrame(() => {
+            modalImg.src = images[index].url || '';
+        });
+
         captionEl.textContent = images[index].caption || 'Ảnh minh họa';
 
         document.getElementById('prev-img').style.display = index > 0 ? 'block' : 'none';
@@ -364,29 +444,38 @@
     }
 
     function updateModalImg() {
-        if (!currentImages[currentImgIndex]) return;
         const imgData = currentImages[currentImgIndex];
+        if (!imgData) return;
+
         const modalImg = document.getElementById('modal-img');
         const loading = document.getElementById('modal-loading');
         const captionEl = document.getElementById('modal-caption');
 
         loading.style.display = 'flex';
         modalImg.style.opacity = '0';
-        modalImg.src = imgData.url || '';
+        modalImg.src = '';
+
+        requestAnimationFrame(() => {
+            modalImg.src = imgData.url || '';
+        });
+
         captionEl.textContent = imgData.caption || 'Ảnh minh họa';
 
         document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
     }
 
-    document.getElementById('modal-img').onload = () => {
+    const modalImgEl = document.getElementById('modal-img');
+    modalImgEl.onload = () => {
+        console.log('[modal-img] onload thành công');
         document.getElementById('modal-loading').style.display = 'none';
-        document.getElementById('modal-img').style.opacity = '1';
+        modalImgEl.style.opacity = '1';
     };
 
-    document.getElementById('modal-img').onerror = () => {
-        document.getElementById('modal-loading').innerHTML = 'Không tải được ảnh<br><small style="font-size:16px">(có thể do link hết hạn)</small>';
-        document.getElementById('modal-img').style.opacity = '0.3';
+    modalImgEl.onerror = () => {
+        console.error('[modal-img] lỗi load ảnh');
+        document.getElementById('modal-loading').innerHTML = 'Không tải được ảnh<br><small>(link có thể hết hạn hoặc lỗi mạng)</small>';
+        modalImgEl.style.opacity = '0.4';
     };
 
     document.getElementById('prev-img').onclick = (e) => {
