@@ -34,33 +34,36 @@
         #user-input { flex: 1; padding: 12px 18px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
         .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         footer { background: var(--primary); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 14px; border-top: 2px solid var(--accent); }
-        #img-modal { 
-            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; 
+        #img-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
         }
-        #modal-content { 
-            position: relative; width: 90%; max-width: 1000px; height: 85vh; 
+        #modal-content {
+            position: relative; width: 90%; max-width: 1000px; height: 85vh;
             display: flex; align-items: center; justify-content: center;
         }
-        #modal-img { 
-            max-width: 100%; max-height: 85vh; border-radius: 12px; object-fit: contain; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.7); transition: opacity 0.3s;
+        #modal-img {
+            max-width: 100%; max-height: 85vh; border-radius: 12px; object-fit: contain;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7); transition: opacity 0.4s ease;
         }
-        #modal-loading { 
-            position: absolute; inset: 0; background: rgba(0,0,0,0.6); 
+        #modal-loading {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.7);
             display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; border-radius: 12px;
         }
         #modal-caption { color: white; margin-top: 16px; text-align: center; font-size: 15px; max-width: 90%; }
-        .modal-nav { 
-            position: absolute; top: 50%; transform: translateY(-50%); 
-            background: rgba(255,255,255,0.3); border: none; color: white; font-size: 32px; 
-            padding: 16px 20px; cursor: pointer; border-radius: 50%; z-index: 10; backdrop-filter: blur(6px);
+        .modal-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            background: rgba(255,255,255,0.25); border: none; color: white; font-size: 36px;
+            padding: 16px 20px; cursor: pointer; border-radius: 50%; z-index: 10; backdrop-filter: blur(8px);
+            transition: background 0.2s;
         }
+        .modal-nav:hover { background: rgba(255,255,255,0.4); }
         #prev-img { left: 20px; }
         #next-img { right: 20px; }
-        #close-modal { 
-            position: absolute; top: 20px; right: 20px; background: #0066cc; color: white; 
-            font-size: 24px; padding: 10px 14px; border-radius: 50%; border: none; cursor: pointer; z-index: 11;
+        #close-modal {
+            position: absolute; top: 20px; right: 20px; background: var(--primary); color: white;
+            font-size: 28px; width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer; z-index: 11;
+            display: flex; align-items: center; justify-content: center; line-height: 1;
         }
         .hidden { display: none !important; }
         .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
@@ -68,12 +71,14 @@
         .video-container { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
         .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        /* Fix click trên ảnh gallery */
+        .gallery img { pointer-events: auto !important; user-select: none; cursor: pointer; }
         @media (max-width: 768px) {
             #sidebar { width: 85%; right: -85%; }
             header { height: 56px; padding: 10px 16px; }
             .logo { font-size: 16px; }
             .logo img { height: 36px; }
-            .modal-nav { font-size: 28px; padding: 12px 16px; }
+            .modal-nav { font-size: 30px; padding: 12px 16px; }
         }
     </style>
 </head>
@@ -119,18 +124,14 @@
     <div>Hotline: <a href="tel:0908083566" style="color:#fff176;font-weight:900;text-decoration:none;">0908.08.35.66</a></div>
 </footer>
 
-<!-- Modal ảnh lớn – ĐÃ FIX HOÀN CHỈNH -->
+<!-- Modal ảnh lớn -->
 <div id="img-modal" class="hidden">
     <div id="modal-content">
-        <div id="modal-loading">Đang tải ảnh lớn...</div>
+        <div id="modal-loading">Đang tải ảnh...</div>
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
-        <img id="modal-img" src="" alt="Ảnh lớn" loading="eager" onload="document.getElementById('modal-loading').style.display='none'" onerror="document.getElementById('modal-loading').innerHTML='Không tải được ảnh'">
+        <img id="modal-img" src="" alt="Ảnh lớn" loading="eager">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
         <button id="close-modal">×</button>
-        
-        <div id="prev-arrow" class="nav-arrow">←</div>
-        <div id="next-arrow" class="nav-arrow">→</div> 
-        
     </div>
     <div id="modal-caption"></div>
 </div>
@@ -143,8 +144,8 @@
     let markers = [];
     let currentImages = [];
     let currentImgIndex = 0;
-
     const sidebar = document.getElementById('sidebar');
+
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
@@ -190,8 +191,10 @@
             div.textContent = content;
             return div;
         }
+
         let data = typeof content === 'string' ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
+
         let htmlText = (data.text || "").replace(/\n/g, '<br>')
                                        .replace(/## (.*?)<br>/g, '<h2 style="margin:16px 0 8px;color:#004a7c;">$1</h2>')
                                        .replace(/### (.*?)<br>/g, '<h3 style="margin:14px 0 6px;color:#0066cc;">$1</h3>')
@@ -203,23 +206,24 @@
         if (data.images?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">📸 Hình ảnh thực tế hiện nay:</div>';
             const gallery = document.createElement('div');
+            gallery.className = 'gallery';
             gallery.style.display = 'grid';
             gallery.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
             gallery.style.gap = '12px';
+
             data.images.forEach((img, idx) => {
                 const imgEl = document.createElement('img');
                 imgEl.src = img.url;
                 imgEl.alt = img.caption || 'Ảnh thực tế';
                 imgEl.style.width = '100%';
                 imgEl.style.borderRadius = '10px';
-                imgEl.style.cursor = 'pointer';
                 imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
                 imgEl.style.transition = 'transform 0.2s';
-                imgEl.dataset.index = idx;  // Lưu index để debug
-                imgEl.onclick = () => {
-                    console.log('Click ảnh index:', idx, 'URL:', img.url);  // Debug
+                imgEl.dataset.index = idx;
+                imgEl.addEventListener('click', () => {
+                    console.log(`[Gallery click] index: ${idx} | url: ${img.url}`);
                     showImg(data.images, idx);
-                };
+                });
                 gallery.appendChild(imgEl);
             });
             contentDiv.appendChild(gallery);
@@ -239,26 +243,28 @@
             contentDiv.appendChild(vCon);
         }
 
-        // Tương lai TP.HCM
+        // Tầm nhìn tương lai TP.HCM
         if (data.future_images?.length) {
             contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
             const futGallery = document.createElement('div');
+            futGallery.className = 'gallery';
             futGallery.style.display = 'grid';
             futGallery.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
             futGallery.style.gap = '12px';
+
             data.future_images.forEach((img, idx) => {
                 const imgEl = document.createElement('img');
                 imgEl.src = img.url;
                 imgEl.alt = img.caption || 'Ảnh tương lai';
                 imgEl.style.width = '100%';
                 imgEl.style.borderRadius = '10px';
-                imgEl.style.cursor = 'pointer';
                 imgEl.style.boxShadow = '0 3px 10px rgba(0,0,0,0.15)';
+                imgEl.style.transition = 'transform 0.2s';
                 imgEl.dataset.index = idx;
-                imgEl.onclick = () => {
-                    console.log('Click ảnh tương lai index:', idx, 'URL:', img.url);
+                imgEl.addEventListener('click', () => {
+                    console.log(`[Future Gallery click] index: ${idx} | url: ${img.url}`);
                     showImg(data.future_images, idx);
-                };
+                });
                 futGallery.appendChild(imgEl);
             });
             contentDiv.appendChild(futGallery);
@@ -300,10 +306,12 @@
         const inp = document.getElementById('user-input');
         const msg = inp.value.trim();
         if (!msg) return;
+
         const box = document.getElementById('chat-box');
         box.appendChild(createMessageElement('user', msg));
         inp.value = '';
         box.scrollTop = box.scrollHeight;
+
         try {
             const res = await fetch('/chat', {
                 method: 'POST',
@@ -328,41 +336,63 @@
         location.reload();
     }
 
-    // MODAL ẢNH – ĐÃ FIX HOÀN CHỈNH & CÓ DEBUG
+    // ──────────────── MODAL IMAGE ────────────────
     function showImg(images, index) {
-        console.log('showImg called with index:', index, 'images length:', images.length);
+        console.log(`showImg() called → index: ${index}, total: ${images.length}`);
         if (!images || images.length === 0 || index < 0 || index >= images.length) {
-            console.warn('Invalid images array or index');
+            console.warn('Invalid image index or empty array');
             return;
         }
+
         currentImages = images;
         currentImgIndex = index;
+
         const loading = document.getElementById('modal-loading');
         const modalImg = document.getElementById('modal-img');
+        const captionEl = document.getElementById('modal-caption');
+
         loading.style.display = 'flex';
-        modalImg.src = ''; // reset để trigger onload
-        modalImg.src = images[index].url;
-        document.getElementById('modal-caption').textContent = images[index].caption || 'Ảnh minh họa';
+        modalImg.style.opacity = '0';
+        modalImg.src = images[index].url || '';
+        captionEl.textContent = images[index].caption || 'Ảnh minh họa';
+
         document.getElementById('prev-img').style.display = index > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = index < images.length - 1 ? 'block' : 'none';
+
         document.getElementById('img-modal').classList.remove('hidden');
-        document.body.style.overflow = 'hidden'; // Ngăn scroll body khi modal mở
+        document.body.style.overflow = 'hidden';
     }
 
     function updateModalImg() {
+        if (!currentImages[currentImgIndex]) return;
         const imgData = currentImages[currentImgIndex];
-        if (!imgData) return;
-        document.getElementById('modal-img').src = imgData.url;
-        document.getElementById('modal-caption').textContent = imgData.caption || 'Ảnh minh họa';
+        const modalImg = document.getElementById('modal-img');
+        const loading = document.getElementById('modal-loading');
+        const captionEl = document.getElementById('modal-caption');
+
+        loading.style.display = 'flex';
+        modalImg.style.opacity = '0';
+        modalImg.src = imgData.url || '';
+        captionEl.textContent = imgData.caption || 'Ảnh minh họa';
+
         document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
     }
+
+    document.getElementById('modal-img').onload = () => {
+        document.getElementById('modal-loading').style.display = 'none';
+        document.getElementById('modal-img').style.opacity = '1';
+    };
+
+    document.getElementById('modal-img').onerror = () => {
+        document.getElementById('modal-loading').innerHTML = 'Không tải được ảnh<br><small style="font-size:16px">(có thể do link hết hạn)</small>';
+        document.getElementById('modal-img').style.opacity = '0.3';
+    };
 
     document.getElementById('prev-img').onclick = (e) => {
         e.stopPropagation();
         if (currentImgIndex > 0) {
             currentImgIndex--;
-            document.getElementById('modal-loading').style.display = 'flex';
             updateModalImg();
         }
     };
@@ -371,7 +401,6 @@
         e.stopPropagation();
         if (currentImgIndex < currentImages.length - 1) {
             currentImgIndex++;
-            document.getElementById('modal-loading').style.display = 'flex';
             updateModalImg();
         }
     };
@@ -379,7 +408,7 @@
     document.getElementById('close-modal').onclick = () => {
         document.getElementById('img-modal').classList.add('hidden');
         document.getElementById('modal-loading').style.display = 'none';
-        document.body.style.overflow = 'auto'; // Bật lại scroll body
+        document.body.style.overflow = 'auto';
     };
 
     // Khởi động
