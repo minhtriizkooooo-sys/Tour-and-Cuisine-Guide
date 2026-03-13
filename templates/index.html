@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TP.HCM TRAVEL AI GUIDE 2026</title>
+    <title>HCMC TRAVEL AI GUIDE 2026</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
@@ -81,7 +81,7 @@
 <header>
     <div class="logo">
         <img src="/static/images/Logo_Marie_Curie.png" alt="Logo" onerror="this.src='https://cdn-icons-png.flaticon.com/512/826/826070.png'">
-        <span>TP.HCM TRAVEL AI GUIDE 2026</span>
+        <span>HCMC TRAVEL AI GUIDE 2026</span>
     </div>
     <i id="hamburger" class="fa fa-bars"></i>
 </header>
@@ -127,6 +127,10 @@
         <img id="modal-img" src="" alt="Ảnh lớn" loading="eager" onload="document.getElementById('modal-loading').style.display='none'" onerror="document.getElementById('modal-loading').innerHTML='Không tải được ảnh'">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
         <button id="close-modal">×</button>
+        
+        <div id="prev-arrow" class="nav-arrow">←</div>
+        <div id="next-arrow" class="nav-arrow">→</div> 
+        
     </div>
     <div id="modal-caption"></div>
 </div>
@@ -148,7 +152,7 @@
         document.getElementById('chat-container').style.display = 'flex';
         const box = document.getElementById('chat-box');
         if (tab === 'chat' && box.innerHTML === '') {
-            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố nào ở TP.HCM nhé! Sài Gòn 2026 đang rất thú vị đấy 🇻🇳</div>';
+            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố nào ở TP.HCM nhé! TP.HCM 2026 đang rất thú vị đấy 🇻🇳</div>';
         }
     }
 
