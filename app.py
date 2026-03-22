@@ -6,6 +6,7 @@ import requests
 import subprocess
 import tempfile
 import threading
+import logging
 from datetime import datetime
 from pathlib import Path
 
@@ -15,6 +16,10 @@ from flask_cors import CORS
 from groq import Groq
 from fpdf import FPDF
 from PIL import Image, ImageDraw, ImageFont
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "vietnam_travel_2026_pro_secret")
@@ -99,7 +104,8 @@ def init_db():
                 file_path TEXT,
                 created_at TEXT,
                 completed_at TEXT,
-                scenes_data TEXT
+                scenes_data TEXT,
+                error_log TEXT
             )
         """)
 
@@ -107,7 +113,9 @@ init_db()
 
 # --- Helper Functions ---
 def search_serper_images(query, count=8):
-    if not SERPER_API_KEY: return []
+    if not SERPER_API_KEY: 
+        logger.warning("SERPER_API_KEY not set")
+        return []
     try:
         url = "https://google.serper.dev/images"
         payload = json.dumps({"q": f"{query} TP.HCM du lịch thực tế 2026"})
@@ -115,7 +123,8 @@ def search_serper_images(query, count=8):
         resp = requests.post(url, headers=headers, data=payload, timeout=10)
         data = resp.json()
         return [{"url": i.get("imageUrl"), "caption": i.get("title", query)} for i in data.get("images", [])[:count]]
-    except:
+    except Exception as e:
+        logger.error(f"Serper images error: {e}")
         return []
 
 def search_serper_youtube(query):
@@ -166,19 +175,37 @@ def generate_video_script():
         )
         return json.loads(completion.choices[0].message.content)
     except Exception as e:
-        print(f"Script generation error: {e}")
+        logger.error(f"Script generation error: {e}")
         return None
 
-def text_to_speech_gtts(text, output_path, lang='vi', slow=False):
-    """Convert text to speech using gTTS"""
-    try:
-        from gtts import gTTS
-        tts = gTTS(text=text, lang=lang, slow=slow)
-        tts.save(output_path)
-        return True
-    except Exception as e:
-        print(f"gTTS error: {e}")
-        return create_silent_audio(output_path, duration=10)
+def text_to_speech_gtts(text, output_path, lang='vi', slow=False, max_retries=3):
+    """Convert text to speech using gTTS with retry logic"""
+    from gtts import gTTS
+    
+    for attempt in range(max_retries):
+        try:
+            # Giới hạn text length để tránh lỗi
+            if len(text) > 5000:
+                text = text[:5000]
+            
+            tts = gTTS(text=text, lang=lang, slow=slow)
+            tts.save(output_path)
+            
+            # Verify file was created and has content
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+                return True
+            else:
+                raise Exception("TTS output file too small or not created")
+                
+        except Exception as e:
+            logger.warning(f"TTS attempt {attempt + 1} failed: {e}")
+            if attempt == max_retries - 1:
+                logger.error(f"TTS failed after {max_retries} attempts")
+                return False
+            import time
+            time.sleep(1)  # Wait before retry
+    
+    return False
 
 def create_silent_audio(output_path, duration=10):
     """Create silent audio as fallback"""
@@ -188,25 +215,49 @@ def create_silent_audio(output_path, duration=10):
             f'anullsrc=r=24000:cl=mono', '-t', str(duration),
             '-acodec', 'libmp3lame', '-q:a', '4', output_path
         ]
-        subprocess.run(cmd, capture_output=True, check=True)
-        return True
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            return True
+        else:
+            logger.error(f"Silent audio error: {result.stderr}")
+            return False
     except Exception as e:
-        print(f"Silent audio error: {e}")
+        logger.error(f"Silent audio exception: {e}")
         return False
 
-def download_image(url, output_path):
-    """Download image from URL"""
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        response = requests.get(url, headers=headers, timeout=15)
-        if response.status_code == 200:
-            with open(output_path, 'wb') as f:
-                f.write(response.content)
-            return True
-    except Exception as e:
-        print(f"Image download error: {e}")
+def download_image(url, output_path, max_retries=3):
+    """Download image from URL with retry logic"""
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers, timeout=15, stream=True)
+            if response.status_code == 200:
+                with open(output_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                # Verify image
+                try:
+                    with Image.open(output_path) as img:
+                        img.verify()
+                    return True
+                except Exception as e:
+                    logger.warning(f"Downloaded file is not valid image: {e}")
+                    if os.path.exists(output_path):
+                        os.remove(output_path)
+            else:
+                logger.warning(f"Image download HTTP {response.status_code}")
+                
+        except Exception as e:
+            logger.warning(f"Image download attempt {attempt + 1} failed: {e}")
+        
+        if attempt < max_retries - 1:
+            import time
+            time.sleep(1)
+    
     return False
 
 def create_text_slide(text, output_path, width=1920, height=1080, bg_color=(0, 102, 204)):
@@ -215,13 +266,24 @@ def create_text_slide(text, output_path, width=1920, height=1080, bg_color=(0, 1
         img = Image.new('RGB', (width, height), bg_color)
         draw = ImageDraw.Draw(img)
         
-        try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
-        except:
+        # Try multiple font options
+        font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Windows/Fonts/arialbd.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+        ]
+        
+        font = None
+        for font_path in font_paths:
             try:
-                font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 60)
+                font = ImageFont.truetype(font_path, 60)
+                break
             except:
-                font = ImageFont.load_default()
+                continue
+        
+        if font is None:
+            font = ImageFont.load_default()
         
         # Wrap text
         lines = []
@@ -245,10 +307,10 @@ def create_text_slide(text, output_path, width=1920, height=1080, bg_color=(0, 1
             draw.text((x, y), line, fill=(255, 255, 255), font=font)
             y += 80
         
-        img.save(output_path)
+        img.save(output_path, quality=95)
         return True
     except Exception as e:
-        print(f"Text slide error: {e}")
+        logger.error(f"Text slide error: {e}")
         return False
 
 def create_video_segment(image_path, audio_path, output_path, duration=10, is_text_slide=False):
@@ -258,7 +320,14 @@ def create_video_segment(image_path, audio_path, output_path, duration=10, is_te
         probe_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', 
                      '-of', 'default=noprint_wrappers=1:nokey=1', audio_path]
         result = subprocess.run(probe_cmd, capture_output=True, text=True)
-        audio_duration = float(result.stdout.strip()) if result.returncode == 0 else duration
+        
+        try:
+            audio_duration = float(result.stdout.strip())
+        except:
+            audio_duration = duration
+        
+        # Ensure minimum duration
+        audio_duration = max(audio_duration, 3)
         
         # Create video from image with audio
         if is_text_slide:
@@ -269,66 +338,129 @@ def create_video_segment(image_path, audio_path, output_path, duration=10, is_te
                 f"format=yuv420p"
             )
         else:
-            filter_complex = "format=yuv420p"
+            filter_complex = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p"
         
         cmd = [
             'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
-            '-c:v', 'libx264', '-tune', 'stillimage', 
+            '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
             '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
             '-pix_fmt', 'yuv420p', '-shortest',
             '-t', str(audio_duration), '-vf', filter_complex,
             output_path
         ]
         
-        subprocess.run(cmd, capture_output=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            logger.error(f"FFmpeg error: {result.stderr}")
+            return False, 0
+        
+        # Verify output
+        if not os.path.exists(output_path) or os.path.getsize(output_path) < 10000:
+            logger.error("Output file too small or not created")
+            return False, 0
+        
         return True, audio_duration
+        
     except Exception as e:
-        print(f"Video segment error: {e}")
+        logger.error(f"Video segment error: {e}")
         return False, 0
 
 def concatenate_videos(video_files, output_path):
     """Concatenate multiple video files"""
+    if not video_files:
+        return False
+    
     try:
-        list_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False)
+        # Create concat list file
+        list_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8')
         for f in video_files:
-            list_file.write(f"file '{f}'\n")
+            # Escape single quotes in path
+            escaped_path = f.replace("'", "'\\''")
+            list_file.write(f"file '{escaped_path}'\n")
         list_file.close()
         
         cmd = [
             'ffmpeg', '-y', '-f', 'concat', '-safe', '0',
             '-i', list_file.name, '-c', 'copy', output_path
         ]
-        subprocess.run(cmd, capture_output=True, check=True)
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            logger.error(f"Concat error: {result.stderr}")
+            # Try alternative method
+            return concatenate_videos_alt(video_files, output_path)
         
         os.unlink(list_file.name)
         return True
+        
     except Exception as e:
-        print(f"Concatenate error: {e}")
+        logger.error(f"Concatenate exception: {e}")
+        return concatenate_videos_alt(video_files, output_path)
+
+def concatenate_videos_alt(video_files, output_path):
+    """Alternative concat method using filter_complex"""
+    try:
+        inputs = []
+        filter_parts = []
+        
+        for i, f in enumerate(video_files):
+            inputs.extend(['-i', f])
+            filter_parts.append(f"[{i}:v:0][{i}:a:0]")
+        
+        filter_complex = ''.join(filter_parts) + f"concat=n={len(video_files)}:v=1:a=1[outv][outa]"
+        
+        cmd = ['ffmpeg', '-y'] + inputs + [
+            '-filter_complex', filter_complex,
+            '-map', '[outv]', '-map', '[outa]',
+            '-c:v', 'libx264', '-preset', 'fast',
+            '-c:a', 'aac', '-b:a', '192k',
+            output_path
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        return result.returncode == 0
+        
+    except Exception as e:
+        logger.error(f"Alt concat error: {e}")
         return False
 
 def generate_ai_video_background(video_id, session_id):
     """Background task to generate AI video"""
-    def update_status(status, file_path=None, completed=False):
-        with sqlite3.connect(DB_PATH) as conn:
-            if completed:
-                conn.execute("""
-                    UPDATE generated_videos 
-                    SET status = ?, file_path = ?, completed_at = ?
-                    WHERE video_id = ?
-                """, (status, file_path, datetime.now(VN_TZ).isoformat(), video_id))
-            else:
-                conn.execute("UPDATE generated_videos SET status = ? WHERE video_id = ?", 
-                           (status, video_id))
-            conn.commit()
+    def update_status(status, file_path=None, completed=False, error_msg=None):
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                if completed:
+                    conn.execute("""
+                        UPDATE generated_videos 
+                        SET status = ?, file_path = ?, completed_at = ?, error_log = ?
+                        WHERE video_id = ?
+                    """, (status, file_path, datetime.now(VN_TZ).isoformat(), error_msg, video_id))
+                else:
+                    conn.execute("UPDATE generated_videos SET status = ?, error_log = ? WHERE video_id = ?", 
+                               (status, error_msg, video_id))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"DB update error: {e}")
     
+    temp_dir = None
     try:
         update_status("generating_script")
         
         # Step 1: Generate script
+        logger.info(f"[{video_id}] Generating script...")
         script = generate_video_script()
         if not script:
-            update_status("failed_script")
+            update_status("failed_script", error_msg="Failed to generate script from AI")
             return
+        
+        scenes = script.get('scenes', [])
+        if not scenes:
+            update_status("failed_no_scenes", error_msg="No scenes in generated script")
+            return
+        
+        logger.info(f"[{video_id}] Generated script with {len(scenes)} scenes")
         
         # Update with scenes data
         with sqlite3.connect(DB_PATH) as conn:
@@ -343,37 +475,52 @@ def generate_ai_video_background(video_id, session_id):
         
         # Create temp directory
         temp_dir = tempfile.mkdtemp()
-        video_segments = []
+        logger.info(f"[{video_id}] Temp dir: {temp_dir}")
         
-        scenes = script.get('scenes', [])
+        video_segments = []
+        failed_scenes = []
         total_scenes = len(scenes)
         
         # Step 2: Process each scene
         for idx, scene in enumerate(scenes):
-            update_status(f"processing_scene_{idx+1}/{total_scenes}")
+            scene_status = f"processing_scene_{idx+1}/{total_scenes}"
+            update_status(scene_status)
+            logger.info(f"[{video_id}] Processing scene {idx+1}/{total_scenes}")
             
             narration = scene.get('narration', '')
+            if not narration:
+                narration = scene.get('visual_description', 'TP.HCM 2026')
+            
             keywords = scene.get('keywords_for_image', 'Ho Chi Minh City future 2026')
             
             # Generate audio
             audio_path = os.path.join(temp_dir, f"audio_{idx}.mp3")
-            if not text_to_speech_gtts(narration, audio_path):
-                continue
+            tts_success = text_to_speech_gtts(narration, audio_path)
+            
+            if not tts_success:
+                # Try silent audio as fallback
+                logger.warning(f"[{video_id}] TTS failed for scene {idx+1}, using silent audio")
+                tts_success = create_silent_audio(audio_path, duration=5)
+                if not tts_success:
+                    failed_scenes.append(idx)
+                    continue
             
             # Try to get image
             image_path = os.path.join(temp_dir, f"image_{idx}.jpg")
-            images = search_serper_images(keywords, count=3)
+            images = search_serper_images(keywords, count=5)  # Tăng số lượng thử
             
             image_ok = False
             if images:
-                for img in images:
+                for img_idx, img in enumerate(images):
                     if download_image(img['url'], image_path):
+                        logger.info(f"[{video_id}] Downloaded image {img_idx+1} for scene {idx+1}")
                         image_ok = True
                         break
             
             if not image_ok:
                 # Create text slide as fallback
-                visual_desc = scene.get('visual_description', 'TP.HCM 2026')
+                logger.info(f"[{video_id}] Creating text slide for scene {idx+1}")
+                visual_desc = scene.get('visual_description', keywords[:100])
                 create_text_slide(visual_desc, image_path)
             
             # Create video segment
@@ -386,17 +533,25 @@ def generate_ai_video_background(video_id, session_id):
             if success:
                 video_segments.append(segment_path)
                 scene['actual_duration'] = duration
+                logger.info(f"[{video_id}] Scene {idx+1} completed, duration: {duration}s")
+            else:
+                logger.error(f"[{video_id}] Failed to create segment for scene {idx+1}")
+                failed_scenes.append(idx)
+        
+        logger.info(f"[{video_id}] Completed {len(video_segments)}/{total_scenes} scenes, failed: {len(failed_scenes)}")
         
         if not video_segments:
-            update_status("failed_no_segments")
+            update_status("failed_no_segments", error_msg="No video segments could be created")
             return
         
         update_status("concatenating")
         
         # Step 3: Concatenate all segments
         concat_path = os.path.join(temp_dir, "concatenated.mp4")
+        logger.info(f"[{video_id}] Concatenating {len(video_segments)} segments...")
+        
         if not concatenate_videos(video_segments, concat_path):
-            update_status("failed_concat")
+            update_status("failed_concat", error_msg="Failed to concatenate video segments")
             return
         
         # Step 4: Add intro
@@ -408,30 +563,47 @@ def generate_ai_video_background(video_id, session_id):
         intro_img = os.path.join(temp_dir, "intro_img.jpg")
         create_text_slide(intro_text, intro_img, bg_color=(0, 74, 124))
         
-        # 3 second intro
+        # 3 second intro with silent audio
         silent_intro = os.path.join(temp_dir, "silent_intro.mp3")
         create_silent_audio(silent_intro, 3)
         create_video_segment(intro_img, silent_intro, intro_path, 3, True)
         
         # Final concatenate with intro
         final_list = [intro_path] + video_segments
+        logger.info(f"[{video_id}] Creating final video...")
+        
         if not concatenate_videos(final_list, final_path):
-            update_status("failed_final")
+            # If concat with intro fails, just use the main content
+            logger.warning(f"[{video_id}] Failed to add intro, using main content only")
+            import shutil
+            shutil.copy(concat_path, final_path)
+        
+        # Verify final video
+        if not os.path.exists(final_path) or os.path.getsize(final_path) < 100000:
+            update_status("failed_final_too_small", error_msg="Final video file too small")
             return
         
-        # Cleanup temp files
-        for f in os.listdir(temp_dir):
-            try:
-                os.remove(os.path.join(temp_dir, f))
-            except:
-                pass
-        os.rmdir(temp_dir)
+        file_size_mb = os.path.getsize(final_path) / (1024 * 1024)
+        logger.info(f"[{video_id}] Video completed: {final_path}, size: {file_size_mb:.2f} MB")
         
         update_status("completed", final_path, completed=True)
         
     except Exception as e:
-        print(f"Video generation error: {e}")
-        update_status(f"failed: {str(e)}")
+        error_msg = f"Video generation error: {str(e)}"
+        logger.error(f"[{video_id}] {error_msg}")
+        import traceback
+        logger.error(traceback.format_exc())
+        update_status(f"failed: {str(e)}", error_msg=error_msg)
+    
+    finally:
+        # Cleanup temp files
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                import shutil
+                shutil.rmtree(temp_dir)
+                logger.info(f"[{video_id}] Cleaned up temp directory")
+            except Exception as e:
+                logger.warning(f"[{video_id}] Failed to cleanup temp dir: {e}")
 
 # --- Routes ---
 @app.route("/")
@@ -554,72 +726,89 @@ def generate_video():
     video_id = str(uuid.uuid4())[:12]
     now_vn = datetime.now(VN_TZ).isoformat()
     
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            INSERT INTO generated_videos (video_id, session_id, title, status, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        """, (video_id, sid, "Đang tạo...", "queued", now_vn))
-        conn.commit()
-    
-    # Start background generation
-    thread = threading.Thread(
-        target=generate_ai_video_background,
-        args=(video_id, sid)
-    )
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({
-        "video_id": video_id,
-        "status": "queued",
-        "message": "Video đang được tạo, vui lòng đợi 5-10 phút..."
-    })
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("""
+                INSERT INTO generated_videos (video_id, session_id, title, status, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (video_id, sid, "Đang tạo...", "queued", now_vn))
+            conn.commit()
+        
+        # Start background generation
+        thread = threading.Thread(
+            target=generate_ai_video_background,
+            args=(video_id, sid)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({
+            "video_id": video_id,
+            "status": "queued",
+            "message": "Video đang được tạo, vui lòng đợi 5-10 phút..."
+        })
+        
+    except Exception as e:
+        logger.error(f"Failed to start video generation: {e}")
+        return jsonify({"error": f"Failed to start: {str(e)}"}), 500
 
 @app.route("/video_status/<video_id>")
 def video_status(video_id):
     """Check video generation status"""
-    sid = request.cookies.get("session_id")
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT status, file_path, title, scenes_data, created_at, completed_at
-            FROM generated_videos WHERE video_id = ?
-        """, (video_id,))
-        row = cur.fetchone()
-    
-    if not row:
-        return jsonify({"error": "Video not found"}), 404
-    
-    status, file_path, title, scenes_data, created_at, completed_at = row
-    
-    response = {
-        "video_id": video_id,
-        "status": status,
-        "title": title,
-        "created_at": created_at,
-        "completed_at": completed_at
-    }
-    
-    if scenes_data:
-        try:
-            response["scenes"] = json.loads(scenes_data)
-        except:
-            pass
-    
-    if status == "completed" and file_path and os.path.exists(file_path):
-        response["download_url"] = f"/download_video/{video_id}"
-        response["ready"] = True
-    
-    return jsonify(response)
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT status, file_path, title, scenes_data, created_at, completed_at, error_log
+                FROM generated_videos WHERE video_id = ?
+            """, (video_id,))
+            row = cur.fetchone()
+        
+        if not row:
+            return jsonify({"error": "Video not found"}), 404
+        
+        status, file_path, title, scenes_data, created_at, completed_at, error_log = row
+        
+        response = {
+            "video_id": video_id,
+            "status": status,
+            "title": title,
+            "created_at": created_at,
+            "completed_at": completed_at
+        }
+        
+        if error_log:
+            response["error_details"] = error_log
+        
+        if scenes_data:
+            try:
+                response["scenes"] = json.loads(scenes_data)
+            except:
+                pass
+        
+        if status == "completed" and file_path and os.path.exists(file_path):
+            response["download_url"] = f"/download_video/{video_id}"
+            response["ready"] = True
+            response["file_size_mb"] = round(os.path.getsize(file_path) / (1024 * 1024), 2)
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Video status error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/download_video/<video_id>")
 def download_video(video_id):
     """Download generated video"""
-    file_path = os.path.join(VIDEO_STORAGE, f"{video_id}.mp4")
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True, 
-                        download_name=f"HCMC_Vision_2026_{video_id}.mp4")
-    return "Video not found", 404
+    try:
+        file_path = os.path.join(VIDEO_STORAGE, f"{video_id}.mp4")
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True, 
+                            download_name=f"HCMC_Vision_2026_{video_id}.mp4")
+        return "Video not found", 404
+    except Exception as e:
+        logger.error(f"Download error: {e}")
+        return str(e), 500
 
 @app.route("/my_videos")
 def my_videos():
@@ -628,35 +817,44 @@ def my_videos():
     if not sid:
         return jsonify([])
     
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT video_id, title, status, created_at, completed_at
-            FROM generated_videos WHERE session_id = ?
-            ORDER BY created_at DESC
-        """, (sid,))
-        rows = cur.fetchall()
-    
-    videos = []
-    for row in rows:
-        videos.append({
-            "video_id": row[0],
-            "title": row[1],
-            "status": row[2],
-            "created_at": row[3],
-            "completed_at": row[4],
-            "ready": row[2] == "completed"
-        })
-    
-    return jsonify(videos)
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT video_id, title, status, created_at, completed_at
+                FROM generated_videos WHERE session_id = ?
+                ORDER BY created_at DESC
+            """, (sid,))
+            rows = cur.fetchall()
+        
+        videos = []
+        for row in rows:
+            videos.append({
+                "video_id": row[0],
+                "title": row[1],
+                "status": row[2],
+                "created_at": row[3],
+                "completed_at": row[4],
+                "ready": row[2] == "completed"
+            })
+        
+        return jsonify(videos)
+        
+    except Exception as e:
+        logger.error(f"My videos error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/stream_video/<video_id>")
 def stream_video(video_id):
     """Stream video for preview"""
-    file_path = os.path.join(VIDEO_STORAGE, f"{video_id}.mp4")
-    if os.path.exists(file_path):
-        return send_from_directory(VIDEO_STORAGE, f"{video_id}.mp4")
-    return "Video not found", 404
+    try:
+        file_path = os.path.join(VIDEO_STORAGE, f"{video_id}.mp4")
+        if os.path.exists(file_path):
+            return send_from_directory(VIDEO_STORAGE, f"{video_id}.mp4")
+        return "Video not found", 404
+    except Exception as e:
+        logger.error(f"Stream error: {e}")
+        return str(e), 500
 
 @app.route("/video_info")
 def video_info():
