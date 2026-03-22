@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f9f9f9; --accent: #00b7eb; --text-color: #212121; }
+        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f9f9f9; --accent: #00b7eb; --text-color: #212121; --success: #43a047; --warning: #ff9800; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
         header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 12px 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
@@ -21,10 +21,28 @@
         #close-sidebar { position: absolute; top: 15px; right: 15px; font-size: 32px; color: var(--primary); cursor: pointer; background: white; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1002; }
         .sidebar-section { margin-bottom: 28px; }
         .sidebar-section h3 { color: var(--primary); font-size: 17px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .btn-sidebar { display: block; width: 100%; padding: 13px; margin: 8px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; }
+        .btn-sidebar { display: block; width: 100%; padding: 13px; margin: 8px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; transition: all 0.3s; }
+        .btn-sidebar:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         .btn-primary { background: var(--primary); }
         .btn-danger { background: #e53935; }
-        .btn-success { background: #43a047; }
+        .btn-success { background: var(--success); }
+        .btn-warning { background: var(--warning); color: #000; }
+        .btn-ai-video { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            position: relative; overflow: hidden;
+        }
+        .btn-ai-video::before {
+            content: '🎬'; position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 20px;
+        }
+        .btn-ai-video::after {
+            content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
         #chat-container { display: none; flex-direction: column; height: 100%; }
         #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 0 4px; }
         .msg { padding: 12px 16px; border-radius: 18px; max-width: 92%; font-size: 15px; line-height: 1.55; word-wrap: break-word; }
@@ -34,6 +52,97 @@
         #user-input { flex: 1; padding: 12px 18px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
         .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         footer { background: var(--primary); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 14px; border-top: 2px solid var(--accent); }
+        
+        /* AI Video Modal Styles */
+        #video-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999;
+            display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+        }
+        #video-modal.active { display: flex; }
+        #video-content {
+            position: relative; width: 90%; max-width: 1000px; max-height: 90vh;
+            background: #1a1a2e; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .video-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 20px; text-align: center;
+        }
+        .video-header h2 { font-size: 24px; margin-bottom: 8px; }
+        .video-header p { opacity: 0.9; font-size: 14px; }
+        .video-body { padding: 30px; max-height: 60vh; overflow-y: auto; color: #eee; }
+        .video-status {
+            display: flex; align-items: center; gap: 15px; padding: 20px;
+            background: rgba(102, 126, 234, 0.1); border-radius: 12px; margin-bottom: 20px;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+        }
+        .status-icon {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex; align-items: center; justify-content: center; font-size: 28px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        .status-text h4 { color: #fff; margin-bottom: 5px; }
+        .status-text p { color: #aaa; font-size: 14px; }
+        .progress-bar {
+            width: 100%; height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin-top: 10px;
+        }
+        .progress-fill {
+            height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%; transition: width 0.5s ease; border-radius: 4px;
+        }
+        .scenes-preview {
+            display: grid; gap: 15px; margin-top: 20px;
+        }
+        .scene-card {
+            background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px;
+            border-left: 4px solid #667eea;
+        }
+        .scene-time { color: #667eea; font-size: 12px; font-weight: bold; margin-bottom: 8px; }
+        .scene-narration { color: #ddd; font-size: 14px; line-height: 1.6; }
+        .video-player-container {
+            width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; margin-top: 20px;
+        }
+        video { width: 100%; height: 100%; }
+        .video-actions {
+            display: flex; gap: 10px; margin-top: 20px; justify-content: center;
+        }
+        .btn-action {
+            padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer;
+            font-weight: bold; display: flex; align-items: center; gap: 8px; transition: all 0.3s;
+        }
+        .btn-download { background: var(--success); color: white; }
+        .btn-close-modal { background: #444; color: white; }
+        .btn-action:hover { transform: translateY(-2px); }
+        #close-video-modal {
+            position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.2);
+            color: white; width: 40px; height: 40px; border-radius: 50%; border: none;
+            cursor: pointer; font-size: 24px; display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(10px); z-index: 10;
+        }
+        .video-list {
+            display: flex; flex-direction: column; gap: 10px; margin-top: 15px;
+        }
+        .video-item {
+            background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+            transition: all 0.3s; border: 1px solid transparent;
+        }
+        .video-item:hover { background: rgba(255,255,255,0.1); border-color: #667eea; }
+        .video-item-info h5 { color: #fff; margin-bottom: 5px; }
+        .video-item-info span { color: #888; font-size: 12px; }
+        .video-item-status {
+            padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;
+        }
+        .status-completed { background: var(--success); color: white; }
+        .status-processing { background: var(--warning); color: #000; }
+        .status-queued { background: #666; color: white; }
+        
+        /* Image Modal */
         #img-modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
@@ -81,6 +190,8 @@
             .logo { font-size: 16px; }
             .logo img { height: 36px; }
             .modal-nav { font-size: 30px; padding: 12px 16px; }
+            #video-content { width: 95%; }
+            .video-body { padding: 20px; }
         }
     </style>
 </head>
@@ -105,6 +216,16 @@
             </div>
         </div>
         <div class="sidebar-section">
+            <h3>🎬 AI Video Generator</h3>
+            <div class="content">
+                <button class="btn-sidebar btn-ai-video" onclick="openVideoModal()">
+                    Tạo Video 10 phút<br>
+                    <small style="font-size:12px;opacity:0.9;">Tầm nhìn giới trẻ về TP.HCM 2026</small>
+                </button>
+                <button class="btn-sidebar btn-primary" onclick="loadMyVideos()">📹 Video của tôi</button>
+            </div>
+        </div>
+        <div class="sidebar-section">
             <h3>Chat với AI</h3>
             <div class="content">
                 <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Mở Hội thoại</button>
@@ -125,6 +246,20 @@
     <div>Developer: <span style="color:#fff176;font-weight:900;">Lại Nguyễn Minh Trí</span></div>
     <div>Hotline: <a href="tel:0908083566" style="color:#fff176;font-weight:900;text-decoration:none;">0908.08.35.66</a></div>
 </footer>
+
+<!-- AI Video Modal -->
+<div id="video-modal">
+    <div id="video-content">
+        <button id="close-video-modal" onclick="closeVideoModal()">×</button>
+        <div class="video-header">
+            <h2>🎬 AI Video Generator</h2>
+            <p>Tạo video 10 phút: "Tầm nhìn của giới trẻ về tương lai TP.HCM 2026-2030"</p>
+        </div>
+        <div class="video-body" id="video-body-content">
+            <!-- Content will be dynamically inserted here -->
+        </div>
+    </div>
+</div>
 
 <!-- Modal ảnh lớn -->
 <div id="img-modal" class="hidden">
@@ -147,6 +282,8 @@
     let currentImages = [];
     let currentImgIndex = 0;
     const sidebar = document.getElementById('sidebar');
+    let currentVideoId = null;
+    let statusCheckInterval = null;
 
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
@@ -410,6 +547,284 @@
         location.reload();
     }
 
+    // ──────────────── AI VIDEO FUNCTIONS ────────────────
+    
+    function openVideoModal() {
+        document.getElementById('video-modal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        showVideoGenerator();
+    }
+    
+    function closeVideoModal() {
+        document.getElementById('video-modal').classList.remove('active');
+        document.body.style.overflow = 'auto';
+        if (statusCheckInterval) {
+            clearInterval(statusCheckInterval);
+            statusCheckInterval = null;
+        }
+    }
+    
+    function showVideoGenerator() {
+        const body = document.getElementById('video-body-content');
+        body.innerHTML = `
+            <div style="text-align:center;padding:40px 20px;">
+                <div style="font-size:64px;margin-bottom:20px;">🎬</div>
+                <h3 style="color:#fff;margin-bottom:15px;font-size:22px;">Tạo Video AI 10 Phút</h3>
+                <p style="color:#aaa;margin-bottom:30px;line-height:1.6;">
+                    Video về <strong style="color:#667eea;">"Tầm nhìn của giới trẻ về tương lai TP.HCM 2026-2030"</strong><br>
+                    Bao gồm: Kịch bản AI + Lời dẫn giọng nói + Hình ảnh minh họa + Hiệu ứng chuyển cảnh
+                </p>
+                <div style="background:rgba(102,126,234,0.1);border-radius:12px;padding:20px;margin-bottom:30px;text-align:left;">
+                    <h4 style="color:#667eea;margin-bottom:15px;">📋 Quy trình tạo video:</h4>
+                    <ul style="color:#ccc;line-height:2;list-style:none;">
+                        <li>✅ 1. AI viết kịch bản 10 phút (8-10 scenes)</li>
+                        <li>✅ 2. Chuyển text thành giọng nói tiếng Việt</li>
+                        <li>✅ 3. Tìm/tạo hình ảnh minh họa cho từng scene</li>
+                        <li>✅ 4. Render video 1080p với hiệu ứng chuyển cảnh</li>
+                    </ul>
+                </div>
+                <button class="btn-action btn-download" onclick="startVideoGeneration()" style="font-size:16px;padding:15px 40px;">
+                    <i class="fa fa-play"></i> Bắt đầu tạo video (5-10 phút)
+                </button>
+            </div>
+        `;
+    }
+    
+    async function startVideoGeneration() {
+        const body = document.getElementById('video-body-content');
+        body.innerHTML = `
+            <div class="video-status">
+                <div class="status-icon">⏳</div>
+                <div class="status-text" style="flex:1;">
+                    <h4>Đang khởi tạo...</h4>
+                    <p>Hệ thống đang chuẩn bị tạo video</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width:5%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        try {
+            const res = await fetch('/generate_video', { method: 'POST' });
+            const data = await res.json();
+            
+            if (data.video_id) {
+                currentVideoId = data.video_id;
+                checkVideoStatus();
+                statusCheckInterval = setInterval(checkVideoStatus, 5000);
+            } else {
+                body.innerHTML = `<div style="color:#e53935;text-align:center;padding:40px;">Lỗi: ${data.error || 'Không thể tạo video'}</div>`;
+            }
+        } catch (e) {
+            body.innerHTML = `<div style="color:#e53935;text-align:center;padding:40px;">Lỗi kết nối: ${e.message}</div>`;
+        }
+    }
+    
+    async function checkVideoStatus() {
+        if (!currentVideoId) return;
+        
+        try {
+            const res = await fetch(`/video_status/${currentVideoId}`);
+            const data = await res.json();
+            
+            updateVideoStatusUI(data);
+            
+            if (data.status === 'completed' || data.status.startsWith('failed')) {
+                clearInterval(statusCheckInterval);
+                statusCheckInterval = null;
+            }
+        } catch (e) {
+            console.error('Status check error:', e);
+        }
+    }
+    
+    function updateVideoStatusUI(data) {
+        const body = document.getElementById('video-body-content');
+        const status = data.status;
+        
+        let progress = 0;
+        let icon = '⏳';
+        let title = 'Đang xử lý...';
+        let desc = 'Vui lòng đợi trong giây lát';
+        
+                if (status === 'queued') { 
+            progress = 5; 
+            icon = '⏳';
+            title = 'Đang xhi hàng đợi...';
+            desc = 'Hệ thống đang chuẩn bị tài nguyên';
+        } else if (status === 'generating_script') { 
+            progress = 15; 
+            icon = '✍️';
+            title = 'AI đang viết kịch bản...';
+            desc = 'Groq AI đang tạo nội dung 10 phút về tầm nhìn TP.HCM 2026';
+        } else if (status === 'collecting_media') { 
+            progress = 30; 
+            icon = '🖼️';
+            title = 'Đang thu thập hình ảnh...';
+            desc = 'Tìm kiếm và tải hình ảnh minh họa từ nhiều nguồn';
+        } else if (status.startsWith('processing_scene')) {
+            const match = status.match(/processing_scene_(\d+)\/(\d+)/);
+            if (match) {
+                const current = parseInt(match[1]);
+                const total = parseInt(match[2]);
+                progress = 30 + (current / total) * 50;
+                icon = '🎬';
+                title = `Đang xử lý scene ${current}/${total}...`;
+                desc = 'Tạo video segment: TTS + hình ảnh + hiệu ứng';
+            }
+        } else if (status === 'concatenating') { 
+            progress = 85; 
+            icon = '🔗';
+            title = 'Đang ghép nối video...';
+            desc = 'Kết hợp tất cả các segment thành video hoàn chỉnh';
+        } else if (status === 'completed') { 
+            progress = 100; 
+            icon = '✅';
+            title = 'Hoàn thành!';
+            desc = 'Video đã sẵn sàng để xem và tải xuống';
+        } else if (status.startsWith('failed')) { 
+            progress = 0; 
+            icon = '❌';
+            title = 'Tạo video thất bại';
+            desc = status.replace('failed', '').replace('_', ' ') || 'Có lỗi xảy ra, vui lòng thử lại';
+        }
+
+        let scenesHtml = '';
+        if (data.scenes && data.scenes.scenes) {
+            scenesHtml = `
+                <div style="margin-top:30px;">
+                    <h4 style="color:#667eea;margin-bottom:15px;">📋 Kịch bản video (${data.scenes.total_word_count || '~1500'} từ):</h4>
+                    <div class="scenes-preview">
+                        ${data.scenes.scenes.map((scene, idx) => `
+                            <div class="scene-card">
+                                <div class="scene-time">🕐 ${scene.timestamp} | Scene ${scene.scene_number}</div>
+                                <div class="scene-narration">${scene.narration.substring(0, 150)}${scene.narration.length > 150 ? '...' : ''}</div>
+                                <div style="margin-top:8px;font-size:12px;color:#888;">
+                                    <i class="fa fa-image"></i> ${scene.keywords_for_image || 'TP.HCM future 2026'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        let videoPlayer = '';
+        if (status === 'completed' && data.download_url) {
+            videoPlayer = `
+                <div class="video-player-container">
+                    <video controls poster="https://img.youtube.com/vi/dQw4w9WgXcQ/maxresdefault.jpg">
+                        <source src="/stream_video/${currentVideoId}" type="video/mp4">
+                        Trình duyệt không hỗ trợ video.
+                    </video>
+                </div>
+                <div class="video-actions">
+                    <button class="btn-action btn-download" onclick="downloadVideo('${currentVideoId}')">
+                        <i class="fa fa-download"></i> Tải xuống MP4
+                    </button>
+                    <button class="btn-action btn-close-modal" onclick="closeVideoModal()">
+                        <i class="fa fa-times"></i> Đóng
+                    </button>
+                </div>
+            `;
+        }
+
+        body.innerHTML = `
+            <div class="video-status">
+                <div class="status-icon" style="animation: ${status === 'completed' ? 'none' : 'pulse 2s infinite'}">${icon}</div>
+                <div class="status-text" style="flex:1;">
+                    <h4>${title}</h4>
+                    <p>${desc}</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width:${progress}%"></div>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:12px;color:#888;">
+                        <span>${Math.round(progress)}%</span>
+                        <span>${status === 'completed' ? '10:00' : 'Ước tính: 5-10 phút'}</span>
+                    </div>
+                </div>
+            </div>
+            ${scenesHtml}
+            ${videoPlayer}
+        `;
+    }
+
+    function downloadVideo(videoId) {
+        window.location.href = `/download_video/${videoId}`;
+    }
+
+    async function loadMyVideos() {
+        openVideoModal();
+        const body = document.getElementById('video-body-content');
+        body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa fa-spinner fa-spin" style="font-size:32px;color:#667eea;"></i><p style="margin-top:20px;color:#888;">Đang tải danh sách...</p></div>';
+        
+        try {
+            const res = await fetch('/my_videos');
+            const videos = await res.json();
+            
+            if (videos.length === 0) {
+                body.innerHTML = `
+                    <div style="text-align:center;padding:60px 20px;">
+                        <div style="font-size:48px;margin-bottom:20px;">📂</div>
+                        <h3 style="color:#fff;margin-bottom:10px;">Chưa có video nào</h3>
+                        <p style="color:#888;margin-bottom:30px;">Bạn chưa tạo video nào. Hãy bắt đầu tạo video đầu tiên!</p>
+                        <button class="btn-action btn-download" onclick="showVideoGenerator()">
+                            <i class="fa fa-plus"></i> Tạo video mới
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            const videosHtml = videos.map(v => {
+                const date = new Date(v.created_at).toLocaleString('vi-VN');
+                const statusClass = v.status === 'completed' ? 'status-completed' : 
+                                   v.status === 'queued' ? 'status-queued' : 'status-processing';
+                const statusText = v.status === 'completed' ? 'Hoàn thành' : 
+                                  v.status === 'queued' ? 'Đang chờ' : 'Đang xử lý';
+                
+                return `
+                    <div class="video-item" onclick="${v.ready ? `loadVideoDetail('${v.video_id}')` : ''}">
+                        <div class="video-item-info">
+                            <h5>${v.title}</h5>
+                            <span><i class="fa fa-calendar"></i> ${date}</span>
+                        </div>
+                        <div class="video-item-status ${statusClass}">${statusText}</div>
+                    </div>
+                `;
+            }).join('');
+
+            body.innerHTML = `
+                <div style="margin-bottom:20px;">
+                    <button class="btn-action btn-download" onclick="showVideoGenerator()" style="width:100%;justify-content:center;">
+                        <i class="fa fa-plus"></i> Tạo video mới
+                    </button>
+                </div>
+                <h4 style="color:#667eea;margin-bottom:15px;">📹 Video đã tạo (${videos.length})</h4>
+                <div class="video-list">
+                    ${videosHtml}
+                </div>
+            `;
+        } catch (e) {
+            body.innerHTML = `<div style="color:#e53935;text-align:center;padding:40px;">Lỗi tải danh sách: ${e.message}</div>`;
+        }
+    }
+
+    async function loadVideoDetail(videoId) {
+        currentVideoId = videoId;
+        const body = document.getElementById('video-body-content');
+        body.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fa fa-spinner fa-spin" style="font-size:32px;color:#667eea;"></i></div>';
+        
+        try {
+            const res = await fetch(`/video_status/${videoId}`);
+            const data = await res.json();
+            updateVideoStatusUI(data);
+        } catch (e) {
+            body.innerHTML = `<div style="color:#e53935;text-align:center;padding:40px;">Lỗi: ${e.message}</div>`;
+        }
+    }
+
     // ──────────────── MODAL ────────────────
     function showImg(images, index) {
         console.log(`[showImg] called → index: ${index}, total images: ${images.length}`);
@@ -427,9 +842,8 @@
 
         loading.style.display = 'flex';
         modalImg.style.opacity = '0';
-        modalImg.src = ''; // reset src để trigger onload lại
+        modalImg.src = '';
 
-        // Đợi 1 frame nhỏ để reset hoàn toàn trước khi set src mới
         requestAnimationFrame(() => {
             modalImg.src = images[index].url || '';
         });
@@ -499,6 +913,15 @@
         document.getElementById('modal-loading').style.display = 'none';
         document.body.style.overflow = 'auto';
     };
+
+    // Close modals on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeVideoModal();
+            document.getElementById('img-modal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+    });
 
     // Khởi động
     toggleChat('chat');
