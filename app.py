@@ -212,5 +212,23 @@ def export_pdf():
     pdf.output(path)
     return send_file(path, as_attachment=True)
 
+
+@app.route("/video_info")
+def video_info():
+    """Return information about video generation service"""
+    return jsonify({
+        "service": "AI Video Generator",
+        "version": "1.0",
+        "capabilities": [
+            "10-minute video generation",
+            "Vietnamese text-to-speech",
+            "AI script writing with Groq",
+            "Image collection from multiple sources",
+            "1080p video rendering with transitions"
+        ],
+        "estimated_time": "5-10 minutes",
+        "topic": "Tầm nhìn của giới trẻ về tương lai TP.HCM 2026-2030"
+    })
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=False)
