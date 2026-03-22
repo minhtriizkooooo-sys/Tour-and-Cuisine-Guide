@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import threading
 import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -17,8 +18,15 @@ from groq import Groq
 from fpdf import FPDF
 from PIL import Image, ImageDraw, ImageFont
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Setup logging chi tiết
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('video_generator.log'),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -33,6 +41,17 @@ VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 # Video generation settings
 VIDEO_STORAGE = "generated_videos"
 os.makedirs(VIDEO_STORAGE, exist_ok=True)
+
+# Test ffmpeg availability
+def check_ffmpeg():
+    try:
+        result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+        return result.returncode == 0
+    except:
+        return False
+
+FFMPEG_AVAILABLE = check_ffmpeg()
+logger.info(f"FFMPEG available: {FFMPEG_AVAILABLE}")
 
 SYSTEM_PROMPT = """Bạn là chuyên gia du lịch CHỈ dành cho: TP.HCM (Thành phố Hồ Chí Minh).
 Nếu địa danh, địa điểm, khu vực KHÔNG thuộc TP.HCM → Trả ngay JSON:
@@ -57,7 +76,6 @@ Trả về **chỉ JSON thuần túy**, không comment, không text thừa:
 }
 """
 
-# Video generation prompt template
 VIDEO_SCRIPT_PROMPT = """Bạn là đạo diễn trẻ sáng tạo tại TP.HCM. Tạo kịch bản video 10 phút (khoảng 1500-1800 từ) với chủ đề: "Tầm nhìn của giới trẻ về tương lai TP.HCM 2026-2030".
 
 YÊU CẦU KỊCH BẢN:
@@ -178,49 +196,64 @@ def generate_video_script():
         logger.error(f"Script generation error: {e}")
         return None
 
-def text_to_speech_gtts(text, output_path, lang='vi', slow=False, max_retries=3):
-    """Convert text to speech using gTTS with retry logic"""
-    from gtts import gTTS
-    
-    for attempt in range(max_retries):
-        try:
-            # Giới hạn text length để tránh lỗi
-            if len(text) > 5000:
-                text = text[:5000]
+def text_to_speech_gtts(text, output_path, lang='vi'):
+    """
+    Convert text to speech using gTTS
+    Giới hạn text để tránh lỗi
+    """
+    try:
+        from gtts import gTTS
+        
+        # Giới hạn text - gTTS có giới hạn khoảng 5000 ký tự
+        if len(text) > 4000:
+            logger.warning(f"Text too long ({len(text)} chars), truncating to 4000")
+            text = text[:4000]
+        
+        # Thêm delay nhỏ để tránh rate limit
+        import time
+        time.sleep(0.5)
+        
+        tts = gTTS(text=text, lang=lang, slow=False)
+        tts.save(output_path)
+        
+        # Verify file
+        if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
+            logger.info(f"TTS success: {output_path}, size: {os.path.getsize(output_path)} bytes")
+            return True
+        else:
+            logger.error("TTS output file invalid")
+            return False
             
-            tts = gTTS(text=text, lang=lang, slow=slow)
-            tts.save(output_path)
-            
-            # Verify file was created and has content
-            if os.path.exists(output_path) and os.path.getsize(output_path) > 1000:
-                return True
-            else:
-                raise Exception("TTS output file too small or not created")
-                
-        except Exception as e:
-            logger.warning(f"TTS attempt {attempt + 1} failed: {e}")
-            if attempt == max_retries - 1:
-                logger.error(f"TTS failed after {max_retries} attempts")
-                return False
-            import time
-            time.sleep(1)  # Wait before retry
-    
-    return False
+    except Exception as e:
+        logger.error(f"TTS error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False
 
 def create_silent_audio(output_path, duration=10):
-    """Create silent audio as fallback"""
+    """Create silent audio using ffmpeg"""
+    if not FFMPEG_AVAILABLE:
+        logger.error("FFMPEG not available for silent audio")
+        return False
+    
     try:
         cmd = [
             'ffmpeg', '-y', '-f', 'lavfi', '-i', 
             f'anullsrc=r=24000:cl=mono', '-t', str(duration),
             '-acodec', 'libmp3lame', '-q:a', '4', output_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
         if result.returncode == 0:
+            logger.info(f"Silent audio created: {output_path}")
             return True
         else:
-            logger.error(f"Silent audio error: {result.stderr}")
+            logger.error(f"Silent audio ffmpeg error: {result.stderr}")
             return False
+            
+    except subprocess.TimeoutExpired:
+        logger.error("Silent audio timeout")
+        return False
     except Exception as e:
         logger.error(f"Silent audio exception: {e}")
         return False
@@ -228,7 +261,7 @@ def create_silent_audio(output_path, duration=10):
 def download_image(url, output_path, max_retries=3):
     """Download image from URL with retry logic"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
     
     for attempt in range(max_retries):
@@ -243,16 +276,17 @@ def download_image(url, output_path, max_retries=3):
                 try:
                     with Image.open(output_path) as img:
                         img.verify()
+                    logger.info(f"Image downloaded: {output_path}")
                     return True
                 except Exception as e:
-                    logger.warning(f"Downloaded file is not valid image: {e}")
+                    logger.warning(f"Invalid image: {e}")
                     if os.path.exists(output_path):
                         os.remove(output_path)
             else:
-                logger.warning(f"Image download HTTP {response.status_code}")
+                logger.warning(f"HTTP {response.status_code} for {url}")
                 
         except Exception as e:
-            logger.warning(f"Image download attempt {attempt + 1} failed: {e}")
+            logger.warning(f"Download attempt {attempt + 1} failed: {e}")
         
         if attempt < max_retries - 1:
             import time
@@ -308,29 +342,35 @@ def create_text_slide(text, output_path, width=1920, height=1080, bg_color=(0, 1
             y += 80
         
         img.save(output_path, quality=95)
+        logger.info(f"Text slide created: {output_path}")
         return True
+        
     except Exception as e:
         logger.error(f"Text slide error: {e}")
         return False
 
 def create_video_segment(image_path, audio_path, output_path, duration=10, is_text_slide=False):
-    """Create video segment from image and audio"""
+    """Create video segment from image and audio using ffmpeg"""
+    if not FFMPEG_AVAILABLE:
+        logger.error("FFMPEG not available")
+        return False, 0
+    
     try:
-        # Get audio duration using ffprobe
+        # Get audio duration
         probe_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', 
                      '-of', 'default=noprint_wrappers=1:nokey=1', audio_path]
-        result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=10)
         
         try:
             audio_duration = float(result.stdout.strip())
         except:
             audio_duration = duration
         
-        # Ensure minimum duration
-        audio_duration = max(audio_duration, 3)
+        audio_duration = max(audio_duration, 3)  # Minimum 3 seconds
         
-        # Create video from image with audio
+        # Build ffmpeg command
         if is_text_slide:
+            # Zoom effect for text slides
             filter_complex = (
                 f"loop=loop=-1:size=1:start=0,"
                 f"zoompan=z='min(zoom+0.0015,1.5)':d={int(audio_duration*30)}:"
@@ -338,46 +378,69 @@ def create_video_segment(image_path, audio_path, output_path, duration=10, is_te
                 f"format=yuv420p"
             )
         else:
+            # Scale image to fit
             filter_complex = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p"
         
         cmd = [
-            'ffmpeg', '-y', '-loop', '1', '-i', image_path, '-i', audio_path,
-            '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
-            '-c:a', 'aac', '-b:a', '192k', '-ar', '48000',
-            '-pix_fmt', 'yuv420p', '-shortest',
-            '-t', str(audio_duration), '-vf', filter_complex,
+            'ffmpeg', '-y', 
+            '-loop', '1', '-i', image_path, 
+            '-i', audio_path,
+            '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28',
+            '-c:a', 'aac', '-b:a', '128k', '-ar', '44100',
+            '-pix_fmt', 'yuv420p', 
+            '-shortest',
+            '-t', str(audio_duration), 
+            '-vf', filter_complex,
             output_path
         ]
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        logger.debug(f"FFmpeg cmd: {' '.join(cmd)}")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         
         if result.returncode != 0:
             logger.error(f"FFmpeg error: {result.stderr}")
             return False, 0
         
         # Verify output
-        if not os.path.exists(output_path) or os.path.getsize(output_path) < 10000:
-            logger.error("Output file too small or not created")
+        if not os.path.exists(output_path):
+            logger.error("Output file not created")
             return False, 0
         
+        file_size = os.path.getsize(output_path)
+        if file_size < 10000:
+            logger.error(f"Output file too small: {file_size} bytes")
+            return False, 0
+        
+        logger.info(f"Video segment created: {output_path}, size: {file_size} bytes")
         return True, audio_duration
         
+    except subprocess.TimeoutExpired:
+        logger.error("FFmpeg timeout")
+        return False, 0
     except Exception as e:
         logger.error(f"Video segment error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return False, 0
 
 def concatenate_videos(video_files, output_path):
-    """Concatenate multiple video files"""
+    """Concatenate multiple video files using ffmpeg"""
     if not video_files:
+        logger.error("No video files to concatenate")
+        return False
+    
+    if not FFMPEG_AVAILABLE:
+        logger.error("FFMPEG not available")
         return False
     
     try:
-        # Create concat list file
+        # Method 1: Using concat demuxer
         list_file = tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8')
         for f in video_files:
-            # Escape single quotes in path
-            escaped_path = f.replace("'", "'\\''")
-            list_file.write(f"file '{escaped_path}'\n")
+            # Escape backslashes and single quotes
+            escaped = f.replace('\\', '/').replace("'", "'\\''")
+            list_file.write(f"file '{escaped}'\n")
         list_file.close()
         
         cmd = [
@@ -385,18 +448,21 @@ def concatenate_videos(video_files, output_path):
             '-i', list_file.name, '-c', 'copy', output_path
         ]
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
-        if result.returncode != 0:
-            logger.error(f"Concat error: {result.stderr}")
-            # Try alternative method
-            return concatenate_videos_alt(video_files, output_path)
+        if result.returncode == 0 and os.path.exists(output_path) and os.path.getsize(output_path) > 10000:
+            logger.info(f"Concat success: {output_path}")
+            os.unlink(list_file.name)
+            return True
         
+        logger.warning(f"Concat method 1 failed: {result.stderr}")
         os.unlink(list_file.name)
-        return True
+        
+        # Method 2: Using filter_complex
+        return concatenate_videos_alt(video_files, output_path)
         
     except Exception as e:
-        logger.error(f"Concatenate exception: {e}")
+        logger.error(f"Concat error: {e}")
         return concatenate_videos_alt(video_files, output_path)
 
 def concatenate_videos_alt(video_files, output_path):
@@ -414,14 +480,20 @@ def concatenate_videos_alt(video_files, output_path):
         cmd = ['ffmpeg', '-y'] + inputs + [
             '-filter_complex', filter_complex,
             '-map', '[outv]', '-map', '[outa]',
-            '-c:v', 'libx264', '-preset', 'fast',
-            '-c:a', 'aac', '-b:a', '192k',
+            '-c:v', 'libx264', '-preset', 'ultrafast',
+            '-c:a', 'aac', '-b:a', '128k',
             output_path
         ]
         
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        return result.returncode == 0
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
+        if result.returncode == 0:
+            logger.info(f"Alt concat success: {output_path}")
+            return True
+        else:
+            logger.error(f"Alt concat failed: {result.stderr}")
+            return False
+            
     except Exception as e:
         logger.error(f"Alt concat error: {e}")
         return False
@@ -441,41 +513,69 @@ def generate_ai_video_background(video_id, session_id):
                     conn.execute("UPDATE generated_videos SET status = ?, error_log = ? WHERE video_id = ?", 
                                (status, error_msg, video_id))
                 conn.commit()
+                logger.info(f"[{video_id}] Status updated to: {status}")
         except Exception as e:
-            logger.error(f"DB update error: {e}")
-    
+            logger.error(f"[{video_id}] DB update error: {e}")
+
     temp_dir = None
+    
     try:
+        # Kiểm tra dependencies
+        if not FFMPEG_AVAILABLE:
+            update_status("failed_no_ffmpeg", error_msg="FFMPEG not installed on server")
+            return
+        
+        try:
+            from gtts import gTTS
+        except ImportError:
+            update_status("failed_no_gtts", error_msg="gTTS not installed")
+            return
+        
         update_status("generating_script")
         
         # Step 1: Generate script
-        logger.info(f"[{video_id}] Generating script...")
+        logger.info(f"[{video_id}] Starting script generation...")
         script = generate_video_script()
+        
         if not script:
-            update_status("failed_script", error_msg="Failed to generate script from AI")
+            update_status("failed_script", error_msg="AI failed to generate script")
             return
         
         scenes = script.get('scenes', [])
         if not scenes:
-            update_status("failed_no_scenes", error_msg="No scenes in generated script")
+            update_status("failed_no_scenes", error_msg="No scenes in script")
             return
         
-        logger.info(f"[{video_id}] Generated script with {len(scenes)} scenes")
+        logger.info(f"[{video_id}] Script generated with {len(scenes)} scenes")
         
-        # Update with scenes data
-        with sqlite3.connect(DB_PATH) as conn:
-            conn.execute("""
-                UPDATE generated_videos 
-                SET scenes_data = ?, title = ?
-                WHERE video_id = ?
-            """, (json.dumps(script, ensure_ascii=False), script.get('title', 'AI Video'), video_id))
-            conn.commit()
+        # Update DB with script
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("""
+                    UPDATE generated_videos 
+                    SET scenes_data = ?, title = ?
+                    WHERE video_id = ?
+                """, (json.dumps(script, ensure_ascii=False), script.get('title', 'AI Video'), video_id))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"[{video_id}] DB update error: {e}")
         
         update_status("collecting_media")
         
         # Create temp directory
-        temp_dir = tempfile.mkdtemp()
-        logger.info(f"[{video_id}] Temp dir: {temp_dir}")
+        temp_dir = tempfile.mkdtemp(prefix=f"video_{video_id}_")
+        logger.info(f"[{video_id}] Temp directory: {temp_dir}")
+        
+        # Test write permissions
+        test_file = os.path.join(temp_dir, "test.txt")
+        try:
+            with open(test_file, 'w') as f:
+                f.write("test")
+            os.remove(test_file)
+            logger.info(f"[{video_id}] Temp directory writable")
+        except Exception as e:
+            update_status("failed_temp_dir", error_msg=f"Cannot write to temp dir: {e}")
+            return
         
         video_segments = []
         failed_scenes = []
@@ -485,58 +585,76 @@ def generate_ai_video_background(video_id, session_id):
         for idx, scene in enumerate(scenes):
             scene_status = f"processing_scene_{idx+1}/{total_scenes}"
             update_status(scene_status)
-            logger.info(f"[{video_id}] Processing scene {idx+1}/{total_scenes}")
+            logger.info(f"[{video_id}] === Processing scene {idx+1}/{total_scenes} ===")
             
-            narration = scene.get('narration', '')
-            if not narration:
-                narration = scene.get('visual_description', 'TP.HCM 2026')
-            
-            keywords = scene.get('keywords_for_image', 'Ho Chi Minh City future 2026')
-            
-            # Generate audio
-            audio_path = os.path.join(temp_dir, f"audio_{idx}.mp3")
-            tts_success = text_to_speech_gtts(narration, audio_path)
-            
-            if not tts_success:
-                # Try silent audio as fallback
-                logger.warning(f"[{video_id}] TTS failed for scene {idx+1}, using silent audio")
-                tts_success = create_silent_audio(audio_path, duration=5)
+            try:
+                narration = scene.get('narration', '')
+                if not narration or len(narration.strip()) < 10:
+                    narration = scene.get('visual_description', 'TP.HCM 2026')
+                    logger.warning(f"[{video_id}] Scene {idx+1} has no narration, using visual_description")
+                
+                keywords = scene.get('keywords_for_image', 'Ho Chi Minh City future 2026')
+                
+                # Generate audio
+                audio_path = os.path.join(temp_dir, f"audio_{idx}.mp3")
+                logger.info(f"[{video_id}] Generating TTS for scene {idx+1}...")
+                
+                tts_success = text_to_speech_gtts(narration, audio_path)
+                
                 if not tts_success:
+                    logger.warning(f"[{video_id}] TTS failed, trying silent audio...")
+                    # Fallback to silent audio
+                    tts_success = create_silent_audio(audio_path, duration=5)
+                    if not tts_success:
+                        logger.error(f"[{video_id}] Both TTS and silent audio failed for scene {idx+1}")
+                        failed_scenes.append(idx)
+                        continue
+                
+                # Get image
+                image_path = os.path.join(temp_dir, f"image_{idx}.jpg")
+                logger.info(f"[{video_id}] Getting image for scene {idx+1}...")
+                
+                images = search_serper_images(keywords, count=5)
+                image_ok = False
+                
+                if images:
+                    for img_idx, img in enumerate(images):
+                        if download_image(img['url'], image_path):
+                            logger.info(f"[{video_id}] Image {img_idx+1} downloaded for scene {idx+1}")
+                            image_ok = True
+                            break
+                
+                if not image_ok:
+                    logger.info(f"[{video_id}] Creating text slide for scene {idx+1}...")
+                    visual_desc = scene.get('visual_description', keywords[:100])
+                    if not create_text_slide(visual_desc, image_path):
+                        logger.error(f"[{video_id}] Failed to create text slide for scene {idx+1}")
+                        failed_scenes.append(idx)
+                        continue
+                
+                # Create video segment
+                segment_path = os.path.join(temp_dir, f"segment_{idx}.mp4")
+                logger.info(f"[{video_id}] Creating video segment for scene {idx+1}...")
+                
+                success, duration = create_video_segment(
+                    image_path, audio_path, segment_path, 
+                    is_text_slide=not image_ok
+                )
+                
+                if success:
+                    video_segments.append(segment_path)
+                    scene['actual_duration'] = duration
+                    logger.info(f"[{video_id}] Scene {idx+1} completed, duration: {duration}s")
+                else:
+                    logger.error(f"[{video_id}] Failed to create segment for scene {idx+1}")
                     failed_scenes.append(idx)
-                    continue
-            
-            # Try to get image
-            image_path = os.path.join(temp_dir, f"image_{idx}.jpg")
-            images = search_serper_images(keywords, count=5)  # Tăng số lượng thử
-            
-            image_ok = False
-            if images:
-                for img_idx, img in enumerate(images):
-                    if download_image(img['url'], image_path):
-                        logger.info(f"[{video_id}] Downloaded image {img_idx+1} for scene {idx+1}")
-                        image_ok = True
-                        break
-            
-            if not image_ok:
-                # Create text slide as fallback
-                logger.info(f"[{video_id}] Creating text slide for scene {idx+1}")
-                visual_desc = scene.get('visual_description', keywords[:100])
-                create_text_slide(visual_desc, image_path)
-            
-            # Create video segment
-            segment_path = os.path.join(temp_dir, f"segment_{idx}.mp4")
-            success, duration = create_video_segment(
-                image_path, audio_path, segment_path, 
-                is_text_slide=not image_ok
-            )
-            
-            if success:
-                video_segments.append(segment_path)
-                scene['actual_duration'] = duration
-                logger.info(f"[{video_id}] Scene {idx+1} completed, duration: {duration}s")
-            else:
-                logger.error(f"[{video_id}] Failed to create segment for scene {idx+1}")
+                    
+            except Exception as e:
+                logger.error(f"[{video_id}] Exception in scene {idx+1}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
                 failed_scenes.append(idx)
+                continue
         
         logger.info(f"[{video_id}] Completed {len(video_segments)}/{total_scenes} scenes, failed: {len(failed_scenes)}")
         
@@ -546,64 +664,68 @@ def generate_ai_video_background(video_id, session_id):
         
         update_status("concatenating")
         
-        # Step 3: Concatenate all segments
+        # Step 3: Concatenate
         concat_path = os.path.join(temp_dir, "concatenated.mp4")
         logger.info(f"[{video_id}] Concatenating {len(video_segments)} segments...")
         
         if not concatenate_videos(video_segments, concat_path):
-            update_status("failed_concat", error_msg="Failed to concatenate video segments")
+            update_status("failed_concat", error_msg="Failed to concatenate videos")
             return
         
         # Step 4: Add intro
         final_path = os.path.join(VIDEO_STORAGE, f"{video_id}.mp4")
         
-        # Create intro
         intro_path = os.path.join(temp_dir, "intro.mp4")
         intro_text = f"{script.get('title', 'Tầm nhìn TP.HCM 2026')}\n\nVideo được tạo bởi AI\nHCMC Travel AI Guide 2026"
         intro_img = os.path.join(temp_dir, "intro_img.jpg")
-        create_text_slide(intro_text, intro_img, bg_color=(0, 74, 124))
         
-        # 3 second intro with silent audio
-        silent_intro = os.path.join(temp_dir, "silent_intro.mp3")
-        create_silent_audio(silent_intro, 3)
-        create_video_segment(intro_img, silent_intro, intro_path, 3, True)
-        
-        # Final concatenate with intro
-        final_list = [intro_path] + video_segments
-        logger.info(f"[{video_id}] Creating final video...")
-        
-        if not concatenate_videos(final_list, final_path):
-            # If concat with intro fails, just use the main content
-            logger.warning(f"[{video_id}] Failed to add intro, using main content only")
-            import shutil
+        if not create_text_slide(intro_text, intro_img, bg_color=(0, 74, 124)):
+            logger.warning(f"[{video_id}] Failed to create intro slide, using first scene as intro")
+            # Just copy concat as final
             shutil.copy(concat_path, final_path)
+        else:
+            silent_intro = os.path.join(temp_dir, "silent_intro.mp3")
+            if create_silent_audio(silent_intro, 3):
+                if create_video_segment(intro_img, silent_intro, intro_path, 3, True)[0]:
+                    final_list = [intro_path] + video_segments
+                    if not concatenate_videos(final_list, final_path):
+                        logger.warning(f"[{video_id}] Concat with intro failed, using main content")
+                        shutil.copy(concat_path, final_path)
+                else:
+                    shutil.copy(concat_path, final_path)
+            else:
+                shutil.copy(concat_path, final_path)
         
         # Verify final video
-        if not os.path.exists(final_path) or os.path.getsize(final_path) < 100000:
-            update_status("failed_final_too_small", error_msg="Final video file too small")
+        if not os.path.exists(final_path):
+            update_status("failed_no_output", error_msg="Final video file not created")
             return
         
-        file_size_mb = os.path.getsize(final_path) / (1024 * 1024)
-        logger.info(f"[{video_id}] Video completed: {final_path}, size: {file_size_mb:.2f} MB")
+        file_size = os.path.getsize(final_path)
+        if file_size < 100000:
+            update_status("failed_too_small", error_msg=f"Final video too small: {file_size} bytes")
+            return
+        
+        file_size_mb = file_size / (1024 * 1024)
+        logger.info(f"[{video_id}] SUCCESS! Video: {final_path}, size: {file_size_mb:.2f} MB")
         
         update_status("completed", final_path, completed=True)
         
     except Exception as e:
-        error_msg = f"Video generation error: {str(e)}"
+        error_msg = f"Fatal error: {str(e)}"
         logger.error(f"[{video_id}] {error_msg}")
         import traceback
         logger.error(traceback.format_exc())
-        update_status(f"failed: {str(e)}", error_msg=error_msg)
+        update_status(f"failed_exception", error_msg=error_msg)
     
     finally:
-        # Cleanup temp files
+        # Cleanup
         if temp_dir and os.path.exists(temp_dir):
             try:
-                import shutil
                 shutil.rmtree(temp_dir)
                 logger.info(f"[{video_id}] Cleaned up temp directory")
             except Exception as e:
-                logger.warning(f"[{video_id}] Failed to cleanup temp dir: {e}")
+                logger.warning(f"[{video_id}] Cleanup error: {e}")
 
 # --- Routes ---
 @app.route("/")
@@ -722,6 +844,21 @@ def generate_video():
     sid = request.cookies.get("session_id")
     if not sid:
         sid = str(uuid.uuid4())
+    
+    # Check dependencies first
+    if not FFMPEG_AVAILABLE:
+        return jsonify({
+            "error": "FFMPEG not available",
+            "message": "Server chưa cài đặt ffmpeg. Vui lòng liên hệ admin."
+        }), 503
+    
+    try:
+        from gtts import gTTS
+    except ImportError:
+        return jsonify({
+            "error": "gTTS not installed",
+            "message": "Thiếu thư viện gTTS. Vui lòng cài đặt: pip install gTTS"
+        }), 503
     
     video_id = str(uuid.uuid4())[:12]
     now_vn = datetime.now(VN_TZ).isoformat()
@@ -862,6 +999,7 @@ def video_info():
     return jsonify({
         "service": "AI Video Generator",
         "version": "1.0",
+        "ffmpeg_available": FFMPEG_AVAILABLE,
         "capabilities": [
             "10-minute video generation",
             "Vietnamese text-to-speech",
@@ -872,6 +1010,21 @@ def video_info():
         "estimated_time": "5-10 minutes",
         "topic": "Tầm nhìn của giới trẻ về tương lai TP.HCM 2026-2030"
     })
+
+@app.route("/video_logs/<video_id>")
+def video_logs(video_id):
+    """Get debug logs for a video (admin only)"""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT error_log FROM generated_videos WHERE video_id = ?", (video_id,))
+            row = cur.fetchone()
+        
+        if row and row[0]:
+            return jsonify({"logs": row[0]})
+        return jsonify({"logs": "No logs available"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=False)
