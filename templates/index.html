@@ -7,7 +7,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f9f9f9; --accent: #00b7eb; --text-color: #212121; }
+        :root { 
+            --primary: #0066cc; 
+            --primary-dark: #004a7c; 
+            --bg: #f9f9f9; 
+            --accent: #00b7eb; 
+            --text-color: #212121; 
+            --success: #43a047;
+            --warning: #ff9800;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
         header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 12px 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
@@ -21,18 +29,37 @@
         #close-sidebar { position: absolute; top: 15px; right: 15px; font-size: 32px; color: var(--primary); cursor: pointer; background: white; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1002; }
         .sidebar-section { margin-bottom: 28px; }
         .sidebar-section h3 { color: var(--primary); font-size: 17px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .btn-sidebar { display: block; width: 100%; padding: 13px; margin: 8px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; }
+        .btn-sidebar { display: block; width: 100%; padding: 13px; margin: 8px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; transition: opacity 0.2s; }
+        .btn-sidebar:hover { opacity: 0.9; }
         .btn-primary { background: var(--primary); }
         .btn-danger { background: #e53935; }
-        .btn-success { background: #43a047; }
+        .btn-success { background: var(--success); }
+        .search-box { position: relative; margin-bottom: 10px; }
+        .search-results { 
+            position: absolute; top: 100%; left: 0; right: 0; background: white; 
+            border: 1px solid #ddd; border-radius: 6px; max-height: 200px; overflow-y: auto;
+            z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none;
+        }
+        .search-result-item { 
+            padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
+            font-size: 14px; transition: background 0.2s;
+        }
+        .search-result-item:hover { background: #f5f5f5; }
+        .search-result-item:last-child { border-bottom: none; }
+        .search-result-name { font-weight: 600; color: var(--primary-dark); }
+        .search-result-address { font-size: 12px; color: #666; margin-top: 2px; }
         #chat-container { display: none; flex-direction: column; height: 100%; }
         #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 0 4px; }
-        .msg { padding: 12px 16px; border-radius: 18px; max-width: 92%; font-size: 15px; line-height: 1.55; word-wrap: break-word; }
+        .msg { padding: 12px 16px; border-radius: 18px; max-width: 92%; font-size: 15px; line-height: 1.55; word-wrap: break-word; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .user { background: var(--primary); color: white; align-self: flex-end; }
         .bot { background: #e3f2fd; color: var(--text-color); align-self: flex-start; border: 1px solid #bbdefb; }
         .input-area { padding: 12px 0; display: flex; gap: 10px; border-top: 1px solid #eee; background: white; }
         #user-input { flex: 1; padding: 12px 18px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
-        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+        #user-input:focus { border-color: var(--primary); }
+        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+        .send-btn:hover { transform: scale(1.05); }
+        .send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         footer { background: var(--primary); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 14px; border-top: 2px solid var(--accent); }
         #img-modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999;
@@ -68,13 +95,24 @@
         }
         .hidden { display: none !important; }
         .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
-        .suggest-item:hover { background: #bbdefb; }
+        .suggest-item:hover { background: #bbdefb; transform: translateX(5px); }
         .video-container { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
         .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
         .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
-        .gallery img { width: 100%; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.15); transition: transform 0.25s; cursor: pointer; }
+        .gallery img { width: 100%; height: 120px; object-fit: cover; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.15); transition: transform 0.25s; cursor: pointer; }
         .gallery img:hover { transform: scale(1.05); }
+        .loading-spinner { 
+            display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; 
+            border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .typing-indicator { display: flex; gap: 4px; padding: 12px 16px; }
+        .typing-indicator span { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+        .error-msg { background: #ffebee; color: #c62828; border: 1px solid #ef9a9a; }
         @media (max-width: 768px) {
             #sidebar { width: 85%; right: -85%; }
             header { height: 56px; padding: 10px 16px; }
@@ -99,8 +137,11 @@
         <div class="sidebar-section">
             <h3>Công cụ Bản đồ</h3>
             <div class="content">
-                <input type="text" id="s-input" placeholder="Tìm tòa nhà, địa danh, khu phố ở Sài Gòn..." style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px;">
-                <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc & xem</button>
+                <div class="search-box">
+                    <input type="text" id="s-input" placeholder="Tìm tòa nhà, địa danh, khu phố ở Sài Gòn..." style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;" autocomplete="off">
+                    <div id="search-results" class="search-results"></div>
+                </div>
+                <button class="btn-sidebar btn-primary" onclick="findLoc()">Tìm kiếm & Cắm mốc</button>
                 <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa hết marker</button>
             </div>
         </div>
@@ -115,7 +156,7 @@
         <div id="chat-container">
             <div id="chat-box"></div>
             <div class="input-area">
-                <input type="text" id="user-input" placeholder="Hỏi về bất kỳ nơi nào ở Sài Gòn..." onkeypress="if(event.key==='Enter') sendMessage()">
+                <input type="text" id="user-input" placeholder="Hỏi về bất kỳ nơi nào ở Sài Gòn..." onkeypress="if(event.key==='Enter') sendMessage()" autocomplete="off">
                 <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
             </div>
         </div>
@@ -146,16 +187,113 @@
     let markers = [];
     let currentImages = [];
     let currentImgIndex = 0;
+    let isSearching = false;
     const sidebar = document.getElementById('sidebar');
+    const searchResultsDiv = document.getElementById('search-results');
 
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
+    // Đóng search results khi click ngoài
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-box')) {
+            searchResultsDiv.style.display = 'none';
+        }
+    });
+
+    // Auto search khi gõ
+    let searchTimeout;
+    document.getElementById('s-input').addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+        
+        if (query.length < 2) {
+            searchResultsDiv.style.display = 'none';
+            return;
+        }
+        
+        searchTimeout = setTimeout(() => {
+            performSearch(query);
+        }, 500);
+    });
+
+    async function performSearch(query) {
+        if (isSearching) return;
+        isSearching = true;
+        
+        try {
+            const res = await fetch('/search_location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            });
+            
+            const data = await res.json();
+            displaySearchResults(data.results || []);
+        } catch (e) {
+            console.error('Search error:', e);
+        } finally {
+            isSearching = false;
+        }
+    }
+
+    function displaySearchResults(results) {
+        if (!results.length) {
+            searchResultsDiv.style.display = 'none';
+            return;
+        }
+        
+        searchResultsDiv.innerHTML = results.map((r, idx) => `
+            <div class="search-result-item" onclick="selectLocation(${idx})" data-idx="${idx}">
+                <div class="search-result-name">${escapeHtml(r.name)}</div>
+                <div class="search-result-address">${escapeHtml(r.display_name)}</div>
+            </div>
+        `).join('');
+        
+        searchResultsDiv.style.display = 'block';
+        searchResultsDiv.results = results; // Lưu để dùng sau
+    }
+
+    function selectLocation(idx) {
+        const results = searchResultsDiv.results;
+        if (!results || !results[idx]) return;
+        
+        const location = results[idx];
+        const pos = [location.lat, location.lon];
+        
+        map.setView(pos, 17);
+        
+        const popupContent = `
+            <b>${escapeHtml(location.name)}</b><br>
+            <small>${escapeHtml(location.display_name)}</small><br>
+            <button onclick="askAI('${escapeHtml(location.name).replace(/'/g, "\\'")}')" 
+                    style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">
+                Hỏi AI về ${escapeHtml(location.name)}
+            </button>
+        `;
+        
+        const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
+        markers.push(m);
+        
+        searchResultsDiv.style.display = 'none';
+        document.getElementById('s-input').value = location.name;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function toggleChat(tab) {
-        document.getElementById('chat-container').style.display = 'flex';
+        const chatContainer = document.getElementById('chat-container');
+        chatContainer.style.display = 'flex';
         const box = document.getElementById('chat-box');
         if (tab === 'chat' && box.innerHTML === '') {
-            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố, tòa nhà nào ở TP.HCM nhé! TP.HCM 2026 đang rất thú vị đấy 🇻🇳</div>';
+            addBotMessage({
+                                text: "Chào bạn! Mình là chuyên gia về TP.HCM (Sài Gòn). Bạn có thể hỏi mình về:\n\n• Bất kỳ địa danh, tòa nhà, đường phố nào\n• Quận/huyện/phường/xã (cả tên cũ và mới)\n• Cơ quan, trường học, bệnh viện\n• Ẩm thực, quán ăn, nhà hàng\n• Lịch sử, văn hóa, con người\n• Dự án phát triển tương lai 2026-2030\n\nHãy thử hỏi ngay nhé! 🇻🇳",
+                suggestions: ["Chợ Bến Thành có gì đặc biệt?", "Thành phố Thủ Đức sau sáp nhập 2026", "Quán phở ngon ở Sài Gòn"]
+            });
         }
     }
 
@@ -165,98 +303,42 @@
     }
 
     async function findLoc() {
-        let q = document.getElementById('s-input').value.trim();
-        if (!q) return alert("Vui lòng nhập tên địa danh hoặc tòa nhà");
-
-        const qLower = q.toLowerCase().replace(/\s+/g, ' ').trim();
-
-        const queryVariants = [
-            q,
-            q + " TP.HCM",
-            q + " Ho Chi Minh City",
-            q + " Thành phố Hồ Chí Minh",
-            q + " Quận 1",
-            q + " District 1",
-            q + " Quận 7",
-            q + " District 7",
-            q.replace(/ifc/gi, "International Financial Centre"),
-            q.replace(/saigon marina/gi, "Grand Marina Saigon"),
-            q.replace(/saigon marina ifc/gi, "Grand Marina Saigon IFC"),
-            q.replace(/bitexco/gi, "Bitexco Financial Tower"),
-            q.replace(/landmark/gi, "Landmark 81 Vinhomes"),
-            q.replace(/vinhomes landmark/gi, "Landmark 81"),
-            q.replace(/tháp bitexco/gi, "Bitexco Financial Tower"),
-            q.replace(/tháp tài chính/gi, "Financial Tower") + " TP.HCM",
-        ];
-
-        let found = false;
-        let bestResult = null;
-        let bestZoom = 16.5;
-
-        for (const variant of queryVariants) {
-            if (found) break;
-
-            const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&q=${encodeURIComponent(variant)}&addressdetails=1&namedetails=1&limit=5`;
-
-            try {
-                const res = await fetch(url, {
-                    headers: { 'User-Agent': 'HCMC-Travel-AI-Guide/1.0 (contact: dev@example.com)' }
-                });
-                const data = await res.json();
-
-                if (data && data.length > 0) {
-                    const valid = data.find(item =>
-                        (item.display_name || '').includes("Thành phố Hồ Chí Minh") ||
-                        (item.display_name || '').includes("Ho Chi Minh City") ||
-                        (item.address?.city || '').includes("Hồ Chí Minh") ||
-                        (item.address?.city_district || '').match(/Quận \d|District \d/)
-                    );
-
-                    if (valid) {
-                        bestResult = valid;
-                        found = true;
-                    } else if (!bestResult && data[0]) {
-                        bestResult = data[0];
-                    }
-                }
-            } catch (err) {
-                console.warn(`Query thất bại: ${variant}`, err);
-            }
+        const query = document.getElementById('s-input').value.trim();
+        if (!query) {
+            alert("Vui lòng nhập tên địa danh hoặc tòa nhà");
+            return;
         }
-
-        if (bestResult) {
-            const pos = [parseFloat(bestResult.lat), parseFloat(bestResult.lon)];
-            map.setView(pos, bestZoom);
-
-            const displayName = (bestResult.namedetails?.name || bestResult.display_name?.split(',')[0] || q);
-            const addressPart = bestResult.display_name?.split(', ').slice(1).join(', ') || 'TP.HCM';
-
-            const popupContent = `
-                <b>${displayName}</b><br>
-                <small>${addressPart}</small><br>
-                <button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>
-            `;
-
-            const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
-            markers.push(m);
-        } else {
-            alert(`Không tìm thấy "${q}" trong dữ liệu bản đồ hiện tại.\n\n` +
-                  `Gợi ý:\n` +
-                  `• Thử thêm từ khóa như "TP.HCM", "Quận 1", "tòa nhà", "tháp"\n` +
-                  `• Ví dụ: "saigon marina quận 1", "bitexco financial tower", "landmark 81"\n` +
-                  `• Hoặc hỏi trực tiếp AI trong ô chat bên dưới nhé!`);
-        }
+        
+        await performSearch(query);
     }
 
     function askAI(loc) {
         toggleChat('chat');
-        document.getElementById('user-input').value = `Thông tin du lịch chi tiết về ${loc} tại TP.HCM năm 2026`;
+        document.getElementById('user-input').value = `Thông tin chi tiết về ${loc} tại TP.HCM năm 2026`;
         sendMessage();
+        sidebar.classList.remove('open');
+    }
+
+    function addBotMessage(data) {
+        const box = document.getElementById('chat-box');
+        const div = createMessageElement('bot', data);
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        return div;
+    }
+
+    function addUserMessage(text) {
+        const box = document.getElementById('chat-box');
+        const div = createMessageElement('user', text);
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+        return div;
     }
 
     function createMessageElement(role, content) {
         const div = document.createElement('div');
         div.className = `msg ${role}`;
+        
         if (role === 'user') {
             div.textContent = content;
             return div;
@@ -265,75 +347,102 @@
         let data = typeof content === 'string' ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
 
-        let htmlText = (data.text || "").replace(/\n/g, '<br>')
-                                       .replace(/## (.*?)<br>/g, '<h2 style="margin:16px 0 8px;color:#004a7c;">$1</h2>')
-                                       .replace(/### (.*?)<br>/g, '<h3 style="margin:14px 0 6px;color:#0066cc;">$1</h3>')
-                                       .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-                                       .replace(/\*(.*?)\*/g, '<i>$1</i>');
+        // Xử lý markdown cơ bản
+        let htmlText = (data.text || "").replace(/\n/g, '<br>');
+        
+        // Headers
+        htmlText = htmlText.replace(/#### (.*?)(<br>|$)/g, '<h4 style="margin:12px 0 6px;color:#004a7c;font-size:15px;">$1</h4>');
+        htmlText = htmlText.replace(/### (.*?)(<br>|$)/g, '<h3 style="margin:14px 0 8px;color:#0066cc;font-size:17px;border-bottom:2px solid #e3f2fd;padding-bottom:4px;">$1</h3>');
+        htmlText = htmlText.replace(/## (.*?)(<br>|$)/g, '<h2 style="margin:18px 0 10px;color:#004a7c;font-size:20px;border-left:4px solid var(--primary);padding-left:10px;">$1</h2>');
+        
+        // Formatting
+        htmlText = htmlText.replace(/\*\*\*(.*?)\*\*\*/g, '<b><i>$1</i></b>');
+        htmlText = htmlText.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        htmlText = htmlText.replace(/\*(.*?)\*/g, '<i>$1</i>');
+        htmlText = htmlText.replace(/`(.*?)`/g, '<code style="background:#f5f5f5;padding:2px 6px;border-radius:4px;font-size:13px;">$1</code>');
+        
+        // Lists
+        htmlText = htmlText.replace(/- (.*?)(<br>|$)/g, '• $1<br>');
+        
         contentDiv.innerHTML = htmlText;
 
+        // Hình ảnh thực tế
         if (data.images?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">📸 Hình ảnh thực tế hiện nay:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-camera"></i> Hình ảnh thực tế:</div>';
             const gallery = document.createElement('div');
             gallery.className = 'gallery';
             data.images.forEach((img, idx) => {
-                const imgEl = document.createElement('img');
-                imgEl.src = img.url;
-                imgEl.alt = img.caption || 'Ảnh thực tế';
-                imgEl.dataset.index = idx;
-                imgEl.dataset.galleryType = 'current';
-                gallery.appendChild(imgEl);
+                if (img.url) {
+                    const imgEl = document.createElement('img');
+                    imgEl.src = img.url;
+                    imgEl.alt = img.caption || 'Ảnh TP.HCM';
+                    imgEl.dataset.index = idx;
+                    imgEl.dataset.galleryType = 'current';
+                    imgEl.onerror = function() { this.style.display = 'none'; };
+                    gallery.appendChild(imgEl);
+                }
             });
-            contentDiv.appendChild(gallery);
+            if (gallery.children.length > 0) {
+                contentDiv.appendChild(gallery);
+            }
         }
 
+        // Video thực tế
         if (data.youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video trải nghiệm thực tế:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-video-camera"></i> Video trải nghiệm:</div>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen loading="lazy"></iframe></div>`;
                 }
             });
             contentDiv.appendChild(vCon);
         }
 
+        // Hình ảnh tương lai
         if (data.future_images?.length) {
-            contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
+            contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-rocket"></i> Tầm nhìn tương lai 2026-2030:</div>';
             const futGallery = document.createElement('div');
             futGallery.className = 'gallery';
             data.future_images.forEach((img, idx) => {
-                const imgEl = document.createElement('img');
-                imgEl.src = img.url;
-                imgEl.alt = img.caption || 'Ảnh tương lai';
-                imgEl.dataset.index = idx;
-                imgEl.dataset.galleryType = 'future';
-                futGallery.appendChild(imgEl);
+                if (img.url) {
+                    const imgEl = document.createElement('img');
+                    imgEl.src = img.url;
+                    imgEl.alt = img.caption || 'TP.HCM tương lai';
+                    imgEl.dataset.index = idx;
+                    imgEl.dataset.galleryType = 'future';
+                    imgEl.onerror = function() { this.style.display = 'none'; };
+                    futGallery.appendChild(imgEl);
+                }
             });
-            contentDiv.appendChild(futGallery);
+            if (futGallery.children.length > 0) {
+                contentDiv.appendChild(futGallery);
+            }
         }
 
+        // Video tương lai
         if (data.future_youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video dự án & tương lai:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-film"></i> Video dự án & tương lai:</div>';
             const futVCon = document.createElement('div');
             futVCon.className = 'video-container';
             data.future_youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    futVCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                    futVCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen loading="lazy"></iframe></div>`;
                 }
             });
             contentDiv.appendChild(futVCon);
         }
 
+        // Gợi ý câu hỏi tiếp theo
         if (data.suggestions?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;">💡 Gợi ý tiếp theo:</div>';
+            contentDiv.innerHTML += '<div style="margin:28px 0 12px;font-weight:bold;color:#333;display:flex;align-items:center;gap:8px;"><i class="fa fa-lightbulb" style="color:var(--warning);"></i> Gợi ý tiếp theo:</div>';
             data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
-                btn.textContent = s;
+                btn.innerHTML = `<i class="fa fa-comment-o" style="margin-right:8px;"></i>${escapeHtml(s)}`;
                 btn.onclick = () => {
                     document.getElementById('user-input').value = s;
                     sendMessage();
@@ -342,10 +451,17 @@
             });
         }
 
+        // Lưu raw data để dùng cho gallery
+        const hiddenData = document.createElement('div');
+        hiddenData.style.display = 'none';
+        hiddenData.dataset.raw = JSON.stringify(data);
+        contentDiv.appendChild(hiddenData);
+
         div.appendChild(contentDiv);
         return div;
     }
 
+    // Xử lý click vào gallery
     document.getElementById('chat-box').addEventListener('click', function(e) {
         const img = e.target.closest('.gallery img');
         if (img) {
@@ -356,27 +472,46 @@
 
             const hiddenData = msgDiv.querySelector('[data-raw]');
             if (!hiddenData) return;
-            const data = JSON.parse(hiddenData.dataset.raw);
-
-            let imagesArray = galleryType === 'current' ? (data.images || []) : (data.future_images || []);
-
-            if (imagesArray.length > 0) {
-                console.log(`[Gallery click] Type: ${galleryType}, Index: ${index}, Total: ${imagesArray.length}, URL: ${imagesArray[index]?.url}`);
-                showImg(imagesArray, index);
-            } else {
-                console.warn('Không tìm thấy mảng ảnh cho gallery này');
+            
+            try {
+                const data = JSON.parse(hiddenData.dataset.raw);
+                let imagesArray = galleryType === 'current' ? (data.images || []) : (data.future_images || []);
+                
+                // Filter valid URLs
+                imagesArray = imagesArray.filter(img => img && img.url);
+                
+                if (imagesArray.length > 0 && index >= 0 && index < imagesArray.length) {
+                    showImg(imagesArray, index);
+                }
+            } catch (err) {
+                console.error('Gallery error:', err);
             }
         }
     });
 
     async function sendMessage() {
         const inp = document.getElementById('user-input');
+        const btn = document.querySelector('.send-btn');
         const msg = inp.value.trim();
-        if (!msg) return;
+        
+        if (!msg || btn.disabled) return;
 
-        const box = document.getElementById('chat-box');
-        box.appendChild(createMessageElement('user', msg));
+        // Disable input và button
+        inp.disabled = true;
+        btn.disabled = true;
+        btn.innerHTML = '<div class="loading-spinner" style="width:16px;height:16px;border-width:2px;"></div>';
+
+        // Thêm tin nhắn user
+        addUserMessage(msg);
         inp.value = '';
+
+        // Thêm typing indicator
+        const box = document.getElementById('chat-box');
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'msg bot typing-indicator';
+        typingDiv.innerHTML = '<span></span><span></span><span></span>';
+        typingDiv.id = 'typing-indicator';
+        box.appendChild(typingDiv);
         box.scrollTop = box.scrollHeight;
 
         try {
@@ -385,67 +520,108 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ msg })
             });
+            
             const data = await res.json();
+            
+            // Xóa typing indicator
+            const typing = document.getElementById('typing-indicator');
+            if (typing) typing.remove();
 
-            const botMsg = createMessageElement('bot', data);
-            const hiddenData = document.createElement('div');
-            hiddenData.style.display = 'none';
-            hiddenData.dataset.raw = JSON.stringify(data);
-            botMsg.appendChild(hiddenData);
+            // Nếu AI trả lời không hợp lệ, thử lại với câu hỏi bổ sung
+            if (!data.is_valid && data.error !== "Empty message") {
+                // Thử hỏi lại với context rõ ràng hơn
+                const retryRes = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ msg: msg + " tại TP.HCM (Sài Gòn)" })
+                });
+                const retryData = await retryRes.json();
+                addBotMessage(retryData);
+            } else {
+                addBotMessage(data);
+            }
 
-            box.appendChild(botMsg);
-            box.scrollTop = box.scrollHeight;
         } catch (e) {
-            console.error('Lỗi gửi tin nhắn:', e);
+            // Xóa typing indicator
+            const typing = document.getElementById('typing-indicator');
+            if (typing) typing.remove();
+            
+            console.error('Send message error:', e);
+            addBotMessage({
+                text: "Xin lỗi, có lỗi kết nối. Vui lòng thử lại sau.",
+                is_valid: true,
+                suggestions: ["Thử lại câu hỏi", "Hỏi về địa điểm khác ở TP.HCM"]
+            });
+        } finally {
+            inp.disabled = false;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-paper-plane"></i>';
+            inp.focus();
         }
     }
 
     function exportPdf() {
-        window.location.href = '/export_pdf';
+        window.open('/export_pdf', '_blank');
     }
 
     async function clearHistory() {
-        if (!confirm("Xóa toàn bộ lịch sử trò chuyện?")) return;
-        await fetch('/clear_history', { method: 'POST' });
-        location.reload();
+        if (!confirm("Bạn có chắc muốn xóa toàn bộ lịch sử trò chuyện?")) return;
+        
+        try {
+            await fetch('/clear_history', { method: 'POST' });
+            document.getElementById('chat-box').innerHTML = '';
+            toggleChat('chat');
+        } catch (e) {
+            alert('Có lỗi khi xóa lịch sử');
+        }
     }
 
-    // ──────────────── MODAL ────────────────
+    // ──────────────── MODAL GALLERY ────────────────
     function showImg(images, index) {
-        console.log(`[showImg] called → index: ${index}, total images: ${images.length}`);
-        if (!images || !images.length || index < 0 || index >= images.length) {
-            console.warn('[showImg] Invalid images array or index');
-            return;
-        }
-
+        if (!images || !images.length) return;
+        
+        // Validate index
+        if (index < 0) index = 0;
+        if (index >= images.length) index = images.length - 1;
+        
         currentImages = images;
         currentImgIndex = index;
 
         const loading = document.getElementById('modal-loading');
         const modalImg = document.getElementById('modal-img');
         const captionEl = document.getElementById('modal-caption');
+        const modal = document.getElementById('img-modal');
 
         loading.style.display = 'flex';
         modalImg.style.opacity = '0';
-        modalImg.src = ''; // reset src để trigger onload lại
+        modalImg.src = '';
 
-        // Đợi 1 frame nhỏ để reset hoàn toàn trước khi set src mới
-        requestAnimationFrame(() => {
-            modalImg.src = images[index].url || '';
-        });
+        // Set caption
+        const imgData = images[index];
+        captionEl.textContent = imgData.caption || `Ảnh ${index + 1}/${images.length}`;
 
-        captionEl.textContent = images[index].caption || 'Ảnh minh họa';
-
+        // Show/hide nav buttons
         document.getElementById('prev-img').style.display = index > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = index < images.length - 1 ? 'block' : 'none';
 
-        document.getElementById('img-modal').classList.remove('hidden');
+        // Show modal
+        modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
+
+        // Load image
+        requestAnimationFrame(() => {
+            modalImg.src = imgData.url;
+        });
     }
 
     function updateModalImg() {
+        if (!currentImages.length) return;
+        
         const imgData = currentImages[currentImgIndex];
-        if (!imgData) return;
+        if (!imgData || !imgData.url) {
+            closeModal();
+            return;
+        }
 
         const modalImg = document.getElementById('modal-img');
         const loading = document.getElementById('modal-loading');
@@ -455,27 +631,35 @@
         modalImg.style.opacity = '0';
         modalImg.src = '';
 
-        requestAnimationFrame(() => {
-            modalImg.src = imgData.url || '';
-        });
-
-        captionEl.textContent = imgData.caption || 'Ảnh minh họa';
+        captionEl.textContent = imgData.caption || `Ảnh ${currentImgIndex + 1}/${currentImages.length}`;
 
         document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
+
+        requestAnimationFrame(() => {
+            modalImg.src = imgData.url;
+        });
     }
 
+    function closeModal() {
+        document.getElementById('img-modal').classList.add('hidden');
+        document.getElementById('modal-loading').style.display = 'none';
+        document.body.style.overflow = 'auto';
+        currentImages = [];
+        currentImgIndex = 0;
+    }
+
+    // Modal event listeners
     const modalImgEl = document.getElementById('modal-img');
+    
     modalImgEl.onload = () => {
-        console.log('[modal-img] onload thành công');
         document.getElementById('modal-loading').style.display = 'none';
         modalImgEl.style.opacity = '1';
     };
 
     modalImgEl.onerror = () => {
-        console.error('[modal-img] lỗi load ảnh');
-        document.getElementById('modal-loading').innerHTML = 'Không tải được ảnh<br><small>(link có thể hết hạn hoặc lỗi mạng)</small>';
-        modalImgEl.style.opacity = '0.4';
+        document.getElementById('modal-loading').innerHTML = 'Không tải được ảnh<br><small>(link có thể hết hạn)</small>';
+        modalImgEl.style.opacity = '0.3';
     };
 
     document.getElementById('prev-img').onclick = (e) => {
@@ -494,14 +678,57 @@
         }
     };
 
-    document.getElementById('close-modal').onclick = () => {
-        document.getElementById('img-modal').classList.add('hidden');
-        document.getElementById('modal-loading').style.display = 'none';
-        document.body.style.overflow = 'auto';
+    document.getElementById('close-modal').onclick = closeModal;
+
+    // Đóng modal khi click ngoài ảnh
+    document.getElementById('img-modal').onclick = (e) => {
+        if (e.target.id === 'img-modal') {
+            closeModal();
+        }
     };
 
-    // Khởi động
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (document.getElementById('img-modal').classList.contains('hidden')) return;
+        
+        if (e.key === 'Escape') closeModal();
+        if (e.key === 'ArrowLeft' && currentImgIndex > 0) {
+            currentImgIndex--;
+            updateModalImg();
+        }
+        if (e.key === 'ArrowRight' && currentImgIndex < currentImages.length - 1) {
+            currentImgIndex++;
+            updateModalImg();
+        }
+    });
+
+    // Khởi động chat
     toggleChat('chat');
+    
+    // Load lịch sử nếu có
+    async function loadHistory() {
+        try {
+            const res = await fetch('/history');
+            const history = await res.json();
+            
+            if (history.length > 0) {
+                const box = document.getElementById('chat-box');
+                box.innerHTML = ''; // Xóa welcome message
+                
+                history.forEach(item => {
+                    if (item.role === 'user') {
+                        addUserMessage(item.content);
+                    } else {
+                        addBotMessage(item.content);
+                    }
+                });
+            }
+        } catch (e) {
+            console.log('No history or error loading history');
+        }
+    }
+    
+    loadHistory();
 </script>
 </body>
 </html>
