@@ -7,15 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        :root { 
-            --primary: #0066cc; 
-            --primary-dark: #004a7c; 
-            --bg: #f9f9f9; 
-            --accent: #00b7eb; 
-            --text-color: #212121; 
-            --success: #43a047;
-            --warning: #ff9800;
-        }
+        :root { --primary: #0066cc; --primary-dark: #004a7c; --bg: #f9f9f9; --accent: #00b7eb; --text-color: #212121; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Arial, sans-serif; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
         header { background: linear-gradient(135deg, var(--primary-dark), var(--primary)); color: white; padding: 12px 20px; height: 60px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
@@ -29,41 +21,19 @@
         #close-sidebar { position: absolute; top: 15px; right: 15px; font-size: 32px; color: var(--primary); cursor: pointer; background: white; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1002; }
         .sidebar-section { margin-bottom: 28px; }
         .sidebar-section h3 { color: var(--primary); font-size: 17px; margin-bottom: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; padding: 10px 0; border-bottom: 1px solid #eee; }
-        .btn-sidebar { display: block; width: 100%; padding: 13px; margin: 8px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; transition: opacity 0.2s; }
-        .btn-sidebar:hover { opacity: 0.9; }
+        .btn-sidebar { display: block; width: 100%; padding: 13px; margin: 8px 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; font-size: 15px; text-align: center; }
         .btn-primary { background: var(--primary); }
         .btn-danger { background: #e53935; }
-        .btn-success { background: var(--success); }
-        .search-box { position: relative; margin-bottom: 10px; }
-        .search-results { 
-            position: absolute; top: 100%; left: 0; right: 0; background: white; 
-            border: 1px solid #ddd; border-radius: 6px; max-height: 250px; overflow-y: auto;
-            z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none;
-        }
-        .search-result-item { 
-            padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
-            font-size: 14px; transition: background 0.2s;
-        }
-        .search-result-item:hover { background: #e3f2fd; }
-        .search-result-item:last-child { border-bottom: none; }
-        .search-result-name { font-weight: 600; color: var(--primary-dark); font-size: 15px; }
-        .search-result-address { font-size: 12px; color: #666; margin-top: 4px; line-height: 1.4; }
-        .search-loading { padding: 15px; text-align: center; color: #999; }
+        .btn-success { background: #43a047; }
         #chat-container { display: none; flex-direction: column; height: 100%; }
         #chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding: 0 4px; }
-        .msg { padding: 12px 16px; border-radius: 18px; max-width: 92%; font-size: 15px; line-height: 1.55; word-wrap: break-word; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .msg { padding: 12px 16px; border-radius: 18px; max-width: 92%; font-size: 15px; line-height: 1.55; word-wrap: break-word; }
         .user { background: var(--primary); color: white; align-self: flex-end; }
         .bot { background: #e3f2fd; color: var(--text-color); align-self: flex-start; border: 1px solid #bbdefb; }
         .input-area { padding: 12px 0; display: flex; gap: 10px; border-top: 1px solid #eee; background: white; }
         #user-input { flex: 1; padding: 12px 18px; border: 1px solid #ddd; border-radius: 30px; outline: none; font-size: 15px; }
-        #user-input:focus { border-color: var(--primary); }
-        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
-        .send-btn:hover { transform: scale(1.05); }
-        .send-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .send-btn { background: var(--primary); color: white; border: none; width: 48px; height: 48px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
         footer { background: var(--primary); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 2000; color: white; font-size: 14px; border-top: 2px solid var(--accent); }
-        
-        /* Modal Gallery */
         #img-modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
@@ -97,60 +67,20 @@
             display: flex; align-items: center; justify-content: center; line-height: 1;
         }
         .hidden { display: none !important; }
-        
-        /* Video Container - Fixed để tránh trùng âm thanh */
+        .suggest-item { background: #e3f2fd; color: var(--primary); padding: 12px 16px; border-radius: 12px; margin-top: 10px; cursor: pointer; border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; }
+        .suggest-item:hover { background: #bbdefb; }
         .video-container { display: flex; flex-direction: column; gap: 16px; margin: 16px 0; }
-        .video-frame { 
-            position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; 
-            border-radius: 12px; background: #000; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        }
-        .video-frame iframe { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            border: none; 
-        }
-        
-        /* Gallery */
+        .video-frame { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+        .video-frame iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
-        .gallery img { 
-            width: 100%; height: 120px; object-fit: cover; border-radius: 10px; 
-            box-shadow: 0 3px 10px rgba(0,0,0,0.15); transition: transform 0.25s; cursor: pointer; 
-        }
+        .gallery img { width: 100%; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.15); transition: transform 0.25s; cursor: pointer; }
         .gallery img:hover { transform: scale(1.05); }
-        .gallery img[src=""], .gallery img[src="undefined"], .gallery img:not([src]) { display: none; }
-        
-        /* Suggestions */
-        .suggest-item { 
-            background: #e3f2fd; color: var(--primary); padding: 12px 16px; 
-            border-radius: 12px; margin-top: 10px; cursor: pointer; 
-            border: 1px solid #bbdefb; font-size: 14.5px; transition: 0.2s; 
-            display: flex; align-items: center; gap: 8px;
-        }
-        .suggest-item:hover { background: #bbdefb; transform: translateX(5px); }
-        
-        /* Loading & Typing */
-        .loading-spinner { 
-            display: inline-block; width: 20px; height: 20px; 
-            border: 3px solid #f3f3f3; border-top: 3px solid var(--primary); 
-            border-radius: 50%; animation: spin 1s linear infinite; 
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .typing-indicator { display: flex; gap: 4px; padding: 12px 16px; }
-        .typing-indicator span { 
-            width: 8px; height: 8px; background: var(--primary); 
-            border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; 
-        }
-        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-        
-        /* Responsive */
         @media (max-width: 768px) {
             #sidebar { width: 85%; right: -85%; }
             header { height: 56px; padding: 10px 16px; }
             .logo { font-size: 16px; }
             .logo img { height: 36px; }
             .modal-nav { font-size: 30px; padding: 12px 16px; }
-            #modal-content { width: 95%; height: 70vh; }
         }
     </style>
 </head>
@@ -167,41 +97,25 @@
     <div id="sidebar">
         <i id="close-sidebar" class="fa fa-times"></i>
         <div class="sidebar-section">
-            <h3><i class="fa fa-map-marker"></i> Công cụ Bản đồ</h3>
+            <h3>Công cụ Bản đồ</h3>
             <div class="content">
-                <div class="search-box">
-                    <input type="text" id="s-input" placeholder="Tìm tòa nhà, địa danh, khu phố ở Sài Gòn..." 
-                           style="width:100%;padding:12px;border-radius:8px;border:2px solid #ddd;font-size:15px;" 
-                           autocomplete="off">
-                    <div id="search-results" class="search-results"></div>
-                </div>
-                <button class="btn-sidebar btn-primary" onclick="findLoc()">
-                    <i class="fa fa-search"></i> Tìm & Cắm mốc
-                </button>
-                <button class="btn-sidebar btn-danger" onclick="clearMap()">
-                    <i class="fa fa-trash"></i> Xóa tất cả mốc
-                </button>
+                <input type="text" id="s-input" placeholder="Tìm tòa nhà, địa danh, khu phố ở Sài Gòn..." style="width:100%;padding:10px;border-radius:6px;border:1px solid #ddd;margin-bottom:8px;">
+                <button class="btn-sidebar btn-primary" onclick="findLoc()">Cắm mốc & xem</button>
+                <button class="btn-sidebar btn-danger" onclick="clearMap()">Xóa hết marker</button>
             </div>
         </div>
         <div class="sidebar-section">
-            <h3><i class="fa fa-comments"></i> Chat với AI</h3>
+            <h3>Chat với AI</h3>
             <div class="content">
-                <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">
-                    <i class="fa fa-comment"></i> Mở Hội thoại
-                </button>
-                <button class="btn-sidebar btn-success" onclick="exportPdf()">
-                    <i class="fa fa-file-pdf"></i> Xuất PDF
-                </button>
-                <button class="btn-sidebar btn-danger" onclick="clearHistory()">
-                    <i class="fa fa-eraser"></i> Xóa lịch sử
-                </button>
+                <button class="btn-sidebar btn-primary" onclick="toggleChat('chat')">Mở Hội thoại</button>
+                <button class="btn-sidebar btn-success" onclick="exportPdf()">Xuất PDF lịch sử</button>
+                <button class="btn-sidebar btn-danger" onclick="clearHistory()">Xóa lịch sử chat</button>
             </div>
         </div>
         <div id="chat-container">
             <div id="chat-box"></div>
             <div class="input-area">
-                <input type="text" id="user-input" placeholder="Hỏi về bất kỳ nơi nào ở Sài Gòn..." 
-                       onkeypress="if(event.key==='Enter') sendMessage()" autocomplete="off">
+                <input type="text" id="user-input" placeholder="Hỏi về bất kỳ nơi nào ở Sài Gòn..." onkeypress="if(event.key==='Enter') sendMessage()">
                 <button class="send-btn" onclick="sendMessage()"><i class="fa fa-paper-plane"></i></button>
             </div>
         </div>
@@ -212,255 +126,137 @@
     <div>Hotline: <a href="tel:0908083566" style="color:#fff176;font-weight:900;text-decoration:none;">0908.08.35.66</a></div>
 </footer>
 
-<!-- Modal Gallery -->
+<!-- Modal ảnh lớn -->
 <div id="img-modal" class="hidden">
     <div id="modal-content">
-        <div id="modal-loading"><i class="fa fa-spinner fa-spin"></i> Đang tải...</div>
+        <div id="modal-loading">Đang tải ảnh...</div>
         <button id="prev-img" class="modal-nav"><i class="fa fa-chevron-left"></i></button>
-        <img id="modal-img" src="" alt="Ảnh lớn" loading="eager">
+        <img id="modal-img" src="" alt="Ảnh lớn" loading="eager" decoding="async">
         <button id="next-img" class="modal-nav"><i class="fa fa-chevron-right"></i></button>
-        <button id="close-modal"><i class="fa fa-times"></i></button>
+        <button id="close-modal">×</button>
     </div>
     <div id="modal-caption"></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // Khởi tạo bản đồ
-    const map = L.map('map', { 
-        zoomControl: false, 
-        attributionControl: false, 
-        minZoom: 11, 
-        maxZoom: 19 
-    }).setView([10.7769, 106.7009], 13);
-    
-    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { 
-        subdomains: ['mt0','mt1','mt2','mt3'],
-        maxZoom: 20
-    }).addTo(map);
-    
-    // Thêm zoom control
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-
+    const map = L.map('map', { zoomControl: false, attributionControl: false, minZoom: 11, maxZoom: 18 }).setView([10.7769, 106.7009], 12);
+    L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi', { subdomains: ['mt0','mt1','mt2','mt3'] }).addTo(map);
     let markers = [];
     let currentImages = [];
     let currentImgIndex = 0;
-    let isSearching = false;
-    let currentSearchResults = [];
-    const sidebar = document.getElementById('sidebar');
-    const searchResultsDiv = document.getElementById('search-results');
 
-    // Sidebar toggle
+    const sidebar = document.getElementById('sidebar');
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
-    // Đóng search results khi click ngoài
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-box')) {
-            searchResultsDiv.style.display = 'none';
+    function toggleChat(tab) {
+        document.getElementById('chat-container').style.display = 'flex';
+        const box = document.getElementById('chat-box');
+        if (tab === 'chat' && box.innerHTML === '') {
+            box.innerHTML = '<div class="msg bot">Chào bạn! Hỏi mình bất kỳ địa danh, món ăn, khu phố, tòa nhà nào ở TP.HCM nhé! TP.HCM 2026 đang rất thú vị đấy 🇻🇳</div>';
         }
-    });
-
-    // Auto search khi gõ
-    let searchTimeout;
-    const searchInput = document.getElementById('s-input');
-    
-    searchInput.addEventListener('input', (e) => {
-        clearTimeout(searchTimeout);
-        const query = e.target.value.trim();
-        
-        if (query.length < 2) {
-            searchResultsDiv.style.display = 'none';
-            return;
-        }
-        
-        searchTimeout = setTimeout(() => {
-            performSearch(query);
-        }, 300);
-    });
-
-    searchInput.addEventListener('focus', () => {
-        if (currentSearchResults.length > 0) {
-            searchResultsDiv.style.display = 'block';
-        }
-    });
-
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            clearTimeout(searchTimeout);
-            const query = e.target.value.trim();
-            if (query) performSearch(query);
-        }
-    });
-
-    async function performSearch(query) {
-        if (isSearching) return;
-        isSearching = true;
-        
-        searchResultsDiv.innerHTML = '<div class="search-loading"><i class="fa fa-spinner fa-spin"></i> Đang tìm kiếm...</div>';
-        searchResultsDiv.style.display = 'block';
-        
-        try {
-            const res = await fetch('/search_location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query })
-            });
-            
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            
-            const data = await res.json();
-            currentSearchResults = data.results || [];
-            displaySearchResults(currentSearchResults);
-            
-        } catch (e) {
-            console.error('Search error:', e);
-            searchResultsDiv.innerHTML = '<div class="search-result-item" style="color:#e53935;"><i class="fa fa-exclamation-circle"></i> Lỗi tìm kiếm. Vui lòng thử lại!</div>';
-            searchResultsDiv.style.display = 'block';
-        } finally {
-            isSearching = false;
-        }
-    }
-
-    function displaySearchResults(results) {
-        if (!results.length) {
-            searchResultsDiv.innerHTML = '<div class="search-result-item" style="color:#666;"><i class="fa fa-info-circle"></i> Không tìm thấy. Thử từ khóa khác nhé!</div>';
-            searchResultsDiv.style.display = 'block';
-            return;
-        }
-        
-        searchResultsDiv.innerHTML = results.map((r, idx) => `
-            <div class="search-result-item" data-idx="${idx}">
-                <div class="search-result-name"><i class="fa fa-map-pin" style="color:var(--primary);margin-right:6px;"></i>${escapeHtml(r.name)}</div>
-                <div class="search-result-address">${escapeHtml(r.display_name)}</div>
-            </div>
-        `).join('');
-        
-        searchResultsDiv.style.display = 'block';
-        
-        // Thêm event listener
-        searchResultsDiv.querySelectorAll('.search-result-item').forEach(item => {
-            item.addEventListener('click', function() {
-                const idx = parseInt(this.dataset.idx);
-                selectLocation(idx);
-            });
-        });
-    }
-
-    function selectLocation(idx) {
-        if (!currentSearchResults[idx]) {
-            console.error('Invalid index:', idx);
-            return;
-        }
-        
-        const location = currentSearchResults[idx];
-        const pos = [location.lat, location.lon];
-        
-        console.log('Selected location:', location.name, pos);
-        
-        // Di chuyển bản đồ
-        map.setView(pos, 17);
-        
-        // Tạo popup với nút hỏi AI
-        const popupContent = `
-            <div style="min-width:220px;font-family:Arial,sans-serif;">
-                <div style="font-size:16px;font-weight:bold;color:var(--primary-dark);margin-bottom:6px;">
-                    ${escapeHtml(location.name)}
-                </div>
-                <div style="font-size:13px;color:#666;line-height:1.4;margin-bottom:10px;">
-                    <i class="fa fa-location-arrow" style="color:var(--primary);"></i> ${escapeHtml(location.display_name)}
-                </div>
-                <button onclick="askAI('${escapeHtml(location.name).replace(/'/g, "\\'")}')" 
-                        style="padding:10px 16px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;width:100%;font-size:14px;">
-                    <i class="fa fa-robot"></i> Hỏi AI về đây
-                </button>
-            </div>
-        `;
-        
-        // Xóa marker cũ cùng vị trí (nếu có)
-        markers.forEach((m, i) => {
-            const mPos = m.getLatLng();
-            const distance = map.distance(mPos, pos);
-            if (distance < 50) {
-                map.removeLayer(m);
-                markers.splice(i, 1);
-            }
-        });
-        
-        // Thêm marker mới
-        const marker = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
-        markers.push(marker);
-        
-        // Ẩn kết quả và cập nhật input
-        searchResultsDiv.style.display = 'none';
-        searchInput.value = location.name;
-        
-        // Mở sidebar nếu đang đóng
-        sidebar.classList.add('open');
-    }
-
-    function findLoc() {
-        const query = searchInput.value.trim();
-        if (!query) {
-            alert("Vui lòng nhập tên địa danh, tòa nhà hoặc địa chỉ ở Sài Gòn");
-            searchInput.focus();
-            return;
-        }
-        performSearch(query);
     }
 
     function clearMap() {
         markers.forEach(m => map.removeLayer(m));
         markers = [];
-        searchInput.value = '';
-        currentSearchResults = [];
-        searchResultsDiv.style.display = 'none';
+    }
+
+    async function findLoc() {
+        let q = document.getElementById('s-input').value.trim();
+        if (!q) return alert("Vui lòng nhập tên địa danh hoặc tòa nhà");
+
+        const queryVariants = [
+            q,
+            q + " TP.HCM",
+            q + " Ho Chi Minh City",
+            q + " Thành phố Hồ Chí Minh",
+            q + " Sài Gòn",
+            q + " Saigon",
+            q + " Quận 1", q + " District 1",
+            q + " Quận 7", q + " District 7",
+            q + " Thủ Đức", q + " Thành phố Thủ Đức",
+            q + " Bình Chánh", q + " Huyện Bình Chánh",
+            q + " Củ Chi", q + " Huyện Củ Chi",
+            q + " Cần Giờ", q + " Huyện Cần Giờ",
+            q + " Hóc Môn", q + " Huyện Hóc Môn",
+            q.replace(/ifc/gi, "International Financial Centre"),
+            q.replace(/saigon marina/gi, "Grand Marina Saigon"),
+            q.replace(/saigon marina ifc/gi, "Grand Marina Saigon IFC"),
+            q.replace(/bitexco/gi, "Bitexco Financial Tower"),
+            q.replace(/landmark/gi, "Landmark 81 Vinhomes"),
+            q.replace(/vinhomes landmark/gi, "Landmark 81"),
+            q.replace(/tháp bitexco/gi, "Bitexco Financial Tower"),
+            q.replace(/tháp tài chính/gi, "Financial Tower") + " TP.HCM",
+            q.replace(/thủ thiêm/gi, "Khu đô thị mới Thủ Thiêm"),
+            q.replace(/bình quới/gi, "Bình Quới"),
+            q.replace(/cần giờ/gi, "Huyện Cần Giờ"),
+            q + " phường", q + " xã", q + " thị trấn"
+        ];
+
+        let found = false;
+        let bestResult = null;
+        let bestZoom = 16.5;
+
+        for (const variant of queryVariants) {
+            if (found) break;
+            const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&q=${encodeURIComponent(variant)}&addressdetails=1&namedetails=1&limit=5`;
+            try {
+                const res = await fetch(url, {
+                    headers: { 'User-Agent': 'HCMC-Travel-AI-Guide/1.0 (contact: dev@example.com)' }
+                });
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const valid = data.find(item =>
+                        (item.display_name || '').toLowerCase().includes("hồ chí minh") ||
+                        (item.display_name || '').toLowerCase().includes("ho chi minh") ||
+                        (item.display_name || '').toLowerCase().includes("sài gòn") ||
+                        (item.address?.city || '').includes("Hồ Chí Minh") ||
+                        (item.address?.city_district || '').match(/Quận \d|District \d|Thủ Đức|Thành phố Thủ Đức|Bình Chánh|Củ Chi|Cần Giờ|Hóc Môn/)
+                    );
+                    if (valid) {
+                        bestResult = valid;
+                        found = true;
+                    } else if (!bestResult && data[0]) {
+                        bestResult = data[0];
+                    }
+                }
+            } catch (err) {
+                console.warn(`Query thất bại: ${variant}`, err);
+            }
+        }
+
+        if (bestResult) {
+            const pos = [parseFloat(bestResult.lat), parseFloat(bestResult.lon)];
+            map.setView(pos, bestZoom);
+            const displayName = (bestResult.namedetails?.name || bestResult.display_name?.split(',')[0] || q);
+            const addressPart = bestResult.display_name?.split(', ').slice(1).join(', ') || 'TP.HCM';
+            const popupContent = `
+                <b>${displayName}</b><br>
+                <small>${addressPart}</small><br>
+                <button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>
+            `;
+            const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
+            markers.push(m);
+        } else {
+            alert(`Không tìm thấy "${q}" trong dữ liệu bản đồ hiện tại.\n\n` +
+                  `Gợi ý:\n` +
+                  `• Thử thêm từ khóa như "TP.HCM", "Quận 1", "tòa nhà", "tháp"\n` +
+                  `• Ví dụ: "saigon marina quận 1", "bitexco financial tower", "landmark 81"\n` +
+                  `• Hoặc hỏi trực tiếp AI trong ô chat bên dưới nhé!`);
+        }
     }
 
     function askAI(loc) {
         toggleChat('chat');
-        const input = document.getElementById('user-input');
-        input.value = `Thông tin chi tiết về ${loc} tại TP.HCM năm 2026`;
+        document.getElementById('user-input').value = `Thông tin du lịch chi tiết về ${loc} tại TP.HCM năm 2026`;
         sendMessage();
-        // Không đóng sidebar để user vẫn thấy chat
-    }
-
-    function toggleChat(tab) {
-        const chatContainer = document.getElementById('chat-container');
-        chatContainer.style.display = 'flex';
-        const box = document.getElementById('chat-box');
-        if (tab === 'chat' && box.innerHTML === '') {
-            addBotMessage({
-                text: "👋 Chào bạn! Mình là chuyên gia về **TP.HCM (Sài Gòn)**.\n\nBạn có thể hỏi mình về:\n• Bất kỳ **địa danh, tòa nhà, đường phố** nào\n• **Phường/Xã** theo đơn vị hành chính mới (không còn Quận/Huyện)\n• **Cơ quan, trường học, bệnh viện**\n• **Ẩm thực, quán ăn, nhà hàng**\n• **Lịch sử, văn hóa, dự án 2026-2030**\n\n👉 **Thử tìm trên bản đồ hoặc hỏi ngay tại đây!**",
-                suggestions: [
-                    "Chợ Bến Thành có gì đặc biệt 2026?",
-                    "Thành phố Thủ Đức sau sáp nhập",
-                    "Phở ngon ở Sài Gòn - địa chỉ và giá"
-                ]
-            });
-        }
-    }
-
-    function addBotMessage(data) {
-        const box = document.getElementById('chat-box');
-        const div = createMessageElement('bot', data);
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
-        return div;
-    }
-
-    function addUserMessage(text) {
-        const box = document.getElementById('chat-box');
-        const div = createMessageElement('user', text);
-        box.appendChild(div);
-        box.scrollTop = box.scrollHeight;
-        return div;
     }
 
     function createMessageElement(role, content) {
         const div = document.createElement('div');
         div.className = `msg ${role}`;
-        
         if (role === 'user') {
             div.textContent = content;
             return div;
@@ -468,142 +264,75 @@
 
         let data = typeof content === 'string' ? JSON.parse(content) : content;
         const contentDiv = document.createElement('div');
-
-        // Xử lý markdown
-        let htmlText = (data.text || "").replace(/\n/g, '<br>');
-        
-        // Headers
-        htmlText = htmlText.replace(/#### (.*?)(<br>|$)/g, '<h4 style="margin:10px 0 6px;color:#004a7c;font-size:14px;">$1</h4>');
-        htmlText = htmlText.replace(/### (.*?)(<br>|$)/g, '<h3 style="margin:12px 0 8px;color:#0066cc;font-size:16px;border-bottom:2px solid #e3f2fd;padding-bottom:4px;">$1</h3>');
-        htmlText = htmlText.replace(/## (.*?)(<br>|$)/g, '<h2 style="margin:16px 0 10px;color:#004a7c;font-size:18px;border-left:4px solid var(--primary);padding-left:10px;">$1</h2>');
-        
-        // Formatting
-        htmlText = htmlText.replace(/\*\*\*(.*?)\*\*\*/g, '<b><i>$1</i></b>');
-        htmlText = htmlText.replace(/\*\*(.*?)\*\*/g, '<b style="color:var(--primary-dark);">$1</b>');
-        htmlText = htmlText.replace(/\*(.*?)\*/g, '<i>$1</i>');
-        
+        let htmlText = (data.text || "").replace(/\n/g, '<br>')
+                                       .replace(/## (.*?)<br>/g, '<h2 style="margin:16px 0 8px;color:#004a7c;">$1</h2>')
+                                       .replace(/### (.*?)<br>/g, '<h3 style="margin:14px 0 6px;color:#0066cc;">$1</h3>')
+                                       .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+                                       .replace(/\*(.*?)\*/g, '<i>$1</i>');
         contentDiv.innerHTML = htmlText;
 
-        // Hình ảnh thực tế
         if (data.images?.length) {
-            const validImages = data.images.filter(img => img && img.url);
-            if (validImages.length > 0) {
-                contentDiv.innerHTML += '<div style="margin:20px 0 10px;font-weight:bold;color:#0066cc;"><i class="fa fa-camera"></i> Hình ảnh thực tế:</div>';
-                const gallery = document.createElement('div');
-                gallery.className = 'gallery';
-                validImages.forEach((img, idx) => {
-                    const imgEl = document.createElement('img');
-                    imgEl.src = img.url;
-                    imgEl.alt = img.caption || 'Ảnh TP.HCM';
-                    imgEl.dataset.index = idx;
-                    imgEl.dataset.galleryType = 'current';
-                    imgEl.loading = 'lazy';
-                    imgEl.onerror = function() { this.style.display = 'none'; };
-                    gallery.appendChild(imgEl);
-                });
-                contentDiv.appendChild(gallery);
-            }
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">📸 Hình ảnh thực tế hiện nay:</div>';
+            const gallery = document.createElement('div');
+            gallery.className = 'gallery';
+            data.images.forEach((img, idx) => {
+                const imgEl = document.createElement('img');
+                imgEl.src = img.url;
+                imgEl.alt = img.caption || 'Ảnh thực tế';
+                imgEl.dataset.index = idx;
+                imgEl.dataset.galleryType = 'current';
+                gallery.appendChild(imgEl);
+            });
+            contentDiv.appendChild(gallery);
         }
 
-        // Video thực tế - Chỉ nhúng thumbnail, click mới load iframe để tránh trùng âm
         if (data.youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:20px 0 10px;font-weight:bold;color:#0066cc;"><i class="fa fa-video-camera"></i> Video trải nghiệm:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video trải nghiệm thực tế:</div>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
-            
-            data.youtube_links.slice(0, 3).forEach((link, idx) => {
+            data.youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    const videoId = match[1];
-                    // Tạo thumbnail click-to-play để tránh autoplay trùng âm
-                    vCon.innerHTML += `
-                        <div class="video-frame" id="video-${idx}" style="cursor:pointer;background:url('https://img.youtube.com/vi/${videoId}/mqdefault.jpg') center/cover no-repeat;">
-                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
-                                <div style="width:60px;height:60px;background:rgba(255,0,0,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:24px;">
-                                    <i class="fa fa-play"></i>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    // Lưu videoId để xử lý click sau
-                    setTimeout(() => {
-                        const el = document.getElementById(`video-${idx}`);
-                        if (el) {
-                            el.addEventListener('click', function() {
-                                this.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
-                                this.style.cursor = 'default';
-                                this.style.background = '#000';
-                            });
-                        }
-                    }, 0);
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
                 }
             });
             contentDiv.appendChild(vCon);
         }
 
-        // Hình ảnh tương lai
         if (data.future_images?.length) {
-            const validFutureImages = data.future_images.filter(img => img && img.url);
-            if (validFutureImages.length > 0) {
-                contentDiv.innerHTML += '<div style="margin:24px 0 10px;font-weight:bold;color:#0066cc;"><i class="fa fa-rocket"></i> Tầm nhìn 2026-2030:</div>';
-                const futGallery = document.createElement('div');
-                futGallery.className = 'gallery';
-                validFutureImages.forEach((img, idx) => {
-                    const imgEl = document.createElement('img');
-                    imgEl.src = img.url;
-                    imgEl.alt = img.caption || 'TP.HCM tương lai';
-                    imgEl.dataset.index = idx;
-                    imgEl.dataset.galleryType = 'future';
-                    imgEl.loading = 'lazy';
-                    imgEl.onerror = function() { this.style.display = 'none'; };
-                    futGallery.appendChild(imgEl);
-                });
-                contentDiv.appendChild(futGallery);
-            }
+            contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
+            const futGallery = document.createElement('div');
+            futGallery.className = 'gallery';
+            data.future_images.forEach((img, idx) => {
+                const imgEl = document.createElement('img');
+                imgEl.src = img.url;
+                imgEl.alt = img.caption || 'Ảnh tương lai';
+                imgEl.dataset.index = idx;
+                imgEl.dataset.galleryType = 'future';
+                futGallery.appendChild(imgEl);
+            });
+            contentDiv.appendChild(futGallery);
         }
 
-        // Video tương lai - Cũng dùng click-to-play
         if (data.future_youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:20px 0 10px;font-weight:bold;color:#0066cc;"><i class="fa fa-film"></i> Video dự án tương lai:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video dự án & tương lai:</div>';
             const futVCon = document.createElement('div');
             futVCon.className = 'video-container';
-            
-            data.future_youtube_links.slice(0, 2).forEach((link, idx) => {
+            data.future_youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    const videoId = match[1];
-                    const uniqueId = `future-video-${idx}-${Date.now()}`;
-                    futVCon.innerHTML += `
-                        <div class="video-frame" id="${uniqueId}" style="cursor:pointer;background:url('https://img.youtube.com/vi/${videoId}/mqdefault.jpg') center/cover no-repeat;">
-                            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);">
-                                <div style="width:60px;height:60px;background:rgba(255,0,0,0.9);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:24px;">
-                                    <i class="fa fa-play"></i>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    setTimeout(() => {
-                        const el = document.getElementById(uniqueId);
-                        if (el) {
-                            el.addEventListener('click', function() {
-                                this.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" allowfullscreen allow="autoplay; encrypted-media"></iframe>`;
-                                this.style.cursor = 'default';
-                                this.style.background = '#000';
-                            });
-                        }
-                    }, 0);
+                    futVCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
                 }
             });
             contentDiv.appendChild(futVCon);
         }
 
-        // Gợi ý câu hỏi
         if (data.suggestions?.length) {
-            contentDiv.innerHTML += '<div style="margin:20px 0 10px;font-weight:bold;color:#333;"><i class="fa fa-lightbulb" style="color:var(--warning);"></i> Gợi ý tiếp theo:</div>';
-            data.suggestions.slice(0, 3).forEach(s => {
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;">💡 Gợi ý tiếp theo:</div>';
+            data.suggestions.forEach(s => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
-                btn.innerHTML = `<i class="fa fa-comment-o"></i>${escapeHtml(s)}`;
+                btn.textContent = s;
                 btn.onclick = () => {
                     document.getElementById('user-input').value = s;
                     sendMessage();
@@ -612,62 +341,35 @@
             });
         }
 
-        // Lưu raw data
-        const hiddenData = document.createElement('div');
-        hiddenData.style.display = 'none';
-        hiddenData.dataset.raw = JSON.stringify(data);
-        contentDiv.appendChild(hiddenData);
-
         div.appendChild(contentDiv);
         return div;
     }
 
-    // Xử lý click gallery
     document.getElementById('chat-box').addEventListener('click', function(e) {
         const img = e.target.closest('.gallery img');
-        if (img && img.src && img.src !== window.location.href) {
+        if (img) {
             const index = parseInt(img.dataset.index);
             const galleryType = img.dataset.galleryType;
             const msgDiv = img.closest('.msg.bot');
             if (!msgDiv) return;
-
             const hiddenData = msgDiv.querySelector('[data-raw]');
             if (!hiddenData) return;
-            
-            try {
-                const data = JSON.parse(hiddenData.dataset.raw);
-                let imagesArray = galleryType === 'current' ? (data.images || []) : (data.future_images || []);
-                imagesArray = imagesArray.filter(img => img && img.url);
-                
-                if (imagesArray.length > 0 && index >= 0 && index < imagesArray.length) {
-                    showImg(imagesArray, index);
-                }
-            } catch (err) {
-                console.error('Gallery error:', err);
+            const data = JSON.parse(hiddenData.dataset.raw);
+            let imagesArray = galleryType === 'current' ? (data.images || []) : (data.future_images || []);
+            if (imagesArray.length > 0) {
+                showImg(imagesArray, index);
             }
         }
     });
 
     async function sendMessage() {
         const inp = document.getElementById('user-input');
-        const btn = document.querySelector('.send-btn');
         const msg = inp.value.trim();
-        
-        if (!msg || btn.disabled) return;
-
-        inp.disabled = true;
-        btn.disabled = true;
-        btn.innerHTML = '<div class="loading-spinner" style="width:16px;height:16px;border-width:2px;"></div>';
-
-        addUserMessage(msg);
-        inp.value = '';
+        if (!msg) return;
 
         const box = document.getElementById('chat-box');
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'msg bot typing-indicator';
-        typingDiv.innerHTML = '<span></span><span></span><span></span>';
-        typingDiv.id = 'typing-indicator';
-        box.appendChild(typingDiv);
+        box.appendChild(createMessageElement('user', msg));
+        inp.value = '';
         box.scrollTop = box.scrollHeight;
 
         try {
@@ -676,140 +378,87 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ msg })
             });
-            
             const data = await res.json();
-            
-            const typing = document.getElementById('typing-indicator');
-            if (typing) typing.remove();
 
-            addBotMessage(data);
-
+            const botMsg = createMessageElement('bot', data);
+            const hiddenData = document.createElement('div');
+            hiddenData.style.display = 'none';
+            hiddenData.dataset.raw = JSON.stringify(data);
+            botMsg.appendChild(hiddenData);
+            box.appendChild(botMsg);
+            box.scrollTop = box.scrollHeight;
         } catch (e) {
-            const typing = document.getElementById('typing-indicator');
-            if (typing) typing.remove();
-            
-            console.error('Send error:', e);
-            addBotMessage({
-                text: "⚠️ Xin lỗi, có lỗi kết nối. Vui lòng thử lại sau!",
-                is_valid: true,
-                suggestions: ["Thử lại câu hỏi", "Hỏi về địa điểm khác ở TP.HCM"]
-            });
-        } finally {
-            inp.disabled = false;
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa fa-paper-plane"></i>';
-            inp.focus();
+            console.error('Lỗi gửi tin nhắn:', e);
         }
     }
 
     function exportPdf() {
-        window.open('/export_pdf', '_blank');
+        window.location.href = '/export_pdf';
     }
 
     async function clearHistory() {
         if (!confirm("Xóa toàn bộ lịch sử trò chuyện?")) return;
-        
-        try {
-            await fetch('/clear_history', { method: 'POST' });
-            document.getElementById('chat-box').innerHTML = '';
-            toggleChat('chat');
-        } catch (e) {
-            alert('Có lỗi khi xóa lịch sử');
-        }
+        await fetch('/clear_history', { method: 'POST' });
+        location.reload();
     }
 
-    // Modal Gallery
+    // ──────────────── MODAL ────────────────
     function showImg(images, index) {
         if (!images || !images.length || index < 0 || index >= images.length) return;
-        
+
         currentImages = images;
         currentImgIndex = index;
 
         const loading = document.getElementById('modal-loading');
         const modalImg = document.getElementById('modal-img');
         const captionEl = document.getElementById('modal-caption');
-        const modal = document.getElementById('img-modal');
 
         loading.style.display = 'flex';
-        loading.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang tải...';
         modalImg.style.opacity = '0';
         modalImg.src = '';
 
-        const imgData = images[index];
-        captionEl.textContent = imgData.caption || `Ảnh ${index + 1}/${images.length}`;
+        requestAnimationFrame(() => {
+            modalImg.src = images[index].url || '';
+        });
 
-        document.getElementById('prev-img').style.display = index > 0 ? 'flex' : 'none';
-        document.getElementById('next-img').style.display = index < images.length - 1 ? 'flex' : 'none';
+        captionEl.textContent = images[index].caption || 'Ảnh minh họa';
+        document.getElementById('prev-img').style.display = index > 0 ? 'block' : 'none';
+        document.getElementById('next-img').style.display = index < images.length - 1 ? 'block' : 'none';
 
-        modal.classList.remove('hidden');
+        document.getElementById('img-modal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
-
-        // Load ảnh mới
-        const newImg = new Image();
-        newImg.onload = () => {
-            modalImg.src = imgData.url;
-            loading.style.display = 'none';
-            modalImg.style.opacity = '1';
-        };
-        newImg.onerror = () => {
-            loading.innerHTML = 'Không tải được ảnh <i class="fa fa-exclamation-triangle"></i>';
-            modalImg.style.opacity = '0.3';
-        };
-        newImg.src = imgData.url;
     }
 
     function updateModalImg() {
-        if (!currentImages.length || currentImgIndex < 0 || currentImgIndex >= currentImages.length) return;
-        
         const imgData = currentImages[currentImgIndex];
-        if (!imgData || !imgData.url) {
-            closeModal();
-            return;
-        }
+        if (!imgData) return;
 
         const modalImg = document.getElementById('modal-img');
         const loading = document.getElementById('modal-loading');
         const captionEl = document.getElementById('modal-caption');
 
         loading.style.display = 'flex';
-        loading.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang tải...';
         modalImg.style.opacity = '0';
         modalImg.src = '';
 
-        captionEl.textContent = imgData.caption || `Ảnh ${currentImgIndex + 1}/${currentImages.length}`;
+        requestAnimationFrame(() => {
+            modalImg.src = imgData.url || '';
+        });
 
-        document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'flex' : 'none';
-        document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'flex' : 'none';
-
-        const newImg = new Image();
-        newImg.onload = () => {
-            modalImg.src = imgData.url;
-            loading.style.display = 'none';
-            modalImg.style.opacity = '1';
-        };
-        newImg.onerror = () => {
-            loading.innerHTML = 'Không tải được ảnh <i class="fa fa-exclamation-triangle"></i>';
-            modalImg.style.opacity = '0.3';
-        };
-        newImg.src = imgData.url;
+        captionEl.textContent = imgData.caption || 'Ảnh minh họa';
+        document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
+        document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
     }
 
-        function closeModal() {
-        document.getElementById('img-modal').classList.add('hidden');
+    const modalImgEl = document.getElementById('modal-img');
+    modalImgEl.onload = () => {
         document.getElementById('modal-loading').style.display = 'none';
-        document.body.style.overflow = 'auto';
-        
-        // Reset ảnh để giải phóng bộ nhớ
-        const modalImg = document.getElementById('modal-img');
-        modalImg.src = '';
-        modalImg.style.opacity = '0';
-        
-        currentImages = [];
-        currentImgIndex = 0;
-    }
-
-    // Event listeners cho modal
-    document.getElementById('close-modal').onclick = closeModal;
+        modalImgEl.style.opacity = '1';
+    };
+    modalImgEl.onerror = () => {
+        document.getElementById('modal-loading').innerHTML = 'Không tải được ảnh<br><small>(link có thể hết hạn hoặc lỗi mạng)</small>';
+        modalImgEl.style.opacity = '0.4';
+    };
 
     document.getElementById('prev-img').onclick = (e) => {
         e.stopPropagation();
@@ -827,67 +476,14 @@
         }
     };
 
-    // Đóng modal khi click ngoài ảnh
-    document.getElementById('img-modal').onclick = (e) => {
-        if (e.target.id === 'img-modal') {
-            closeModal();
-        }
+    document.getElementById('close-modal').onclick = () => {
+        document.getElementById('img-modal').classList.add('hidden');
+        document.getElementById('modal-loading').style.display = 'none';
+        document.body.style.overflow = 'auto';
     };
-
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-        const modal = document.getElementById('img-modal');
-        if (modal.classList.contains('hidden')) return;
-        
-        if (e.key === 'Escape') closeModal();
-        if (e.key === 'ArrowLeft' && currentImgIndex > 0) {
-            currentImgIndex--;
-            updateModalImg();
-        }
-        if (e.key === 'ArrowRight' && currentImgIndex < currentImages.length - 1) {
-            currentImgIndex++;
-            updateModalImg();
-        }
-    });
-
-    // Utility functions
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 
     // Khởi động
     toggleChat('chat');
-    
-    // Load lịch sử
-    async function loadHistory() {
-        try {
-            const res = await fetch('/history');
-            const history = await res.json();
-            
-            if (history.length > 0) {
-                const box = document.getElementById('chat-box');
-                box.innerHTML = '';
-                
-                history.forEach(item => {
-                    if (item.role === 'user') {
-                        addUserMessage(item.content);
-                    } else {
-                        addBotMessage(item.content);
-                    }
-                });
-                
-                // Scroll xuống cuối
-                box.scrollTop = box.scrollHeight;
-            }
-        } catch (e) {
-            console.log('No history loaded');
-        }
-    }
-    
-    loadHistory();
 </script>
 </body>
 </html>
