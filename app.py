@@ -34,19 +34,9 @@ QUY TẮC BẮT BUỘC:
 - ## Gợi ý lịch trình du lịch chi tiết (có 3 lựa chọn: 1 ngày, 2 ngày, 3 ngày – kèm thời gian, phương tiện, chi phí ước tính)
 - ## Dự báo & tầm nhìn tương lai phát triển TP.HCM đến 2026-2030 (hạ tầng, đô thị, du lịch, công nghệ, thay đổi cảnh quan…)
 
-4. Cuối cùng BẮT BUỘC thêm mảng "suggestions": chứa 3-5 câu hỏi tiếp theo, **phải chắc chắn 100% liên quan đến TP.HCM**, có thể hỏi sâu hơn về địa danh vừa hỏi, khu vực lân cận, món ăn, lịch sử, tương lai, trải nghiệm... để người dùng click tiếp tục hỏi mà không bị từ chối.
+4. Cuối cùng BẮT BUỘC thêm mảng "suggestions": chứa 3-5 câu hỏi tiếp theo, **phải chắc chắn 100% liên quan đến TP.HCM**.
 
-5. Trả về **chỉ JSON thuần túy**, không comment, không text thừa, định dạng chính xác:
-{
-  "is_valid": true,
-  "text": "nội dung markdown dài...",
-  "suggestions": ["Câu hỏi hay 1", "Câu hỏi hay 2", "Câu hỏi hay 3", ...]
-}
-Hoặc khi không hợp lệ:
-{
-  "is_valid": false,
-  "text": "Xin lỗi, tôi chỉ hỗ trợ thông tin du lịch tại TP.HCM thôi nhé!"
-}
+5. Trả về **chỉ JSON thuần túy**, định dạng chính xác.
 """
 
 def init_db():
@@ -62,8 +52,6 @@ def init_db():
         """)
 
 init_db()
-
-# ─── Helper search functions ────────────────────────────────────────────────
 
 def search_serper_images(query):
     if not SERPER_API_KEY: return []
@@ -113,8 +101,6 @@ def search_serper_future_youtube():
     except:
         return []
 
-# ─── Routes ─────────────────────────────────────────────────────────────────
-
 @app.route("/")
 def index():
     sid = request.cookies.get("session_id") or str(uuid.uuid4())
@@ -139,14 +125,8 @@ def chat():
         ai_res = json.loads(completion.choices[0].message.content)
 
         if ai_res.get("is_valid", False):
-            # Làm sạch query để tìm ảnh/video chính xác hơn
-            clean_query = msg.replace("Thông tin du lịch chi tiết về", "")\
-                             .replace("tại TP.HCM năm 2026", "")\
-                             .replace("ở Sài Gòn", "")\
-                             .replace("ở TP.HCM", "")\
-                             .strip()
+            clean_query = msg.replace("Thông tin du lịch chi tiết về", "").replace("tại TP.HCM năm 2026", "").strip()
             search_term = clean_query or msg
-
             ai_res["images"] = search_serper_images(search_term)
             ai_res["youtube_links"] = search_serper_youtube(search_term)
             ai_res["future_images"] = search_serper_future_images()
@@ -162,6 +142,8 @@ def chat():
         return jsonify(ai_res)
     except Exception as e:
         return jsonify({"text": f"Lỗi hệ thống: {str(e)}", "is_valid": False})
+
+# Các route khác giữ nguyên (history, clear_history, export_pdf)
 
 @app.route("/history")
 def get_history():
@@ -195,7 +177,6 @@ def export_pdf():
         rows = cur.fetchall()
     if not rows:
         return "Không có dữ liệu để xuất."
-    
     pdf = FPDF()
     pdf.add_page()
     font_path = os.path.join("static", "DejaVuSans.ttf")
@@ -204,12 +185,10 @@ def export_pdf():
         pdf.set_font("DejaVu", size=11)
     else:
         pdf.set_font("Arial", size=11)
-    
     now_vn = datetime.now(VN_TZ).strftime("%H:%M %d/%m/%Y")
     pdf.cell(200, 10, txt="LỊCH TRÌNH & THÔNG TIN DU LỊCH TP.HCM 2026", ln=True, align='C')
     pdf.cell(200, 10, txt=f"Xuất lúc: {now_vn} (Giờ Việt Nam)", ln=True, align='C')
     pdf.ln(12)
-    
     for role, content in rows:
         label = "BẠN: " if role == "user" else "AI: "
         if role == "bot":
@@ -222,7 +201,6 @@ def export_pdf():
         else:
             pdf.multi_cell(0, 8, txt=f"{label}{content}\n")
         pdf.ln(6)
-    
     path = f"history_{sid[:12]}.pdf"
     pdf.output(path)
     return send_file(path, as_attachment=True)
