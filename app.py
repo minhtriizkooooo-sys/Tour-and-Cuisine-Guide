@@ -34,9 +34,19 @@ QUY TẮC BẮT BUỘC:
 - ## Gợi ý lịch trình du lịch chi tiết (có 3 lựa chọn: 1 ngày, 2 ngày, 3 ngày – kèm thời gian, phương tiện, chi phí ước tính)
 - ## Dự báo & tầm nhìn tương lai phát triển TP.HCM đến 2026-2030 (hạ tầng, đô thị, du lịch, công nghệ, thay đổi cảnh quan…)
 
-4. Cuối cùng BẮT BUỘC thêm mảng "suggestions": chứa 3-5 câu hỏi tiếp theo, **phải chắc chắn 100% liên quan đến TP.HCM**.
+4. Cuối cùng BẮT BUỘC thêm mảng "suggestions": chứa 3-5 câu hỏi tiếp theo, **phải chắc chắn 100% liên quan đến TP.HCM**, có thể hỏi sâu hơn về địa danh vừa hỏi, khu vực lân cận, món ăn, lịch sử, tương lai, trải nghiệm... để người dùng click tiếp tục hỏi mà không bị từ chối.
 
-5. Trả về **chỉ JSON thuần túy**, định dạng chính xác.
+5. Trả về **chỉ JSON thuần túy**, không comment, không text thừa, định dạng chính xác:
+{
+  "is_valid": true,
+  "text": "nội dung markdown dài...",
+  "suggestions": ["Câu hỏi hay 1", "Câu hỏi hay 2", "Câu hỏi hay 3", ...]
+}
+Hoặc khi không hợp lệ:
+{
+  "is_valid": false,
+  "text": "Xin lỗi, tôi chỉ hỗ trợ thông tin du lịch tại TP.HCM thôi nhé!"
+}
 """
 
 def init_db():
@@ -142,8 +152,6 @@ def chat():
         return jsonify(ai_res)
     except Exception as e:
         return jsonify({"text": f"Lỗi hệ thống: {str(e)}", "is_valid": False})
-
-# Các route khác giữ nguyên (history, clear_history, export_pdf)
 
 @app.route("/history")
 def get_history():
