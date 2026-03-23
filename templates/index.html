@@ -126,7 +126,6 @@
     <div>Hotline: <a href="tel:0908083566" style="color:#fff176;font-weight:900;text-decoration:none;">0908.08.35.66</a></div>
 </footer>
 
-<!-- Modal ảnh lớn -->
 <div id="img-modal" class="hidden">
     <div id="modal-content">
         <div id="modal-loading">Đang tải ảnh...</div>
@@ -188,10 +187,7 @@
             q.replace(/landmark/gi, "Landmark 81 Vinhomes"),
             q.replace(/vinhomes landmark/gi, "Landmark 81"),
             q.replace(/tháp bitexco/gi, "Bitexco Financial Tower"),
-            q.replace(/tháp tài chính/gi, "Financial Tower") + " TP.HCM",
             q.replace(/thủ thiêm/gi, "Khu đô thị mới Thủ Thiêm"),
-            q.replace(/bình quới/gi, "Bình Quới"),
-            q.replace(/cần giờ/gi, "Huyện Cần Giờ"),
             q + " phường", q + " xã", q + " thị trấn"
         ];
 
@@ -208,13 +204,19 @@
                 });
                 const data = await res.json();
                 if (data && data.length > 0) {
-                    const valid = data.find(item =>
-                        (item.display_name || '').toLowerCase().includes("hồ chí minh") ||
-                        (item.display_name || '').toLowerCase().includes("ho chi minh") ||
-                        (item.display_name || '').toLowerCase().includes("sài gòn") ||
-                        (item.address?.city || '').includes("Hồ Chí Minh") ||
-                        (item.address?.city_district || '').match(/Quận \d|District \d|Thủ Đức|Thành phố Thủ Đức|Bình Chánh|Củ Chi|Cần Giờ|Hóc Môn/)
-                    );
+                    const valid = data.find(item => {
+                        const lowerDisplay = (item.display_name || '').toLowerCase();
+                        const city = item.address?.city || item.address?.state || '';
+                        const district = item.address?.city_district || '';
+                        return (
+                            lowerDisplay.includes("hồ chí minh") ||
+                            lowerDisplay.includes("ho chi minh") ||
+                            lowerDisplay.includes("sài gòn") ||
+                            city.includes("Hồ Chí Minh") ||
+                            city.includes("Ho Chi Minh") ||
+                            district.match(/Quận \d|District \d|Thủ Đức|Thành phố Thủ Đức|Bình Chánh|Củ Chi|Cần Giờ|Hóc Môn/)
+                        );
+                    });
                     if (valid) {
                         bestResult = valid;
                         found = true;
@@ -228,6 +230,18 @@
         }
 
         if (bestResult) {
+            const lowerName = (bestResult.display_name || '').toLowerCase();
+            const isInHCMC = lowerName.includes("hồ chí minh") || lowerName.includes("ho chi minh") || lowerName.includes("sài gòn") ||
+                             lowerName.includes("thủ đức") || lowerName.includes("bình chánh") || lowerName.includes("củ chi") ||
+                             lowerName.includes("cần giờ") || lowerName.includes("hóc môn");
+
+            if (!isInHCMC) {
+                alert(`"${q}" có vẻ không thuộc TP.HCM hoặc dữ liệu bản đồ chưa cập nhật.\n\n` +
+                      `Vui lòng thử thêm "TP.HCM", "Quận 1", "Thủ Đức"...\n` +
+                      `Hoặc hỏi trực tiếp AI chat để được thông tin chi tiết!`);
+                return;
+            }
+
             const pos = [parseFloat(bestResult.lat), parseFloat(bestResult.lon)];
             map.setView(pos, bestZoom);
             const displayName = (bestResult.namedetails?.name || bestResult.display_name?.split(',')[0] || q);
@@ -235,16 +249,16 @@
             const popupContent = `
                 <b>${displayName}</b><br>
                 <small>${addressPart}</small><br>
-                <button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q}</button>
+                <button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q} tại TP.HCM</button>
             `;
             const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
             markers.push(m);
         } else {
-            alert(`Không tìm thấy "${q}" trong dữ liệu bản đồ hiện tại.\n\n` +
+            alert(`Không tìm thấy "${q}" trong phạm vi TP.HCM.\n\n` +
                   `Gợi ý:\n` +
-                  `• Thử thêm từ khóa như "TP.HCM", "Quận 1", "tòa nhà", "tháp"\n` +
-                  `• Ví dụ: "saigon marina quận 1", "bitexco financial tower", "landmark 81"\n` +
-                  `• Hoặc hỏi trực tiếp AI trong ô chat bên dưới nhé!`);
+                  `• Thêm "TP.HCM", "Sài Gòn", "Quận/Huyện", "tòa nhà"...\n` +
+                  `• Ví dụ: "bitexco financial tower TP.HCM", "landmark 81 thủ đức"\n` +
+                  `• Hoặc hỏi trực tiếp AI chat bên dưới!`);
         }
     }
 
@@ -402,9 +416,17 @@
         location.reload();
     }
 
-    // ──────────────── MODAL ────────────────
+    function pauseAllVideos() {
+        const iframes = document.querySelectorAll('iframe[src*="youtube.com"]');
+        iframes.forEach(iframe => {
+            iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        });
+    }
+
     function showImg(images, index) {
         if (!images || !images.length || index < 0 || index >= images.length) return;
+
+        pauseAllVideos();
 
         currentImages = images;
         currentImgIndex = index;
@@ -430,6 +452,8 @@
     }
 
     function updateModalImg() {
+        pauseAllVideos();
+
         const imgData = currentImages[currentImgIndex];
         if (!imgData) return;
 
@@ -480,9 +504,9 @@
         document.getElementById('img-modal').classList.add('hidden');
         document.getElementById('modal-loading').style.display = 'none';
         document.body.style.overflow = 'auto';
+        pauseAllVideos();
     };
 
-    // Khởi động
     toggleChat('chat');
 </script>
 </body>
