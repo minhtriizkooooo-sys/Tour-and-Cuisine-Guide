@@ -75,6 +75,7 @@
         .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
         .gallery img { width: 100%; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.15); transition: transform 0.25s; cursor: pointer; }
         .gallery img:hover { transform: scale(1.05); }
+        .error-msg { background: #ffebee; color: #c62828; border: 1px solid #ef5350; }
         @media (max-width: 768px) {
             #sidebar { width: 85%; right: -85%; }
             header { height: 56px; padding: 10px 16px; }
@@ -149,6 +150,50 @@
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
     document.getElementById('close-sidebar').onclick = () => sidebar.classList.remove('open');
 
+    // Danh sách từ khóa TP.HCM mở rộng
+    const hcmcKeywords = [
+        'hồ chí minh', 'ho chi minh', 'sài gòn', 'saigon', 'tp.hcm', 'tphcm', 'tp hcm',
+        'quận 1', 'quận 2', 'quận 3', 'quận 4', 'quận 5', 'quận 6', 'quận 7', 'quận 8',
+        'quận 9', 'quận 10', 'quận 11', 'quận 12',
+        'district 1', 'district 2', 'district 3', 'district 4', 'district 5', 'district 6',
+        'district 7', 'district 8', 'district 9', 'district 10', 'district 11', 'district 12',
+        'bình thạnh', 'phú nhuận', 'tân bình', 'tân phú', 'gò vấp', 'bình tân',
+        'thủ đức', 'thành phố thủ đức', 'tp thủ đức', 'thu duc', 'thu duc city',
+        'bình chánh', 'củ chi', 'hóc môn', 'nhà bè', 'cần giờ', 'can gio',
+        'thủ thiêm', 'thu thiem', 'phú mỹ hưng', 'phu my hung',
+        'tân sơn nhất', 'tan son nhat', 'bến thành', 'ben thanh',
+        'chợ lớn', 'cho lon', 'bitexco', 'landmark 81', 'vinhomes',
+        'bến xe miền tây', 'bến xe miền đông', 'bến xe an sương',
+        'cảng sài gòn', 'cang saigon', 'cảng cát lái',
+        'đồng khởi', 'nguyễn huệ', 'lê lợi', 'pasteur',
+        'quận', 'phường', 'xã', 'huyện', 'phố', 'đường',
+        'district', 'ward', 'street', 'avenue', 'road'
+    ];
+
+    function isHCMCRelated(text) {
+        const lower = text.toLowerCase();
+        return hcmcKeywords.some(kw => lower.includes(kw));
+    }
+
+    function normalizeLocationName(query) {
+        const map = {
+            'q1': 'quận 1', 'q2': 'quận 2', 'q3': 'quận 3', 'q4': 'quận 4',
+            'q5': 'quận 5', 'q6': 'quận 6', 'q7': 'quận 7', 'q8': 'quận 8',
+            'q9': 'quận 9', 'q10': 'quận 10', 'q11': 'quận 11', 'q12': 'quận 12',
+            'q.1': 'quận 1', 'q.2': 'quận 2', 'q.3': 'quận 3', 'q.4': 'quận 4',
+            'q.5': 'quận 5', 'q.6': 'quận 6', 'q.7': 'quận 7', 'q.8': 'quận 8',
+            'q.9': 'quận 9', 'q.10': 'quận 10', 'q.11': 'quận 11', 'q.12': 'quận 12',
+            'bt': 'bình thạnh', 'pn': 'phú nhuận', 'tb': 'tân bình', 
+            'tp': 'tân phú', 'gv': 'gò vấp', 'bth': 'bình tân', 'td': 'thủ đức',
+            'bc': 'bình chánh', 'cc': 'củ chi', 'hm': 'hóc môn', 
+            'nb': 'nhà bè', 'cg': 'cần giờ',
+            'sg': 'sài gòn', 'hcm': 'hồ chí minh',
+            'd1': 'district 1', 'd2': 'district 2', 'd7': 'district 7'
+        };
+        const lower = query.toLowerCase().trim();
+        return map[lower] || query;
+    }
+
     function toggleChat(tab) {
         document.getElementById('chat-container').style.display = 'flex';
         const box = document.getElementById('chat-box');
@@ -163,32 +208,45 @@
     }
 
     async function findLoc() {
-        let q = document.getElementById('s-input').value.trim();
-        if (!q) return alert("Vui lòng nhập tên địa danh hoặc tòa nhà");
+        let rawQuery = document.getElementById('s-input').value.trim();
+        if (!rawQuery) return alert("Vui lòng nhập tên địa danh hoặc tòa nhà");
+
+        // Chuẩn hóa tên
+        let q = normalizeLocationName(rawQuery);
+        
+        // Nếu không có từ khóa TP.HCM, tự động thêm
+        if (!isHCMCRelated(q)) {
+            q = q + " TP.HCM";
+        }
 
         const queryVariants = [
+            rawQuery,
             q,
-            q + " TP.HCM",
-            q + " Ho Chi Minh City",
-            q + " Thành phố Hồ Chí Minh",
-            q + " Sài Gòn",
-            q + " Saigon",
-            q + " Quận 1", q + " District 1",
-            q + " Quận 7", q + " District 7",
-            q + " Thủ Đức", q + " Thành phố Thủ Đức",
-            q + " Bình Chánh", q + " Huyện Bình Chánh",
-            q + " Củ Chi", q + " Huyện Củ Chi",
-            q + " Cần Giờ", q + " Huyện Cần Giờ",
-            q + " Hóc Môn", q + " Huyện Hóc Môn",
-            q.replace(/ifc/gi, "International Financial Centre"),
-            q.replace(/saigon marina/gi, "Grand Marina Saigon"),
-            q.replace(/saigon marina ifc/gi, "Grand Marina Saigon IFC"),
-            q.replace(/bitexco/gi, "Bitexco Financial Tower"),
-            q.replace(/landmark/gi, "Landmark 81 Vinhomes"),
-            q.replace(/vinhomes landmark/gi, "Landmark 81"),
-            q.replace(/tháp bitexco/gi, "Bitexco Financial Tower"),
-            q.replace(/thủ thiêm/gi, "Khu đô thị mới Thủ Thiêm"),
-            q + " phường", q + " xã", q + " thị trấn"
+            rawQuery + " TP.HCM",
+            rawQuery + " Ho Chi Minh City",
+            rawQuery + " Thành phố Hồ Chí Minh",
+            rawQuery + " Sài Gòn",
+            rawQuery + " Saigon",
+            rawQuery + " Quận 1", rawQuery + " District 1",
+            rawQuery + " Quận 7", rawQuery + " District 7",
+            rawQuery + " Thủ Đức", rawQuery + " Thành phố Thủ Đức",
+            rawQuery + " Bình Chánh", rawQuery + " Huyện Bình Chánh",
+            rawQuery + " Củ Chi", rawQuery + " Huyện Củ Chi",
+            rawQuery + " Cần Giờ", rawQuery + " Huyện Cần Giờ",
+            rawQuery + " Hóc Môn", rawQuery + " Huyện Hóc Môn",
+            rawQuery + " Nhà Bè", rawQuery + " Huyện Nhà Bè",
+            // Các biến thể tên tòa nhà
+            rawQuery.replace(/ifc/gi, "International Financial Centre"),
+            rawQuery.replace(/saigon marina/gi, "Grand Marina Saigon"),
+            rawQuery.replace(/saigon marina ifc/gi, "Grand Marina Saigon IFC"),
+            rawQuery.replace(/bitexco/gi, "Bitexco Financial Tower"),
+            rawQuery.replace(/landmark/gi, "Landmark 81 Vinhomes"),
+            rawQuery.replace(/vinhomes landmark/gi, "Landmark 81"),
+            rawQuery.replace(/tháp bitexco/gi, "Bitexco Financial Tower"),
+            rawQuery.replace(/thủ thiêm/gi, "Khu đô thị mới Thủ Thiêm"),
+            rawQuery.replace(/phú mỹ hưng/gi, "Phu My Hung Urban Area"),
+            rawQuery + " phường", rawQuery + " xã", rawQuery + " thị trấn",
+            rawQuery + " đường", rawQuery + " street"
         ];
 
         let found = false;
@@ -197,31 +255,53 @@
 
         for (const variant of queryVariants) {
             if (found) break;
-            const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&q=${encodeURIComponent(variant)}&addressdetails=1&namedetails=1&limit=5`;
+            const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&q=${encodeURIComponent(variant)}&addressdetails=1&namedetails=1&limit=10`;
             try {
                 const res = await fetch(url, {
                     headers: { 'User-Agent': 'HCMC-Travel-AI-Guide/1.0 (contact: dev@example.com)' }
                 });
                 const data = await res.json();
                 if (data && data.length > 0) {
+                    // Tìm kết quả tốt nhất thuộc TP.HCM
                     const valid = data.find(item => {
                         const lowerDisplay = (item.display_name || '').toLowerCase();
-                        const city = item.address?.city || item.address?.state || '';
-                        const district = item.address?.city_district || '';
+                        const city = item.address?.city || item.address?.state || item.address?.town || '';
+                        const county = item.address?.county || '';
+                        const suburb = item.address?.suburb || '';
+                        const district = item.address?.city_district || item.address?.district || '';
+                        
                         return (
                             lowerDisplay.includes("hồ chí minh") ||
                             lowerDisplay.includes("ho chi minh") ||
                             lowerDisplay.includes("sài gòn") ||
+                            lowerDisplay.includes("saigon") ||
                             city.includes("Hồ Chí Minh") ||
                             city.includes("Ho Chi Minh") ||
-                            district.match(/Quận \d|District \d|Thủ Đức|Thành phố Thủ Đức|Bình Chánh|Củ Chi|Cần Giờ|Hóc Môn/)
-                        );
+                            city.includes("Thủ Đức") ||
+                            county.includes("Hồ Chí Minh") ||
+                            suburb.includes("Thủ Đức") ||
+                            district.match(/Quận \d|District \d|Thủ Đức|Thành phố Thủ Đức|Bình Chánh|Củ Chi|Cần Giờ|Hóc Môn|Nhà Bè|Bình Thạnh|Phú Nhuận|Tân Bình|Tân Phú|Gò Vấp|Bình Tân/)
+                                                    );
                     });
+                    
                     if (valid) {
                         bestResult = valid;
                         found = true;
                     } else if (!bestResult && data[0]) {
-                        bestResult = data[0];
+                        // Nếu không tìm thấy kết quả chuẩn, lấy kết quả đầu tiên nhưng kiểm tra lại
+                        const firstResult = data[0];
+                        const lowerFirst = (firstResult.display_name || '').toLowerCase();
+                        
+                        // Kiểm tra xem có phải tỉnh thành khác không
+                        const otherProvinces = ['hà nội', 'ha noi', 'đà nẵng', 'da nang', 
+                                               'hải phòng', 'hai phong', 'cần thơ', 'can tho',
+                                               'nha trang', 'đà lạt', 'dalat', 'huế', 'hue',
+                                               'vinh', 'hà tĩnh', 'nghệ an', 'thanh hóa'];
+                        const isOtherProvince = otherProvinces.some(p => lowerFirst.includes(p));
+                        
+                        if (!isOtherProvince) {
+                            bestResult = firstResult;
+                        }
                     }
                 }
             } catch (err) {
@@ -229,41 +309,114 @@
             }
         }
 
+        // Nếu vẫn không tìm thấy nhưng query có vẻ là TP.HCM, thử tìm với tọa độ trung tâm TP.HCM
+        if (!bestResult && isHCMCRelated(rawQuery)) {
+            // Thử tìm với bounding box của TP.HCM
+            const bboxUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&viewbox=106.3,10.9,106.9,10.3&q=${encodeURIComponent(rawQuery)}&bounded=0&limit=5`;
+            try {
+                const res = await fetch(bboxUrl, {
+                    headers: { 'User-Agent': 'HCMC-Travel-AI-Guide/1.0' }
+                });
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    bestResult = data[0];
+                }
+            } catch (err) {
+                console.warn("BBox search failed:", err);
+            }
+        }
+
         if (bestResult) {
             const lowerName = (bestResult.display_name || '').toLowerCase();
-            const isInHCMC = lowerName.includes("hồ chí minh") || lowerName.includes("ho chi minh") || lowerName.includes("sài gòn") ||
-                             lowerName.includes("thủ đức") || lowerName.includes("bình chánh") || lowerName.includes("củ chi") ||
-                             lowerName.includes("cần giờ") || lowerName.includes("hóc môn");
+            const isInHCMC = (
+                lowerName.includes("hồ chí minh") || 
+                lowerName.includes("ho chi minh") || 
+                lowerName.includes("sài gòn") ||
+                lowerName.includes("saigon") ||
+                lowerName.includes("thủ đức") || 
+                lowerName.includes("thu duc") ||
+                lowerName.includes("bình chánh") || 
+                lowerName.includes("binh chanh") ||
+                lowerName.includes("củ chi") || 
+                lowerName.includes("cu chi") ||
+                lowerName.includes("cần giờ") || 
+                lowerName.includes("can gio") ||
+                lowerName.includes("hóc môn") || 
+                lowerName.includes("hoc mon") ||
+                lowerName.includes("nhà bè") || 
+                lowerName.includes("nha be") ||
+                lowerName.includes("bình thạnh") ||
+                lowerName.includes("phú nhuận") ||
+                lowerName.includes("tân bình") ||
+                lowerName.includes("tân phú") ||
+                lowerName.includes("gò vấp") ||
+                lowerName.includes("bình tân") ||
+                isHCMCRelated(rawQuery) // Nếu query liên quan TP.HCM thì chấp nhận
+            );
 
             if (!isInHCMC) {
-                alert(`"${q}" có vẻ không thuộc TP.HCM hoặc dữ liệu bản đồ chưa cập nhật.\n\n` +
+                alert(`"${rawQuery}" có vẻ không thuộc TP.HCM hoặc dữ liệu bản đồ chưa cập nhật.\n\n` +
                       `Vui lòng thử thêm "TP.HCM", "Quận 1", "Thủ Đức"...\n` +
                       `Hoặc hỏi trực tiếp AI chat để được thông tin chi tiết!`);
                 return;
             }
 
             const pos = [parseFloat(bestResult.lat), parseFloat(bestResult.lon)];
+            
+            // Điều chỉnh zoom level dựa trên loại địa điểm
+            const placeType = bestResult.type || '';
+            const placeClass = bestResult.class || '';
+            if (placeType === 'administrative' || placeClass === 'boundary') {
+                if (lowerName.includes('huyện') || lowerName.includes('district') || lowerName.includes('quận')) {
+                    bestZoom = 13;
+                } else if (lowerName.includes('thành phố') || lowerName.includes('city')) {
+                    bestZoom = 11;
+                }
+            } else if (placeType === 'building' || placeType === 'yes') {
+                bestZoom = 17;
+            } else if (placeType === 'suburb' || placeType === 'quarter') {
+                bestZoom = 15;
+            }
+            
             map.setView(pos, bestZoom);
-            const displayName = (bestResult.namedetails?.name || bestResult.display_name?.split(',')[0] || q);
+            
+            const displayName = (bestResult.namedetails?.name || bestResult.display_name?.split(',')[0] || rawQuery);
             const addressPart = bestResult.display_name?.split(', ').slice(1).join(', ') || 'TP.HCM';
+            
             const popupContent = `
-                <b>${displayName}</b><br>
-                <small>${addressPart}</small><br>
-                <button onclick="askAI('${q.replace(/'/g, "\\'")}')" style="margin-top:8px;padding:8px 14px;border:none;border-radius:6px;background:var(--primary);color:white;cursor:pointer;font-weight:bold;">Hỏi AI về ${q} tại TP.HCM</button>
+                <div style="min-width:200px;">
+                    <b style="font-size:16px;color:#0066cc;">${displayName}</b><br>
+                    <small style="color:#666;">${addressPart}</small><br>
+                    <button onclick="askAI('${rawQuery.replace(/'/g, "\\'")}')" 
+                            style="margin-top:10px;padding:8px 14px;border:none;border-radius:6px;
+                                   background:linear-gradient(135deg, #0066cc, #004a7c);
+                                   color:white;cursor:pointer;font-weight:bold;width:100%;">
+                        🤖 Hỏi AI về ${rawQuery}
+                    </button>
+                </div>
             `;
+            
             const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
             markers.push(m);
+            
+            // Tự động mở chat và hỏi AI nếu là địa điểm rõ ràng
+            if (placeType === 'building' || placeType === 'tourism' || placeType === 'amenity') {
+                setTimeout(() => {
+                    askAI(rawQuery);
+                }, 1000);
+            }
+            
         } else {
-            alert(`Không tìm thấy "${q}" trong phạm vi TP.HCM.\n\n` +
-                  `Gợi ý:\n` +
-                  `• Thêm "TP.HCM", "Sài Gòn", "Quận/Huyện", "tòa nhà"...\n` +
-                  `• Ví dụ: "bitexco financial tower TP.HCM", "landmark 81 thủ đức"\n` +
-                  `• Hoặc hỏi trực tiếp AI chat bên dưới!`);
+            // Thử hỏi AI trực tiếp nếu không tìm thấy trên bản đồ
+            if (confirm(`Không tìm thấy "${rawQuery}" trên bản đồ.\n\nBạn có muốn hỏi AI để biết thêm thông tin không?`)) {
+                askAI(rawQuery);
+            }
         }
     }
 
     function askAI(loc) {
         toggleChat('chat');
+        sidebar.classList.add('open');
         document.getElementById('user-input').value = `Thông tin du lịch chi tiết về ${loc} tại TP.HCM năm 2026`;
         sendMessage();
     }
@@ -277,16 +430,42 @@
         }
 
         let data = typeof content === 'string' ? JSON.parse(content) : content;
+        
+        // Xử lý trường hợp AI trả về không hợp lệ nhưng có thể là lỗi
+        if (!data.is_valid && isHCMCRelated(content.text || '')) {
+            data.is_valid = true;
+        }
+        
         const contentDiv = document.createElement('div');
+        
+        if (!data.is_valid) {
+            // Hiển thị thông báo không hợp lệ với gợi ý
+            contentDiv.innerHTML = `
+                <div style="color:#c62828;margin-bottom:10px;">
+                    <i class="fa fa-exclamation-circle"></i> ${data.text || 'Không tìm thấy thông tin'}
+                </div>
+                <div style="font-size:13px;color:#666;margin-top:8px;">
+                    💡 Gợi ý: Thử hỏi với từ khóa "TP.HCM", "Sài Gòn", hoặc tên quận/huyện cụ thể.
+                </div>
+            `;
+            div.appendChild(contentDiv);
+            return div;
+        }
+        
         let htmlText = (data.text || "").replace(/\n/g, '<br>')
-                                       .replace(/## (.*?)<br>/g, '<h2 style="margin:16px 0 8px;color:#004a7c;">$1</h2>')
+                                       .replace(/## (.*?)<br>/g, '<h2 style="margin:16px 0 8px;color:#004a7c;border-bottom:2px solid #0066cc;padding-bottom:4px;">$1</h2>')
                                        .replace(/### (.*?)<br>/g, '<h3 style="margin:14px 0 6px;color:#0066cc;">$1</h3>')
-                                       .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-                                       .replace(/\*(.*?)\*/g, '<i>$1</i>');
+                                       .replace(/#### (.*?)<br>/g, '<h4 style="margin:12px 0 4px;color:#0088cc;">$1</h4>')
+                                       .replace(/\*\*(.*?)\*\*/g, '<b style="color:#004a7c;">$1</b>')
+                                       .replace(/\*(.*?)\*/g, '<i>$1</i>')
+                                       .replace(/- (.*?)(<br>|$)/g, '• $1<br>')
+                                       .replace(/\d+\. (.*?)(<br>|$)/g, '<span style="color:#0066cc;font-weight:bold;">$&</span>');
+
         contentDiv.innerHTML = htmlText;
 
+        // Hình ảnh thực tế
         if (data.images?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">📸 Hình ảnh thực tế hiện nay:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-camera"></i> 📸 Hình ảnh thực tế hiện nay:</div>';
             const gallery = document.createElement('div');
             gallery.className = 'gallery';
             data.images.forEach((img, idx) => {
@@ -295,26 +474,29 @@
                 imgEl.alt = img.caption || 'Ảnh thực tế';
                 imgEl.dataset.index = idx;
                 imgEl.dataset.galleryType = 'current';
+                imgEl.loading = 'lazy';
                 gallery.appendChild(imgEl);
             });
             contentDiv.appendChild(gallery);
         }
 
+        // Video YouTube
         if (data.youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video trải nghiệm thực tế:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-video"></i> 🎥 Video trải nghiệm thực tế:</div>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
             data.youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}?enablejsapi=1" allowfullscreen></iframe></div>`;
                 }
             });
             contentDiv.appendChild(vCon);
         }
 
+        // Hình ảnh tương lai
         if (data.future_images?.length) {
-            contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;">🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
+            contentDiv.innerHTML += '<div style="margin:32px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-building"></i> 🌆 Tầm nhìn tương lai TP.HCM 2026–2030:</div>';
             const futGallery = document.createElement('div');
             futGallery.className = 'gallery';
             data.future_images.forEach((img, idx) => {
@@ -323,30 +505,34 @@
                 imgEl.alt = img.caption || 'Ảnh tương lai';
                 imgEl.dataset.index = idx;
                 imgEl.dataset.galleryType = 'future';
+                imgEl.loading = 'lazy';
                 futGallery.appendChild(imgEl);
             });
             contentDiv.appendChild(futGallery);
         }
 
+        // Video tương lai
         if (data.future_youtube_links?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;">🎥 Video dự án & tương lai:</div>';
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-film"></i> 🎥 Video dự án & tương lai:</div>';
             const futVCon = document.createElement('div');
             futVCon.className = 'video-container';
             data.future_youtube_links.forEach(link => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    futVCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}" allowfullscreen></iframe></div>`;
+                    futVCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}?enablejsapi=1" allowfullscreen></iframe></div>`;
                 }
             });
             contentDiv.appendChild(futVCon);
         }
 
+        // Gợi ý tiếp theo - Đảm bảo liên quan TP.HCM
         if (data.suggestions?.length) {
-            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;">💡 Gợi ý tiếp theo:</div>';
-            data.suggestions.forEach(s => {
+            contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;display:flex;align-items:center;gap:8px;"><i class="fa fa-lightbulb" style="color:#ffc107;"></i> 💡 Gợi ý tiếp theo:</div>';
+            data.suggestions.forEach((s, idx) => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
-                btn.textContent = s;
+                // Thêm icon số thứ tự
+                btn.innerHTML = `<span style="display:inline-block;width:24px;height:24px;background:var(--primary);color:white;border-radius:50%;text-align:center;line-height:24px;font-size:12px;margin-right:8px;">${idx + 1}</span>${s}`;
                 btn.onclick = () => {
                     document.getElementById('user-input').value = s;
                     sendMessage();
@@ -355,8 +541,36 @@
             });
         }
 
+        // Thêm nút thao tác nhanh
+        const actionDiv = document.createElement('div');
+        actionDiv.style.marginTop = '20px';
+        actionDiv.style.paddingTop = '15px';
+        actionDiv.style.borderTop = '1px dashed #ccc';
+        actionDiv.innerHTML = `
+            <div style="font-size:13px;color:#666;margin-bottom:10px;">Thao tác nhanh:</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button onclick="findLocByName('${(data.query || '').replace(/'/g, "\\'")}')" 
+                        style="padding:6px 12px;border:1px solid #0066cc;background:white;color:#0066cc;border-radius:4px;cursor:pointer;font-size:13px;">
+                    <i class="fa fa-map-marker"></i> Xem trên bản đồ
+                </button>
+                <button onclick="exportPdf()" 
+                        style="padding:6px 12px;border:1px solid #43a047;background:white;color:#43a047;border-radius:4px;cursor:pointer;font-size:13px;">
+                    <i class="fa fa-file-pdf"></i> Xuất PDF
+                </button>
+            </div>
+        `;
+        contentDiv.appendChild(actionDiv);
+
         div.appendChild(contentDiv);
         return div;
+    }
+
+    // Hàm tìm vị trí từ tên (dùng cho nút "Xem trên bản đồ")
+    function findLocByName(name) {
+        if (!name) return;
+        document.getElementById('s-input').value = name;
+        findLoc();
+        sidebar.classList.remove('open');
     }
 
     document.getElementById('chat-box').addEventListener('click', function(e) {
@@ -366,9 +580,21 @@
             const galleryType = img.dataset.galleryType;
             const msgDiv = img.closest('.msg.bot');
             if (!msgDiv) return;
+            
+            // Tìm data từ element gần nhất
+            let data = null;
             const hiddenData = msgDiv.querySelector('[data-raw]');
-            if (!hiddenData) return;
-            const data = JSON.parse(hiddenData.dataset.raw);
+            if (hiddenData) {
+                try {
+                    data = JSON.parse(hiddenData.dataset.raw);
+                } catch(e) {
+                    console.error("Parse error:", e);
+                    return;
+                }
+            }
+            
+            if (!data) return;
+            
             let imagesArray = galleryType === 'current' ? (data.images || []) : (data.future_images || []);
             if (imagesArray.length > 0) {
                 showImg(imagesArray, index);
@@ -381,18 +607,40 @@
         const msg = inp.value.trim();
         if (!msg) return;
 
+        // Kiểm tra nếu có vẻ là TP.HCM thì tự động thêm context
+        let finalMsg = msg;
+        if (!isHCMCRelated(msg) && !msg.toLowerCase().includes('tp.hcm') && !msg.toLowerCase().includes('sài gòn')) {
+            // Vẫn gửi nguyên bản, để server xử lý
+            finalMsg = msg;
+        }
+
         const box = document.getElementById('chat-box');
-        box.appendChild(createMessageElement('user', msg));
+        box.appendChild(createMessageElement('user', finalMsg));
         inp.value = '';
+        box.scrollTop = box.scrollHeight;
+
+        // Hiển thị loading
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'msg bot';
+        loadingDiv.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Đang tìm kiếm thông tin...';
+        loadingDiv.id = 'loading-msg';
+        box.appendChild(loadingDiv);
         box.scrollTop = box.scrollHeight;
 
         try {
             const res = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ msg })
+                body: JSON.stringify({ msg: finalMsg })
             });
             const data = await res.json();
+            
+            // Xóa loading
+            const loadingEl = document.getElementById('loading-msg');
+            if (loadingEl) loadingEl.remove();
+
+            // Thêm query vào data để tiện sử dụng sau
+            data.query = finalMsg;
 
             const botMsg = createMessageElement('bot', data);
             const hiddenData = document.createElement('div');
@@ -401,7 +649,36 @@
             botMsg.appendChild(hiddenData);
             box.appendChild(botMsg);
             box.scrollTop = box.scrollHeight;
+            
+            // Nếu trả lời không hợp lệ nhưng có vẻ là TP.HCM, tự động thử lại
+            if (!data.is_valid && isHCMCRelated(finalMsg)) {
+                const retryDiv = document.createElement('div');
+                retryDiv.className = 'msg bot';
+                retryDiv.style.background = '#fff3e0';
+                retryDiv.innerHTML = `
+                    <div style="font-size:13px;color:#e65100;">
+                        <i class="fa fa-info-circle"></i> 
+                        Đang thử tìm lại với thông tin chi tiết hơn...
+                    </div>
+                `;
+                box.appendChild(retryDiv);
+                
+                // Thử lại với context rõ ràng hơn
+                setTimeout(() => {
+                    inp.value = `Thông tin chi tiết về ${finalMsg} tại TP.HCM năm 2026`;
+                    sendMessage();
+                }, 1500);
+            }
+            
         } catch (e) {
+            const loadingEl = document.getElementById('loading-msg');
+            if (loadingEl) loadingEl.remove();
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'msg bot error-msg';
+            errorDiv.innerHTML = `<i class="fa fa-exclamation-triangle"></i> Lỗi kết nối: ${e.message}. Vui lòng thử lại!`;
+            box.appendChild(errorDiv);
+            box.scrollTop = box.scrollHeight;
             console.error('Lỗi gửi tin nhắn:', e);
         }
     }
@@ -419,7 +696,11 @@
     function pauseAllVideos() {
         const iframes = document.querySelectorAll('iframe[src*="youtube.com"]');
         iframes.forEach(iframe => {
-            iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+            try {
+                iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+            } catch(e) {
+                // Bỏ qua lỗi cross-origin
+            }
         });
     }
 
@@ -436,14 +717,21 @@
         const captionEl = document.getElementById('modal-caption');
 
         loading.style.display = 'flex';
+        loading.innerHTML = 'Đang tải ảnh...';
         modalImg.style.opacity = '0';
         modalImg.src = '';
 
-        requestAnimationFrame(() => {
-            modalImg.src = images[index].url || '';
-        });
+        // Preload ảnh
+        const imgLoader = new Image();
+        imgLoader.onload = () => {
+            modalImg.src = images[index].url;
+        };
+        imgLoader.onerror = () => {
+            loading.innerHTML = 'Không tải được ảnh<br><small>(link có thể hết hạn)</small>';
+        };
+        imgLoader.src = images[index].url;
 
-        captionEl.textContent = images[index].caption || 'Ảnh minh họa';
+        captionEl.textContent = images[index].caption || `Ảnh ${index + 1}/${images.length}`;
         document.getElementById('prev-img').style.display = index > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = index < images.length - 1 ? 'block' : 'none';
 
@@ -463,13 +751,15 @@
 
         loading.style.display = 'flex';
         modalImg.style.opacity = '0';
-        modalImg.src = '';
+        
+        // Preload
+        const imgLoader = new Image();
+        imgLoader.onload = () => {
+            modalImg.src = imgData.url;
+        };
+        imgLoader.src = imgData.url;
 
-        requestAnimationFrame(() => {
-            modalImg.src = imgData.url || '';
-        });
-
-        captionEl.textContent = imgData.caption || 'Ảnh minh họa';
+        captionEl.textContent = imgData.caption || `Ảnh ${currentImgIndex + 1}/${currentImages.length}`;
         document.getElementById('prev-img').style.display = currentImgIndex > 0 ? 'block' : 'none';
         document.getElementById('next-img').style.display = currentImgIndex < currentImages.length - 1 ? 'block' : 'none';
     }
@@ -507,7 +797,34 @@
         pauseAllVideos();
     };
 
+    // Đóng modal khi click outside
+    document.getElementById('img-modal').onclick = (e) => {
+        if (e.target.id === 'img-modal') {
+            document.getElementById('close-modal').click();
+        }
+    };
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+        if (document.getElementById('img-modal').classList.contains('hidden')) return;
+        
+        if (e.key === 'Escape') {
+            document.getElementById('close-modal').click();
+        } else if (e.key === 'ArrowLeft' && currentImgIndex > 0) {
+            currentImgIndex--;
+            updateModalImg();
+        } else if (e.key === 'ArrowRight' && currentImgIndex < currentImages.length - 1) {
+            currentImgIndex++;
+            updateModalImg();
+        }
+    });
+
+    // Khởi tạo
     toggleChat('chat');
+    
+    // Tự động focus input khi mở chat
+    document.getElementById('user-input').focus();
 </script>
 </body>
 </html>
+                       
