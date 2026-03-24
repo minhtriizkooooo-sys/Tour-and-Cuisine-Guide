@@ -76,6 +76,7 @@
         .gallery img { width: 100%; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.15); transition: transform 0.25s; cursor: pointer; }
         .gallery img:hover { transform: scale(1.05); }
         .error-msg { background: #ffebee; color: #c62828; border: 1px solid #ef5350; }
+        .success-msg { background: #e8f5e9; color: #2e7d32; border: 1px solid #4caf50; }
         @media (max-width: 768px) {
             #sidebar { width: 85%; right: -85%; }
             header { height: 56px; padding: 10px 16px; }
@@ -145,6 +146,7 @@
     let markers = [];
     let currentImages = [];
     let currentImgIndex = 0;
+    let activeVideos = []; // Lưu trữ các video đang phát
 
     const sidebar = document.getElementById('sidebar');
     document.getElementById('hamburger').onclick = () => sidebar.classList.add('open');
@@ -207,210 +209,161 @@
         markers = [];
     }
 
+    // Hàm pause tất cả video - SỬA LỖI ÂM THANH LẶP
+    function pauseAllVideos() {
+        // Dừng tất cả iframe YouTube bằng postMessage
+        const iframes = document.querySelectorAll('iframe[src*="youtube.com"]');
+        iframes.forEach(iframe => {
+            try {
+                // Gửi lệnh pause qua postMessage API của YouTube
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'pauseVideo',
+                    args: []
+                }), '*');
+                
+                // Cũng thử cách khác
+                iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+            } catch(e) {
+                // Bỏ qua lỗi cross-origin
+            }
+            
+            // Reset src để chắc chắn dừng (cách này luôn hiệu quả)
+            const currentSrc = iframe.src;
+            if (currentSrc && !currentSrc.includes('autoplay=0')) {
+                iframe.src = currentSrc.replace('autoplay=1', 'autoplay=0');
+            }
+        });
+        
+        // Lưu danh sách video đang active để quản lý
+        activeVideos = [];
+    }
+
+    // Hàm force pause tất cả video - dùng khi mở modal
+    function forcePauseAllVideos() {
+        // Cách 1: PostMessage
+        const iframes = document.querySelectorAll('iframe[src*="youtube.com"]');
+        iframes.forEach(iframe => {
+            try {
+                // Nhiều lần để đảm bảo
+                for (let i = 0; i < 3; i++) {
+                    setTimeout(() => {
+                        iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+                    }, i * 100);
+                }
+            } catch(e) {}
+        });
+        
+        // Cách 2: Thêm tham số stop vào URL (không reload)
+        setTimeout(() => {
+            iframes.forEach(iframe => {
+                let src = iframe.src;
+                if (src && !src.includes('enablejsapi=1')) {
+                    iframe.src = src.replace('?', '?enablejsapi=1&');
+                }
+            });
+        }, 200);
+    }
+
     async function findLoc() {
         let rawQuery = document.getElementById('s-input').value.trim();
         if (!rawQuery) return alert("Vui lòng nhập tên địa danh hoặc tòa nhà");
 
-        // Chuẩn hóa tên
-        let q = normalizeLocationName(rawQuery);
-        
-        // Nếu không có từ khóa TP.HCM, tự động thêm
-        if (!isHCMCRelated(q)) {
-            q = q + " TP.HCM";
-        }
+        // Hiển thị loading
+        const btn = document.querySelector('.btn-primary');
+        const originalText = btn.textContent;
+        btn.textContent = 'Đang tìm...';
+        btn.disabled = true;
 
-        const queryVariants = [
-            rawQuery,
-            q,
-            rawQuery + " TP.HCM",
-            rawQuery + " Ho Chi Minh City",
-            rawQuery + " Thành phố Hồ Chí Minh",
-            rawQuery + " Sài Gòn",
-            rawQuery + " Saigon",
-            rawQuery + " Quận 1", rawQuery + " District 1",
-            rawQuery + " Quận 7", rawQuery + " District 7",
-            rawQuery + " Thủ Đức", rawQuery + " Thành phố Thủ Đức",
-            rawQuery + " Bình Chánh", rawQuery + " Huyện Bình Chánh",
-            rawQuery + " Củ Chi", rawQuery + " Huyện Củ Chi",
-            rawQuery + " Cần Giờ", rawQuery + " Huyện Cần Giờ",
-            rawQuery + " Hóc Môn", rawQuery + " Huyện Hóc Môn",
-            rawQuery + " Nhà Bè", rawQuery + " Huyện Nhà Bè",
-            // Các biến thể tên tòa nhà
-            rawQuery.replace(/ifc/gi, "International Financial Centre"),
-            rawQuery.replace(/saigon marina/gi, "Grand Marina Saigon"),
-            rawQuery.replace(/saigon marina ifc/gi, "Grand Marina Saigon IFC"),
-            rawQuery.replace(/bitexco/gi, "Bitexco Financial Tower"),
-            rawQuery.replace(/landmark/gi, "Landmark 81 Vinhomes"),
-            rawQuery.replace(/vinhomes landmark/gi, "Landmark 81"),
-            rawQuery.replace(/tháp bitexco/gi, "Bitexco Financial Tower"),
-            rawQuery.replace(/thủ thiêm/gi, "Khu đô thị mới Thủ Thiêm"),
-            rawQuery.replace(/phú mỹ hưng/gi, "Phu My Hung Urban Area"),
-            rawQuery + " phường", rawQuery + " xã", rawQuery + " thị trấn",
-            rawQuery + " đường", rawQuery + " street"
-        ];
-
-        let found = false;
-        let bestResult = null;
-        let bestZoom = 16.5;
-
-        for (const variant of queryVariants) {
-            if (found) break;
-            const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&q=${encodeURIComponent(variant)}&addressdetails=1&namedetails=1&limit=10`;
-            try {
-                const res = await fetch(url, {
-                    headers: { 'User-Agent': 'HCMC-Travel-AI-Guide/1.0 (contact: dev@example.com)' }
-                });
-                const data = await res.json();
-                if (data && data.length > 0) {
-                    // Tìm kết quả tốt nhất thuộc TP.HCM
-                    const valid = data.find(item => {
-                        const lowerDisplay = (item.display_name || '').toLowerCase();
-                        const city = item.address?.city || item.address?.state || item.address?.town || '';
-                        const county = item.address?.county || '';
-                        const suburb = item.address?.suburb || '';
-                        const district = item.address?.city_district || item.address?.district || '';
-                        
-                        return (
-                            lowerDisplay.includes("hồ chí minh") ||
-                            lowerDisplay.includes("ho chi minh") ||
-                            lowerDisplay.includes("sài gòn") ||
-                            lowerDisplay.includes("saigon") ||
-                            city.includes("Hồ Chí Minh") ||
-                            city.includes("Ho Chi Minh") ||
-                            city.includes("Thủ Đức") ||
-                            county.includes("Hồ Chí Minh") ||
-                            suburb.includes("Thủ Đức") ||
-                            district.match(/Quận \d|District \d|Thủ Đức|Thành phố Thủ Đức|Bình Chánh|Củ Chi|Cần Giờ|Hóc Môn|Nhà Bè|Bình Thạnh|Phú Nhuận|Tân Bình|Tân Phú|Gò Vấp|Bình Tân/)
-                                                    );
-                    });
-                    
-                    if (valid) {
-                        bestResult = valid;
-                        found = true;
-                    } else if (!bestResult && data[0]) {
-                        // Nếu không tìm thấy kết quả chuẩn, lấy kết quả đầu tiên nhưng kiểm tra lại
-                        const firstResult = data[0];
-                        const lowerFirst = (firstResult.display_name || '').toLowerCase();
-                        
-                        // Kiểm tra xem có phải tỉnh thành khác không
-                        const otherProvinces = ['hà nội', 'ha noi', 'đà nẵng', 'da nang', 
-                                               'hải phòng', 'hai phong', 'cần thơ', 'can tho',
-                                               'nha trang', 'đà lạt', 'dalat', 'huế', 'hue',
-                                               'vinh', 'hà tĩnh', 'nghệ an', 'thanh hóa'];
-                        const isOtherProvince = otherProvinces.some(p => lowerFirst.includes(p));
-                        
-                        if (!isOtherProvince) {
-                            bestResult = firstResult;
-                        }
-                    }
+        try {
+            // Gọi API geocode mới
+            const res = await fetch('/geocode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: rawQuery })
+            });
+            
+            const data = await res.json();
+            
+            if (data.found) {
+                const pos = [data.lat, data.lon];
+                
+                // Xác định zoom level
+                let zoomLevel = 16;
+                const displayNameLower = (data.display_name || '').toLowerCase();
+                
+                if (displayNameLower.includes('huyện') || displayNameLower.includes('district') && 
+                    (displayNameLower.includes('bình chánh') || displayNameLower.includes('củ chi') || 
+                     displayNameLower.includes('hóc môn') || displayNameLower.includes('nhà bè') || 
+                     displayNameLower.includes('cần giờ'))) {
+                    zoomLevel = 13;
+                } else if (displayNameLower.includes('thành phố') || displayNameLower.includes('city')) {
+                    zoomLevel = 12;
+                } else if (displayNameLower.includes('quận') || displayNameLower.includes('district')) {
+                    zoomLevel = 14;
                 }
-            } catch (err) {
-                console.warn(`Query thất bại: ${variant}`, err);
-            }
-        }
-
-        // Nếu vẫn không tìm thấy nhưng query có vẻ là TP.HCM, thử tìm với tọa độ trung tâm TP.HCM
-        if (!bestResult && isHCMCRelated(rawQuery)) {
-            // Thử tìm với bounding box của TP.HCM
-            const bboxUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=vn&viewbox=106.3,10.9,106.9,10.3&q=${encodeURIComponent(rawQuery)}&bounded=0&limit=5`;
-            try {
-                const res = await fetch(bboxUrl, {
-                    headers: { 'User-Agent': 'HCMC-Travel-AI-Guide/1.0' }
-                });
-                const data = await res.json();
-                if (data && data.length > 0) {
-                    bestResult = data[0];
-                }
-            } catch (err) {
-                console.warn("BBox search failed:", err);
-            }
-        }
-
-        if (bestResult) {
-            const lowerName = (bestResult.display_name || '').toLowerCase();
-            const isInHCMC = (
-                lowerName.includes("hồ chí minh") || 
-                lowerName.includes("ho chi minh") || 
-                lowerName.includes("sài gòn") ||
-                lowerName.includes("saigon") ||
-                lowerName.includes("thủ đức") || 
-                lowerName.includes("thu duc") ||
-                lowerName.includes("bình chánh") || 
-                lowerName.includes("binh chanh") ||
-                lowerName.includes("củ chi") || 
-                lowerName.includes("cu chi") ||
-                lowerName.includes("cần giờ") || 
-                lowerName.includes("can gio") ||
-                lowerName.includes("hóc môn") || 
-                lowerName.includes("hoc mon") ||
-                lowerName.includes("nhà bè") || 
-                lowerName.includes("nha be") ||
-                lowerName.includes("bình thạnh") ||
-                lowerName.includes("phú nhuận") ||
-                lowerName.includes("tân bình") ||
-                lowerName.includes("tân phú") ||
-                lowerName.includes("gò vấp") ||
-                lowerName.includes("bình tân") ||
-                isHCMCRelated(rawQuery) // Nếu query liên quan TP.HCM thì chấp nhận
-            );
-
-            if (!isInHCMC) {
-                alert(`"${rawQuery}" có vẻ không thuộc TP.HCM hoặc dữ liệu bản đồ chưa cập nhật.\n\n` +
-                      `Vui lòng thử thêm "TP.HCM", "Quận 1", "Thủ Đức"...\n` +
-                      `Hoặc hỏi trực tiếp AI chat để được thông tin chi tiết!`);
-                return;
-            }
-
-            const pos = [parseFloat(bestResult.lat), parseFloat(bestResult.lon)];
-            
-            // Điều chỉnh zoom level dựa trên loại địa điểm
-            const placeType = bestResult.type || '';
-            const placeClass = bestResult.class || '';
-            if (placeType === 'administrative' || placeClass === 'boundary') {
-                if (lowerName.includes('huyện') || lowerName.includes('district') || lowerName.includes('quận')) {
-                    bestZoom = 13;
-                } else if (lowerName.includes('thành phố') || lowerName.includes('city')) {
-                    bestZoom = 11;
-                }
-            } else if (placeType === 'building' || placeType === 'yes') {
-                bestZoom = 17;
-            } else if (placeType === 'suburb' || placeType === 'quarter') {
-                bestZoom = 15;
-            }
-            
-            map.setView(pos, bestZoom);
-            
-            const displayName = (bestResult.namedetails?.name || bestResult.display_name?.split(',')[0] || rawQuery);
-            const addressPart = bestResult.display_name?.split(', ').slice(1).join(', ') || 'TP.HCM';
-            
-            const popupContent = `
-                <div style="min-width:200px;">
-                    <b style="font-size:16px;color:#0066cc;">${displayName}</b><br>
-                    <small style="color:#666;">${addressPart}</small><br>
-                    <button onclick="askAI('${rawQuery.replace(/'/g, "\\'")}')" 
-                            style="margin-top:10px;padding:8px 14px;border:none;border-radius:6px;
-                                   background:linear-gradient(135deg, #0066cc, #004a7c);
-                                   color:white;cursor:pointer;font-weight:bold;width:100%;">
-                        🤖 Hỏi AI về ${rawQuery}
-                    </button>
-                </div>
-            `;
-            
-            const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
-            markers.push(m);
-            
-            // Tự động mở chat và hỏi AI nếu là địa điểm rõ ràng
-            if (placeType === 'building' || placeType === 'tourism' || placeType === 'amenity') {
+                
+                map.setView(pos, zoomLevel);
+                
+                const popupContent = `
+                    <div style="min-width:200px;">
+                        <b style="font-size:16px;color:#0066cc;">${data.name}</b><br>
+                        <small style="color:#666;">${data.display_name}</small><br>
+                        ${data.message ? `<small style="color:#ff9800;">⚠️ ${data.message}</small><br>` : ''}
+                        <button onclick="askAI('${rawQuery.replace(/'/g, "\\'")}')" 
+                                style="margin-top:10px;padding:8px 14px;border:none;border-radius:6px;
+                                       background:linear-gradient(135deg, #0066cc, #004a7c);
+                                       color:white;cursor:pointer;font-weight:bold;width:100%;">
+                            🤖 Hỏi AI về ${rawQuery}
+                        </button>
+                    </div>
+                `;
+                
+                const m = L.marker(pos).addTo(map).bindPopup(popupContent).openPopup();
+                markers.push(m);
+                
+                // Tự động mở chat và hỏi AI
                 setTimeout(() => {
                     askAI(rawQuery);
-                }, 1000);
+                }, 500);
+                
+            } else {
+                // Nếu API trả về không tìm thấy nhưng có vẻ là TP.HCM
+                if (isHCMCRelated(rawQuery)) {
+                    // Vẫn cắm mốc ở trung tâm TP.HCM và hỏi AI
+                    const centerPos = [10.7769, 106.7009];
+                    map.setView(centerPos, 13);
+                    
+                    const popupContent = `
+                        <div style="min-width:200px;">
+                            <b style="font-size:16px;color:#0066cc;">${rawQuery}</b><br>
+                            <small style="color:#666;">Khu vực TP.HCM</small><br>
+                            <small style="color:#ff9800;">⚠️ Không tìm thấy chính xác trên bản đồ</small><br>
+                            <button onclick="askAI('${rawQuery.replace(/'/g, "\\'")}')" 
+                                    style="margin-top:10px;padding:8px 14px;border:none;border-radius:6px;
+                                           background:linear-gradient(135deg, #0066cc, #004a7c);
+                                           color:white;cursor:pointer;font-weight:bold;width:100%;">
+                                🤖 Hỏi AI về ${rawQuery}
+                            </button>
+                        </div>
+                    `;
+                    
+                    const m = L.marker(centerPos).addTo(map).bindPopup(popupContent).openPopup();
+                    markers.push(m);
+                    
+                    setTimeout(() => {
+                        askAI(rawQuery);
+                    }, 500);
+                } else {
+                    alert(`Không tìm thấy "${rawQuery}". Vui lòng thử lại với tên khác.`);
+                }
             }
-            
-        } else {
-            // Thử hỏi AI trực tiếp nếu không tìm thấy trên bản đồ
-            if (confirm(`Không tìm thấy "${rawQuery}" trên bản đồ.\n\nBạn có muốn hỏi AI để biết thêm thông tin không?`)) {
-                askAI(rawQuery);
-            }
+        } catch (err) {
+            console.error("Geocode error:", err);
+            alert("Lỗi kết nối. Vui lòng thử lại!");
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     }
 
@@ -439,7 +392,6 @@
         const contentDiv = document.createElement('div');
         
         if (!data.is_valid) {
-            // Hiển thị thông báo không hợp lệ với gợi ý
             contentDiv.innerHTML = `
                 <div style="color:#c62828;margin-bottom:10px;">
                     <i class="fa fa-exclamation-circle"></i> ${data.text || 'Không tìm thấy thông tin'}
@@ -480,15 +432,23 @@
             contentDiv.appendChild(gallery);
         }
 
-        // Video YouTube
+        // Video YouTube - SỬA: Thêm enablejsapi=1 để có thể control
         if (data.youtube_links?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-video"></i> 🎥 Video trải nghiệm thực tế:</div>';
             const vCon = document.createElement('div');
             vCon.className = 'video-container';
-            data.youtube_links.forEach(link => {
+            data.youtube_links.forEach((link, idx) => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    vCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}?enablejsapi=1" allowfullscreen></iframe></div>`;
+                    const videoId = match[1];
+                    // Thêm enablejsapi=1 để có thể control từ JavaScript
+                    vCon.innerHTML += `<div class="video-frame">
+                        <iframe id="video-${idx}" 
+                                src="https://www.youtube.com/embed/${videoId}?enablejsapi=1&version=3&playerapiid=ytplayer" 
+                                allowfullscreen
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                data-video-id="${videoId}"></iframe>
+                    </div>`;
                 }
             });
             contentDiv.appendChild(vCon);
@@ -511,15 +471,22 @@
             contentDiv.appendChild(futGallery);
         }
 
-        // Video tương lai
+        // Video tương lai - SỬA: Thêm enablejsapi=1
         if (data.future_youtube_links?.length) {
             contentDiv.innerHTML += '<div style="margin:24px 0 12px;font-weight:bold;color:#0066cc;display:flex;align-items:center;gap:8px;"><i class="fa fa-film"></i> 🎥 Video dự án & tương lai:</div>';
             const futVCon = document.createElement('div');
             futVCon.className = 'video-container';
-            data.future_youtube_links.forEach(link => {
+            data.future_youtube_links.forEach((link, idx) => {
                 const match = link.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
                 if (match) {
-                    futVCon.innerHTML += `<div class="video-frame"><iframe src="https://www.youtube.com/embed/${match[1]}?enablejsapi=1" allowfullscreen></iframe></div>`;
+                    const videoId = match[1];
+                                        futVCon.innerHTML += `<div class="video-frame">
+                        <iframe id="future-video-${idx}" 
+                                src="https://www.youtube.com/embed/${videoId}?enablejsapi=1&version=3&playerapiid=ytplayer" 
+                                allowfullscreen
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                data-video-id="${videoId}"></iframe>
+                    </div>`;
                 }
             });
             contentDiv.appendChild(futVCon);
@@ -531,7 +498,6 @@
             data.suggestions.forEach((s, idx) => {
                 const btn = document.createElement('div');
                 btn.className = 'suggest-item';
-                // Thêm icon số thứ tự
                 btn.innerHTML = `<span style="display:inline-block;width:24px;height:24px;background:var(--primary);color:white;border-radius:50%;text-align:center;line-height:24px;font-size:12px;margin-right:8px;">${idx + 1}</span>${s}`;
                 btn.onclick = () => {
                     document.getElementById('user-input').value = s;
@@ -581,7 +547,6 @@
             const msgDiv = img.closest('.msg.bot');
             if (!msgDiv) return;
             
-            // Tìm data từ element gần nhất
             let data = null;
             const hiddenData = msgDiv.querySelector('[data-raw]');
             if (hiddenData) {
@@ -607,12 +572,7 @@
         const msg = inp.value.trim();
         if (!msg) return;
 
-        // Kiểm tra nếu có vẻ là TP.HCM thì tự động thêm context
         let finalMsg = msg;
-        if (!isHCMCRelated(msg) && !msg.toLowerCase().includes('tp.hcm') && !msg.toLowerCase().includes('sài gòn')) {
-            // Vẫn gửi nguyên bản, để server xử lý
-            finalMsg = msg;
-        }
 
         const box = document.getElementById('chat-box');
         box.appendChild(createMessageElement('user', finalMsg));
@@ -663,7 +623,6 @@
                 `;
                 box.appendChild(retryDiv);
                 
-                // Thử lại với context rõ ràng hơn
                 setTimeout(() => {
                     inp.value = `Thông tin chi tiết về ${finalMsg} tại TP.HCM năm 2026`;
                     sendMessage();
@@ -693,13 +652,33 @@
         location.reload();
     }
 
+    // Hàm pause tất cả video - SỬA LỖI ÂM THANH LẶP
     function pauseAllVideos() {
         const iframes = document.querySelectorAll('iframe[src*="youtube.com"]');
         iframes.forEach(iframe => {
             try {
+                // Gửi lệnh pause qua postMessage API của YouTube
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'pauseVideo',
+                    args: []
+                }), '*');
+                
                 iframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
-            } catch(e) {
-                // Bỏ qua lỗi cross-origin
+            } catch(e) {}
+        });
+    }
+
+    // Hàm force pause tất cả video - dùng khi mở modal
+    function forcePauseAllVideos() {
+        pauseAllVideos();
+        
+        // Thêm tham số để ngăn autoplay khi quay lại
+        const iframes = document.querySelectorAll('iframe[src*="youtube.com"]');
+        iframes.forEach(iframe => {
+            let src = iframe.src;
+            if (src && src.includes('autoplay=1')) {
+                iframe.src = src.replace('autoplay=1', 'autoplay=0');
             }
         });
     }
@@ -707,7 +686,8 @@
     function showImg(images, index) {
         if (!images || !images.length || index < 0 || index >= images.length) return;
 
-        pauseAllVideos();
+        // SỬA: Force pause tất cả video trước khi mở modal
+        forcePauseAllVideos();
 
         currentImages = images;
         currentImgIndex = index;
@@ -721,7 +701,6 @@
         modalImg.style.opacity = '0';
         modalImg.src = '';
 
-        // Preload ảnh
         const imgLoader = new Image();
         imgLoader.onload = () => {
             modalImg.src = images[index].url;
@@ -740,6 +719,7 @@
     }
 
     function updateModalImg() {
+        // SỬA: Pause video khi chuyển ảnh
         pauseAllVideos();
 
         const imgData = currentImages[currentImgIndex];
@@ -752,7 +732,6 @@
         loading.style.display = 'flex';
         modalImg.style.opacity = '0';
         
-        // Preload
         const imgLoader = new Image();
         imgLoader.onload = () => {
             modalImg.src = imgData.url;
@@ -794,7 +773,8 @@
         document.getElementById('img-modal').classList.add('hidden');
         document.getElementById('modal-loading').style.display = 'none';
         document.body.style.overflow = 'auto';
-        pauseAllVideos();
+        // SỬA: Force pause khi đóng modal
+        forcePauseAllVideos();
     };
 
     // Đóng modal khi click outside
@@ -827,4 +807,3 @@
 </script>
 </body>
 </html>
-                       
