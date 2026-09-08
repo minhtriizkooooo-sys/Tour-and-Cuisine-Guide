@@ -362,57 +362,63 @@ def chat():
     try:
         client = Groq(api_key=GROQ_API_KEY)
 
+        # ✅ FIX: Không dùng response_format json_object vì qwen không hỗ trợ
+        # Thay bằng cách nhắc AI trả JSON thuần trong prompt
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": msg}
+                {"role": "user", "content": msg + "\n\nQUAN TRỌNG: Chỉ trả về JSON thuần túy, không có text nào khác ngoài JSON."}
             ],
-            response_format={"type": "json_object"},
-            max_tokens=4096  # ✅ FIX: Giới hạn rõ ràng tránh bị cắt giữa chừng
+            max_tokens=4096,
+            temperature=0.7
         )
 
         raw_content = completion.choices[0].message.content or ""
 
-        # ✅ FIX: Xử lý trường hợp JSON bị cắt - parse an toàn
+        # Parse JSON an toàn
         try:
-            ai_res = json.loads(raw_content)
-        except json.JSONDecodeError:
-            # Thử tìm JSON hợp lệ trong chuỗi bị cắt
-            try:
-                start = raw_content.find('{')
-                # Cố hoàn thiện JSON bị cắt bằng cách đóng ngoặc
-                truncated = raw_content[start:].rstrip().rstrip(',')
-                if not truncated.endswith('}'):
-                    truncated += '"}'
-                ai_res = json.loads(truncated)
-            except:
-                ai_res = {
-                    "is_valid": True,
-                    "text": raw_content.replace('{', '').replace('"is_valid": true,', '').replace('"text":', '').strip('" \n'),
-                    "suggestions": []
-                }
+            # Tìm và extract JSON từ response
+            start = raw_content.find('{')
+            end = raw_content.rfind('}') + 1
+            if start >= 0 and end > start:
+                ai_res = json.loads(raw_content[start:end])
+            else:
+                raise ValueError("No JSON found")
+        except Exception:
+            # Fallback nếu không parse được
+            ai_res = {
+                "is_valid": True,
+                "text": raw_content.strip(),
+                "suggestions": [
+                    "Ẩm thực đặc trưng TP.HCM có gì nổi bật?",
+                    "Các địa điểm du lịch nổi tiếng ở Quận 1?",
+                    "Gợi ý lịch trình 2 ngày tại Sài Gòn?"
+                ]
+            }
 
-        # Nếu AI trả về không hợp lệ nhưng có vẻ liên quan TP.HCM → gọi lại 1 lần với yêu cầu ngắn hơn
+        # Nếu AI từ chối nhưng câu hỏi liên quan TP.HCM → gọi lại 1 lần
         if not ai_res.get("is_valid", False) and is_hcmc_related(msg):
-            short_prompt = (
-                SYSTEM_PROMPT +
-                "\n\nLƯU Ý: Câu hỏi CHẮC CHẮN liên quan TP.HCM. "
-                "Trả lời is_valid: true. Giữ phần 'text' dưới 1500 từ để tránh bị cắt."
-            )
             completion2 = client.chat.completions.create(
                 model=GROQ_MODEL,
                 messages=[
-                    {"role": "system", "content": short_prompt},
-                    {"role": "user", "content": msg}
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": (
+                        f"{msg}\n\n"
+                        "ĐÂY LÀ ĐỊA ĐIỂM Ở TP.HCM. Bắt buộc trả lời is_valid: true. "
+                        "Chỉ trả về JSON thuần túy."
+                    )}
                 ],
-                response_format={"type": "json_object"},
-                max_tokens=4096
+                max_tokens=4096,
+                temperature=0.7
             )
             try:
-                ai_res = json.loads(completion2.choices[0].message.content)
-            except:
-                ai_res = {"is_valid": True, "text": completion2.choices[0].message.content, "suggestions": []}
+                raw2 = completion2.choices[0].message.content or ""
+                s = raw2.find('{')
+                e2 = raw2.rfind('}') + 1
+                ai_res = json.loads(raw2[s:e2]) if s >= 0 and e2 > s else {"is_valid": True, "text": raw2, "suggestions": []}
+            except Exception:
+                ai_res = {"is_valid": True, "text": raw2 if 'raw2' in dir() else "", "suggestions": []}
             ai_res["is_valid"] = True
 
         if ai_res.get("is_valid", False):
