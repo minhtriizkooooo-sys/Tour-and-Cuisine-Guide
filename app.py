@@ -103,7 +103,7 @@ QUY TẮC TUYỆT ĐỐI - PHẢI TUÂN THỦ NGHIÊM NGẶT:
 - Nếu không chắc chắn về một thông tin, hãy nêu rõ "theo ghi nhận" hoặc "hiện chưa có thông tin chính thức"
 - Các dự án tương lai chỉ đề cập đến những dự án đã được phê duyệt, công bố chính thức
 
-8. Nội dung BẮT BUỘC phong phú, chi tiết (>2200 từ), dùng markdown ##, ###, ####, danh sách, *in nghiêng*, **đậm** khi phù hợp. Phải có đủ các phần sau theo đúng thứ tự:
+8. Nội dung chi tiết (800-1500 từ), dùng markdown ##, ###, danh sách, **đậm** khi phù hợp. Phải có đủ các phần sau theo đúng thứ tự:
 - ## Lịch sử hình thành và phát triển (chỉ ghi những sự kiện có thật, không bịa đặt)
 - ## Con người, văn hóa, lối sống đặc trưng của cư dân địa phương
 - ## Ẩm thực nổi bật (liệt kê món ăn thực tế có ở TP.HCM + địa chỉ thật + giá tham khảo)
@@ -362,36 +362,57 @@ def chat():
     try:
         client = Groq(api_key=GROQ_API_KEY)
 
-        # ✅ FIX: Dùng GROQ_MODEL thay vì hardcode model cũ
         completion = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": msg}
             ],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            max_tokens=4096  # ✅ FIX: Giới hạn rõ ràng tránh bị cắt giữa chừng
         )
-        ai_res = json.loads(completion.choices[0].message.content)
 
-        # Nếu AI trả về không hợp lệ nhưng có vẻ liên quan TP.HCM → gọi lại 1 lần
+        raw_content = completion.choices[0].message.content or ""
+
+        # ✅ FIX: Xử lý trường hợp JSON bị cắt - parse an toàn
+        try:
+            ai_res = json.loads(raw_content)
+        except json.JSONDecodeError:
+            # Thử tìm JSON hợp lệ trong chuỗi bị cắt
+            try:
+                start = raw_content.find('{')
+                # Cố hoàn thiện JSON bị cắt bằng cách đóng ngoặc
+                truncated = raw_content[start:].rstrip().rstrip(',')
+                if not truncated.endswith('}'):
+                    truncated += '"}'
+                ai_res = json.loads(truncated)
+            except:
+                ai_res = {
+                    "is_valid": True,
+                    "text": raw_content.replace('{', '').replace('"is_valid": true,', '').replace('"text":', '').strip('" \n'),
+                    "suggestions": []
+                }
+
+        # Nếu AI trả về không hợp lệ nhưng có vẻ liên quan TP.HCM → gọi lại 1 lần với yêu cầu ngắn hơn
         if not ai_res.get("is_valid", False) and is_hcmc_related(msg):
-            force_prompt = (
+            short_prompt = (
                 SYSTEM_PROMPT +
-                "\n\nLƯU Ý ĐẶC BIỆT: Câu hỏi này CHẮC CHẮN liên quan đến TP.HCM. "
-                "BẮT BUỘC phải trả lời với is_valid: true. Không được từ chối. "
-                "Nếu không chắc về chi tiết nào, hãy nói 'theo thông tin có được' "
-                "hoặc 'hiện chưa có thông tin chính thức' chứ KHÔNG ĐƯỢC TỪ CHỐI."
+                "\n\nLƯU Ý: Câu hỏi CHẮC CHẮN liên quan TP.HCM. "
+                "Trả lời is_valid: true. Giữ phần 'text' dưới 1500 từ để tránh bị cắt."
             )
-            # ✅ FIX: Dùng GROQ_MODEL thay vì hardcode model cũ
-            completion = client.chat.completions.create(
+            completion2 = client.chat.completions.create(
                 model=GROQ_MODEL,
                 messages=[
-                    {"role": "system", "content": force_prompt},
+                    {"role": "system", "content": short_prompt},
                     {"role": "user", "content": msg}
                 ],
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                max_tokens=4096
             )
-            ai_res = json.loads(completion.choices[0].message.content)
+            try:
+                ai_res = json.loads(completion2.choices[0].message.content)
+            except:
+                ai_res = {"is_valid": True, "text": completion2.choices[0].message.content, "suggestions": []}
             ai_res["is_valid"] = True
 
         if ai_res.get("is_valid", False):
@@ -423,7 +444,16 @@ def chat():
 
     except Exception as e:
         print(f"Chat error: {e}")
-        return jsonify({"text": f"Lỗi hệ thống: {str(e)}", "is_valid": False})
+        # ✅ FIX: Trả is_valid=True để frontend KHÔNG trigger retry loop
+        return jsonify({
+            "text": f"⚠️ Lỗi hệ thống: {str(e)}\n\nVui lòng thử lại câu hỏi khác.",
+            "is_valid": True,
+            "suggestions": [],
+            "images": [],
+            "youtube_links": [],
+            "future_images": [],
+            "future_youtube_links": []
+        })
 
 @app.route("/history")
 def get_history():
