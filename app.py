@@ -20,7 +20,7 @@ DB_PATH = "chat_history.db"
 VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
 
 # ✅ FIX: Đổi model mới - llama-3.3-70b-versatile đã bị Groq deprecated từ 6/2026
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = "openai/gpt-oss-20b"
 
 # Danh sách từ khóa TP.HCM mở rộng để kiểm tra
 HCMC_KEYWORDS = [
